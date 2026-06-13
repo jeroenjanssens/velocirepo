@@ -1,0 +1,363 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  validate-tag:
+    runs-on: ubuntu-latest
+    outputs:
+      tag_name: ${{ steps.validate.outputs.tag_name }}
+      version: ${{ steps.validate.outputs.version }}
+    steps:
+      - name: Validate release tag
+        id: validate
+        run: |
+          TAG_NAME="${GITHUB_REF#refs/tags/}"
+          if [[ ! "$TAG_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Invalid release tag: $TAG_NAME"
+            echo "Expected format: vMAJOR.MINOR.PATCH"
+            exit 1
+          fi
+          {
+            echo "tag_name=$TAG_NAME"
+            echo "version=${TAG_NAME#v}"
+          } >> "$GITHUB_OUTPUT"
+
+  build-linux:
+    needs: validate-tag
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - goarch: amd64
+            runner: ubuntu-latest
+          - goarch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Build
+        env:
+          GOOS: linux
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: '1'
+        run: |
+          VERSION="${{ needs.validate-tag.outputs.version }}"
+          mkdir -p dist
+          LDFLAGS="-s -w -X github.com/jeroenjanssens/velocirepo/internal/version.Version=v${VERSION} -X github.com/jeroenjanssens/velocirepo/internal/version.Commit=$(printf '%s' "$GITHUB_SHA" | cut -c1-8) -X github.com/jeroenjanssens/velocirepo/internal/version.Date=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          go build -trimpath -ldflags="$LDFLAGS" -o dist/velocirepo ./cmd/velocirepo
+
+          echo "--- Binary info ---"
+          file dist/velocirepo
+
+          # Smoke test
+          echo "--- Smoke test ---"
+          SMOKE_OUT=$(dist/velocirepo version 2>&1)
+          echo "$SMOKE_OUT"
+
+          cd dist
+          tar czf "velocirepo_${VERSION}_linux_${{ matrix.goarch }}.tar.gz" velocirepo
+          rm velocirepo
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: velocirepo-linux-${{ matrix.goarch }}
+          path: dist/*.tar.gz
+
+  build-darwin:
+    needs: validate-tag
+    strategy:
+      matrix:
+        include:
+          - goarch: amd64
+            runner: macos-latest
+          - goarch: arm64
+            runner: macos-latest
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Build
+        env:
+          GOOS: darwin
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: '1'
+        run: |
+          VERSION="${{ needs.validate-tag.outputs.version }}"
+          mkdir -p dist
+          LDFLAGS="-s -w -X github.com/jeroenjanssens/velocirepo/internal/version.Version=v${VERSION} -X github.com/jeroenjanssens/velocirepo/internal/version.Commit=$(printf '%s' "$GITHUB_SHA" | cut -c1-8) -X github.com/jeroenjanssens/velocirepo/internal/version.Date=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          go build -trimpath -ldflags="$LDFLAGS" -o dist/velocirepo ./cmd/velocirepo
+
+          echo "--- Binary info ---"
+          file dist/velocirepo
+
+          # Smoke test (only for native arch)
+          NATIVE_ARCH=$(uname -m)
+          if [ "${{ matrix.goarch }}" = "arm64" ] && [ "$NATIVE_ARCH" = "arm64" ]; then
+            echo "--- Smoke test ---"
+            SMOKE_OUT=$(dist/velocirepo version 2>&1)
+            echo "$SMOKE_OUT"
+          fi
+
+          cd dist
+          tar czf "velocirepo_${VERSION}_darwin_${{ matrix.goarch }}.tar.gz" velocirepo
+          rm velocirepo
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: velocirepo-darwin-${{ matrix.goarch }}
+          path: dist/*.tar.gz
+
+  build-windows:
+    needs: validate-tag
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Build
+        env:
+          GOOS: windows
+          GOARCH: amd64
+          CGO_ENABLED: '1'
+        run: |
+          VERSION="${{ needs.validate-tag.outputs.version }}"
+          mkdir -p dist
+          LDFLAGS="-s -w -X github.com/jeroenjanssens/velocirepo/internal/version.Version=v${VERSION} -X github.com/jeroenjanssens/velocirepo/internal/version.Commit=$(printf '%s' "$GITHUB_SHA" | cut -c1-8) -X github.com/jeroenjanssens/velocirepo/internal/version.Date=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          go build -trimpath -ldflags="$LDFLAGS" -o dist/velocirepo.exe ./cmd/velocirepo
+
+          # Smoke test
+          echo "--- Smoke test ---"
+          dist/velocirepo.exe version
+
+          cd dist
+          powershell -Command "Compress-Archive -Path velocirepo.exe -DestinationPath 'velocirepo_${VERSION}_windows_amd64.zip'"
+          rm velocirepo.exe
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: velocirepo-windows-amd64
+          path: dist/*.zip
+
+  release:
+    needs: [validate-tag, build-linux, build-darwin, build-windows]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Generate checksums
+        run: |
+          cd artifacts
+          sha256sum *.tar.gz *.zip > SHA256SUMS
+          cat SHA256SUMS
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/*.tar.gz
+            artifacts/*.zip
+            artifacts/SHA256SUMS
+          generate_release_notes: true
+
+  update-homebrew:
+    needs: [validate-tag, release]
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ needs.validate-tag.outputs.version }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Compute SHA256
+        id: sha256
+        run: |
+          for platform in darwin_amd64 darwin_arm64 linux_amd64 linux_arm64; do
+            file="artifacts/velocirepo_${VERSION}_${platform}.tar.gz"
+            if [ ! -f "$file" ]; then
+              echo "ERROR: Missing artifact: $file"
+              ls -la artifacts/
+              exit 1
+            fi
+          done
+
+          darwin_amd64=$(sha256sum "artifacts/velocirepo_${VERSION}_darwin_amd64.tar.gz" | cut -d' ' -f1)
+          darwin_arm64=$(sha256sum "artifacts/velocirepo_${VERSION}_darwin_arm64.tar.gz" | cut -d' ' -f1)
+          linux_amd64=$(sha256sum "artifacts/velocirepo_${VERSION}_linux_amd64.tar.gz" | cut -d' ' -f1)
+          linux_arm64=$(sha256sum "artifacts/velocirepo_${VERSION}_linux_arm64.tar.gz" | cut -d' ' -f1)
+
+          {
+            echo "darwin_amd64=$darwin_amd64"
+            echo "darwin_arm64=$darwin_arm64"
+            echo "linux_amd64=$linux_amd64"
+            echo "linux_arm64=$linux_arm64"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Checkout tap repository
+        uses: actions/checkout@v4
+        with:
+          repository: jeroenjanssens/homebrew-tap
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: homebrew-tap
+
+      - name: Update formula
+        env:
+          DARWIN_AMD64_SHA: ${{ steps.sha256.outputs.darwin_amd64 }}
+          DARWIN_ARM64_SHA: ${{ steps.sha256.outputs.darwin_arm64 }}
+          LINUX_AMD64_SHA: ${{ steps.sha256.outputs.linux_amd64 }}
+          LINUX_ARM64_SHA: ${{ steps.sha256.outputs.linux_arm64 }}
+        run: |
+          cat > homebrew-tap/Formula/velocirepo.rb <<EOF
+          class Velocirepo < Formula
+            desc "Fetch and aggregate open-source project metrics"
+            homepage "https://github.com/jeroenjanssens/velocirepo"
+            version "${VERSION}"
+            license "MIT"
+
+            on_macos do
+              if Hardware::CPU.intel?
+                url "https://github.com/jeroenjanssens/velocirepo/releases/download/v#{version}/velocirepo_#{version}_darwin_amd64.tar.gz"
+                sha256 "${DARWIN_AMD64_SHA}"
+              end
+              if Hardware::CPU.arm?
+                url "https://github.com/jeroenjanssens/velocirepo/releases/download/v#{version}/velocirepo_#{version}_darwin_arm64.tar.gz"
+                sha256 "${DARWIN_ARM64_SHA}"
+              end
+            end
+
+            on_linux do
+              if Hardware::CPU.intel?
+                url "https://github.com/jeroenjanssens/velocirepo/releases/download/v#{version}/velocirepo_#{version}_linux_amd64.tar.gz"
+                sha256 "${LINUX_AMD64_SHA}"
+              end
+              if Hardware::CPU.arm?
+                url "https://github.com/jeroenjanssens/velocirepo/releases/download/v#{version}/velocirepo_#{version}_linux_arm64.tar.gz"
+                sha256 "${LINUX_ARM64_SHA}"
+              end
+            end
+
+            def install
+              bin.install "velocirepo"
+            end
+
+            test do
+              assert_match version.to_s, shell_output("#{bin}/velocirepo version")
+            end
+          end
+          EOF
+
+      - name: Commit and push
+        run: |
+          cd homebrew-tap
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          if git diff --quiet Formula/velocirepo.rb 2>/dev/null; then
+            echo "No changes to formula, skipping commit"
+            exit 0
+          fi
+
+          git add Formula/velocirepo.rb
+          git commit -m "Update velocirepo to v${VERSION}"
+          git push
+
+  update-scoop:
+    needs: [validate-tag, release]
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ needs.validate-tag.outputs.version }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Compute SHA256
+        id: sha256
+        run: |
+          file="artifacts/velocirepo_${VERSION}_windows_amd64.zip"
+          if [ ! -f "$file" ]; then
+            echo "ERROR: Missing artifact: $file"
+            ls -la artifacts/
+            exit 1
+          fi
+          sha=$(sha256sum "$file" | cut -d' ' -f1)
+          echo "windows_amd64=$sha" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout scoop bucket
+        uses: actions/checkout@v4
+        with:
+          repository: jeroenjanssens/scoop-bucket
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: scoop-bucket
+
+      - name: Update manifest
+        env:
+          WINDOWS_AMD64_SHA: ${{ steps.sha256.outputs.windows_amd64 }}
+        run: |
+          cat > scoop-bucket/velocirepo.json <<EOF
+          {
+            "version": "${VERSION}",
+            "description": "Fetch and aggregate open-source project metrics",
+            "homepage": "https://github.com/jeroenjanssens/velocirepo",
+            "license": "MIT",
+            "architecture": {
+              "64bit": {
+                "url": "https://github.com/jeroenjanssens/velocirepo/releases/download/v${VERSION}/velocirepo_${VERSION}_windows_amd64.zip",
+                "hash": "${WINDOWS_AMD64_SHA}"
+              }
+            },
+            "bin": "velocirepo.exe",
+            "checkver": "github",
+            "autoupdate": {
+              "architecture": {
+                "64bit": {
+                  "url": "https://github.com/jeroenjanssens/velocirepo/releases/download/v\$version/velocirepo_\$version_windows_amd64.zip"
+                }
+              }
+            }
+          }
+          EOF
+
+      - name: Commit and push
+        run: |
+          cd scoop-bucket
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          if git diff --quiet velocirepo.json 2>/dev/null; then
+            echo "No changes to manifest, skipping commit"
+            exit 0
+          fi
+
+          git add velocirepo.json
+          git commit -m "Update velocirepo to v${VERSION}"
+          git push
