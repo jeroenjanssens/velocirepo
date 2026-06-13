@@ -17,6 +17,18 @@ scoop bucket add jeroenjanssens https://github.com/jeroenjanssens/scoop-bucket
 scoop install velocirepo
 ```
 
+### pip / uvx
+
+```bash
+pip install velocirepo
+```
+
+Or run without installing:
+
+```bash
+uvx velocirepo fetch all
+```
+
 ### Go
 
 ```bash

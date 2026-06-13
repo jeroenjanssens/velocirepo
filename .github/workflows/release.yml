@@ -66,6 +66,7 @@ jobs:
           SMOKE_OUT=$(dist/velocirepo version 2>&1)
           echo "$SMOKE_OUT"
 
+          cp dist/velocirepo "dist/velocirepo-linux-${{ matrix.goarch }}"
           cd dist
           tar czf "velocirepo_${VERSION}_linux_${{ matrix.goarch }}.tar.gz" velocirepo
           rm velocirepo
@@ -73,7 +74,9 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: velocirepo-linux-${{ matrix.goarch }}
-          path: dist/*.tar.gz
+          path: |
+            dist/*.tar.gz
+            dist/velocirepo-linux-${{ matrix.goarch }}
 
   build-darwin:
     needs: validate-tag
@@ -114,6 +117,7 @@ jobs:
             echo "$SMOKE_OUT"
           fi
 
+          cp dist/velocirepo "dist/velocirepo-darwin-${{ matrix.goarch }}"
           cd dist
           tar czf "velocirepo_${VERSION}_darwin_${{ matrix.goarch }}.tar.gz" velocirepo
           rm velocirepo
@@ -121,7 +125,9 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: velocirepo-darwin-${{ matrix.goarch }}
-          path: dist/*.tar.gz
+          path: |
+            dist/*.tar.gz
+            dist/velocirepo-darwin-${{ matrix.goarch }}
 
   build-windows:
     needs: validate-tag
@@ -151,6 +157,7 @@ jobs:
           echo "--- Smoke test ---"
           dist/velocirepo.exe version
 
+          cp dist/velocirepo.exe "dist/velocirepo-windows-amd64.exe"
           cd dist
           powershell -Command "Compress-Archive -Path velocirepo.exe -DestinationPath 'velocirepo_${VERSION}_windows_amd64.zip'"
           rm velocirepo.exe
@@ -158,7 +165,9 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: velocirepo-windows-amd64
-          path: dist/*.zip
+          path: |
+            dist/*.zip
+            dist/velocirepo-windows-amd64.exe
 
   release:
     needs: [validate-tag, build-linux, build-darwin, build-windows]
@@ -361,3 +370,58 @@ jobs:
           git add velocirepo.json
           git commit -m "Update velocirepo to v${VERSION}"
           git push
+
+  publish-pypi:
+    needs: [validate-tag, build-linux, build-darwin, build-windows]
+    runs-on: ubuntu-latest
+    environment:
+      name: release
+    permissions:
+      id-token: write
+    env:
+      VERSION: ${{ needs.validate-tag.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Build wheels
+        run: |
+          cd python
+          uv run --with hatchling build_wheels.py \
+            --binary ../artifacts/velocirepo-linux-amd64 \
+            --version "$VERSION" \
+            --platform linux_amd64 \
+            --output ../wheels
+
+          uv run --with hatchling build_wheels.py \
+            --binary ../artifacts/velocirepo-linux-arm64 \
+            --version "$VERSION" \
+            --platform linux_arm64 \
+            --output ../wheels
+
+          uv run --with hatchling build_wheels.py \
+            --binary ../artifacts/velocirepo-darwin-amd64 \
+            --version "$VERSION" \
+            --platform darwin_amd64 \
+            --output ../wheels
+
+          uv run --with hatchling build_wheels.py \
+            --binary ../artifacts/velocirepo-darwin-arm64 \
+            --version "$VERSION" \
+            --platform darwin_arm64 \
+            --output ../wheels
+
+          uv run --with hatchling build_wheels.py \
+            --binary ../artifacts/velocirepo-windows-amd64.exe \
+            --version "$VERSION" \
+            --platform windows_amd64 \
+            --output ../wheels
+
+      - name: Publish to PyPI
+        run: uv publish wheels/*
