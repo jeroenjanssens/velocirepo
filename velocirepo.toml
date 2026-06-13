@@ -1,45 +1,6 @@
 [data]
 dir = "data"
 
-[projects.great-tables]
-name = "Great Tables"
-github = "posit-dev/great-tables"
-pypi = "great-tables"
-plausible = "posit-dev.github.io/great-tables"
-
-[projects.positron]
-name = "Positron"
-github = "posit-dev/positron"
-openvsx = "posit/positron"
-plausible = "positron.posit.co"
-
-[projects.quarto]
-name = "Quarto"
-github = "quarto-dev/quarto-cli"
-openvsx = "quarto/quarto"
-plausible = "quarto.org"
-
-[projects.shiny-python]
-name = "Shiny for Python"
-github = "posit-dev/py-shiny"
-pypi = "shiny"
-openvsx = "posit/shiny"
-plausible = "shiny.posit.co/py"
-
-[projects.plotnine]
-name = "plotnine"
-github = "has2k1/plotnine"
-pypi = "plotnine"
-plausible = "plotnine.org"
-
-[projects.dplyr]
-name = "dplyr"
-github = "tidyverse/dplyr"
-cran = "dplyr"
-plausible = "dplyr.tidyverse.org"
-
-[projects.ggplot2]
-name = "ggplot2"
-github = "tidyverse/ggplot2"
-cran = "ggplot2"
-plausible = "ggplot2.tidyverse.org"
+[project]
+name = "velocirepo"
+github = "jeroenjanssens/velocirepo"
