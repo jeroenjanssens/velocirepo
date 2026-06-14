@@ -63,20 +63,18 @@ func openLiveDB(dataDir string) (*sql.DB, error) {
 	}
 
 	glob := filepath.ToSlash(filepath.Join(absDir, "*", "*", "*.jsonl"))
-	prefix := filepath.ToSlash(absDir)
 	query := fmt.Sprintf(`CREATE OR REPLACE VIEW metrics AS
 		SELECT
 			project_id AS project,
-			string_split(replace(replace(filename, '\', '/'), '%s/', ''), '/')[1] AS source,
+			source,
 			metric,
 			CAST(date AS DATE) AS date,
 			CAST(value AS BIGINT) AS value,
 			tags
 		FROM read_json('%s',
 			format='newline_delimited',
-			filename=true,
-			columns={metric: 'VARCHAR', project_id: 'VARCHAR', date: 'VARCHAR', value: 'BIGINT', tags: 'JSON'})`,
-		prefix, glob)
+			columns={source: 'VARCHAR', metric: 'VARCHAR', project_id: 'VARCHAR', date: 'VARCHAR', value: 'BIGINT', tags: 'JSON'})`,
+		glob)
 
 	if _, err := db.Exec(query); err != nil {
 		slog.Debug("live view creation failed, using empty view", "error", err)

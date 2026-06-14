@@ -20,6 +20,10 @@ var (
 )
 
 func WriteRecords(dataDir, sourceName, projectID string, records []source.Record) error {
+	for i := range records {
+		records[i].Source = sourceName
+	}
+
 	grouped := groupByDate(records)
 
 	for date, dateRecords := range grouped {

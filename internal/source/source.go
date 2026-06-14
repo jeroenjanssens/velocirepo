@@ -6,6 +6,7 @@ import (
 )
 
 type Record struct {
+	Source    string            `json:"source"`
 	Metric    string            `json:"metric"`
 	ProjectID string            `json:"project_id"`
 	Date      string            `json:"date"`
