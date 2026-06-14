@@ -26,7 +26,7 @@ func newRootCmd() *cobra.Command {
 			cmd.SilenceUsage = true
 			setupLogging()
 
-			if cmd.Name() == "version" {
+			if cmd.Name() == "version" || cmd.Name() == "init" {
 				return nil
 			}
 
@@ -47,6 +47,7 @@ func newRootCmd() *cobra.Command {
 	rootCmd.AddCommand(fetchCmd())
 	rootCmd.AddCommand(queryCmd())
 	rootCmd.AddCommand(ciCmd())
+	rootCmd.AddCommand(projectCmd())
 
 	return rootCmd
 }
