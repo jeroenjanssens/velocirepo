@@ -54,6 +54,9 @@ func fetchAllCmd() *cobra.Command {
 				if proj.CRAN != "" {
 					jobs = append(jobs, fetchJob{"cran", id, &source.CRAN{Client: client, Package: proj.CRAN}})
 				}
+				if proj.Homebrew != "" {
+					jobs = append(jobs, fetchJob{"homebrew", id, &source.Homebrew{Client: client, Formula: proj.Homebrew}})
+				}
 				if proj.Plausible != "" && pKey != "" {
 					jobs = append(jobs, fetchJob{"plausible", id, &source.Plausible{Client: client, APIKey: pKey, SiteID: proj.Plausible}})
 				}

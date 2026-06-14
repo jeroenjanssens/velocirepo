@@ -35,6 +35,7 @@ func fetchCmd() *cobra.Command {
 	cmd.AddCommand(fetchGitHubCmd())
 	cmd.AddCommand(fetchPyPICmd())
 	cmd.AddCommand(fetchCRANCmd())
+	cmd.AddCommand(fetchHomebrewCmd())
 	cmd.AddCommand(fetchPlausibleCmd())
 	cmd.AddCommand(fetchOpenVSXCmd())
 	cmd.AddCommand(fetchAllCmd())
