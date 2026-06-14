@@ -1,0 +1,38 @@
+name: velocirepo
+description: Fetch and aggregate open-source project metrics
+branding:
+  icon: bar-chart-2
+  color: blue
+
+inputs:
+  github-token:
+    description: GitHub token for API access
+    required: false
+    default: ${{ github.token }}
+  plausible-key:
+    description: Plausible Analytics API key
+    required: false
+  version:
+    description: velocirepo version to install (default: latest)
+    required: false
+    default: latest
+
+runs:
+  using: composite
+  steps:
+    - name: Install velocirepo
+      shell: bash
+      run: |
+        if [ "${{ inputs.version }}" = "latest" ]; then
+          URL="https://github.com/jeroenjanssens/velocirepo/releases/latest/download/velocirepo_linux_amd64.tar.gz"
+        else
+          URL="https://github.com/jeroenjanssens/velocirepo/releases/download/${{ inputs.version }}/velocirepo_linux_amd64.tar.gz"
+        fi
+        curl -sSL "$URL" | tar xz -C /usr/local/bin velocirepo
+
+    - name: Fetch all sources
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+        PLAUSIBLE_KEY: ${{ inputs.plausible-key }}
+      run: velocirepo fetch all

@@ -11,12 +11,15 @@ import (
 
 var ciCron string
 
-const workflowTemplate = `name: Fetch DevRel Metrics
+const workflowTemplate = `name: Fetch Metrics
 
 on:
   schedule:
     - cron: '{{.Cron}}'
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   fetch:
@@ -24,21 +27,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install velocirepo
-        run: |
-          curl -sSL https://github.com/jeroenjanssens/velocirepo/releases/latest/download/velocirepo_linux_amd64.tar.gz | tar xz
-          sudo mv velocirepo /usr/local/bin/
-
-      - name: Fetch all sources
-        env:
-          GITHUB_TOKEN: {{"{{"}} secrets.GH_TOKEN {{"}}"}}
+      - uses: jeroenjanssens/velocirepo@v1
+        with:
+          github-token: {{"{{"}} secrets.GH_TOKEN {{"}}"}}
 {{- if .NeedsPlausible}}
-          PLAUSIBLE_KEY: {{"{{"}} secrets.PLAUSIBLE_KEY {{"}}"}}
+          plausible-key: {{"{{"}} secrets.PLAUSIBLE_KEY {{"}}"}}
 {{- end}}
-        run: velocirepo fetch all
-
-      - name: Build DuckDB
-        run: velocirepo build
 
       - name: Commit and push
         run: |
