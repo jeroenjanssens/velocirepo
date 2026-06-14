@@ -13,7 +13,7 @@ func TestLoadSingleProject(t *testing.T) {
 [data]
 dir = "metrics"
 
-[project]
+[projects.my-project]
 name = "My Project"
 github = "owner/repo"
 pypi = "my-project"
@@ -40,9 +40,9 @@ pypi = "my-project"
 		t.Fatalf("ResolveProjects() returned %d projects, want 1", len(projects))
 	}
 
-	p, ok := projects["repo"]
+	p, ok := projects["my-project"]
 	if !ok {
-		t.Fatal("expected project with id 'repo'")
+		t.Fatal("expected project with id 'my-project'")
 	}
 	if p.Name != "My Project" {
 		t.Errorf("Name = %q, want %q", p.Name, "My Project")
@@ -119,7 +119,7 @@ func TestDiscovery(t *testing.T) {
 	}
 
 	cfgPath := filepath.Join(dir, "velocirepo.toml")
-	content := `[project]
+	content := `[projects.found]
 name = "Found"
 github = "org/found"
 `
@@ -147,7 +147,7 @@ github = "org/found"
 func TestEnvVarOverride(t *testing.T) {
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "velocirepo.toml")
-	content := `[project]
+	content := `[projects.envtest]
 name = "EnvTest"
 github = "org/envtest"
 `
@@ -171,7 +171,7 @@ github = "org/envtest"
 func TestDefaultDataDir(t *testing.T) {
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "velocirepo.toml")
-	content := `[project]
+	content := `[projects.test]
 name = "Test"
 github = "org/test"
 `
@@ -187,5 +187,26 @@ github = "org/test"
 	want := filepath.Join(dir, "data")
 	if cfg.DataDir() != want {
 		t.Errorf("DataDir() = %q, want %q", cfg.DataDir(), want)
+	}
+}
+
+func TestNoProjects(t *testing.T) {
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "velocirepo.toml")
+	content := `[data]
+dir = "data"
+`
+	if err := os.WriteFile(cfgPath, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := Load(cfgPath)
+	if err != nil {
+		t.Fatalf("Load failed: %v", err)
+	}
+
+	projects := cfg.ResolveProjects()
+	if projects != nil {
+		t.Errorf("expected nil projects, got %v", projects)
 	}
 }

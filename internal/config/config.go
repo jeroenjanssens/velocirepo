@@ -13,6 +13,7 @@ type Project struct {
 	GitHub    string `toml:"github"`
 	PyPI      string `toml:"pypi"`
 	CRAN      string `toml:"cran"`
+	Homebrew  string `toml:"homebrew"`
 	Plausible string `toml:"plausible"`
 	OpenVSX   string `toml:"openvsx"`
 }
@@ -26,9 +27,8 @@ type SettingsConfig struct {
 }
 
 type Config struct {
-	Data     DataConfig        `toml:"data"`
-	Settings SettingsConfig    `toml:"settings"`
-	Project  *Project          `toml:"project"`
+	Data     DataConfig         `toml:"data"`
+	Settings SettingsConfig     `toml:"settings"`
 	Projects map[string]Project `toml:"projects"`
 
 	// Computed fields
@@ -47,37 +47,10 @@ func (c *Config) DataDir() string {
 }
 
 func (c *Config) ResolveProjects() map[string]Project {
-	if c.Projects != nil && len(c.Projects) > 0 {
+	if len(c.Projects) > 0 {
 		return c.Projects
 	}
-	if c.Project != nil {
-		id := projectID(c.Project)
-		return map[string]Project{id: *c.Project}
-	}
 	return nil
-}
-
-func projectID(p *Project) string {
-	if p.GitHub != "" {
-		_, repo := splitRepo(p.GitHub)
-		return repo
-	}
-	if p.PyPI != "" {
-		return p.PyPI
-	}
-	if p.CRAN != "" {
-		return p.CRAN
-	}
-	return "project"
-}
-
-func splitRepo(repo string) (string, string) {
-	for i, c := range repo {
-		if c == '/' {
-			return repo[:i], repo[i+1:]
-		}
-	}
-	return repo, repo
 }
 
 func Load(path string) (*Config, error) {

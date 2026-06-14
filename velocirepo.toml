@@ -1,6 +1,7 @@
 [data]
 dir = "data"
 
-[project]
+[projects.velocirepo]
 name = "velocirepo"
 github = "jeroenjanssens/velocirepo"
+homebrew = "jeroenjanssens/tap/velocirepo"
