@@ -195,6 +195,13 @@ jobs:
             artifacts/SHA256SUMS
           generate_release_notes: true
 
+      - name: Update major version tag
+        run: |
+          TAG="${{ needs.validate-tag.outputs.tag_name }}"
+          MAJOR="v$(echo "$TAG" | cut -d. -f1 | tr -d v)"
+          git tag -f "$MAJOR" "$TAG"
+          git push origin "$MAJOR" --force
+
   update-homebrew:
     needs: [validate-tag, release]
     runs-on: ubuntu-latest

@@ -1,15 +1,16 @@
 package cmd
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"text/template"
 
+	"github.com/jeroenjanssens/velocirepo/internal/version"
 	"github.com/spf13/cobra"
 )
-
-var ciCron string
 
 const workflowTemplate = `name: Fetch Metrics
 
@@ -27,7 +28,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: jeroenjanssens/velocirepo@v1
+      - uses: jeroenjanssens/velocirepo@{{.Version}}
         with:
           github-token: {{"{{"}} secrets.GH_TOKEN {{"}}"}}
 {{- if .NeedsPlausible}}
@@ -48,10 +49,32 @@ func ciInstallCmd() *cobra.Command {
 		Use:   "install",
 		Short: "Generate GitHub Actions workflow for nightly metric fetching",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			dir := cfg.Dir
-			workflowDir := filepath.Join(dir, ".github", "workflows")
-			if err := os.MkdirAll(workflowDir, 0755); err != nil {
-				return fmt.Errorf("create workflow directory: %w", err)
+			if !isInteractive() {
+				return fmt.Errorf("ci install requires an interactive terminal")
+			}
+
+			reader := bufio.NewReader(os.Stdin)
+
+			defaultCron := "0 1 * * *"
+			cron := prompt(os.Stdout, reader, "Cron schedule", defaultCron, "daily at 1am UTC")
+
+			defaultVersion := "latest"
+			if version.Version != "dev" {
+				defaultVersion = version.Version
+			}
+			versionHint := "use a tag like v0.1.4, or \"latest\""
+			ver := prompt(os.Stdout, reader, "Velocirepo version", defaultVersion, versionHint)
+
+			defaultFile := ".github/workflows/velocirepo.yml"
+			filename := prompt(os.Stdout, reader, "Workflow file", defaultFile, "")
+
+			outPath := filepath.Join(cfg.Dir, filename)
+
+			if _, err := os.Stat(outPath); err == nil {
+				if !confirm(os.Stdout, reader, fmt.Sprintf("File %s already exists. Overwrite?", filename)) {
+					fmt.Println("Cancelled.")
+					return nil
+				}
 			}
 
 			needsPlausible := false
@@ -68,18 +91,33 @@ func ciInstallCmd() *cobra.Command {
 				return fmt.Errorf("parse template: %w", err)
 			}
 
-			outPath := filepath.Join(workflowDir, "velocirepo.yml")
+			outDir := filepath.Dir(outPath)
+			if err := os.MkdirAll(outDir, 0755); err != nil {
+				return fmt.Errorf("create directory: %w", err)
+			}
+
 			f, err := os.Create(outPath)
 			if err != nil {
 				return fmt.Errorf("create workflow file: %w", err)
 			}
 			defer f.Close()
 
+			// Normalize version to a ref suitable for uses:
+			actionRef := ver
+			if !strings.HasPrefix(ver, "v") && ver != "latest" {
+				actionRef = "v" + ver
+			}
+			if ver == "latest" {
+				actionRef = "v1"
+			}
+
 			err = tmpl.Execute(f, struct {
 				Cron           string
+				Version        string
 				NeedsPlausible bool
 			}{
-				Cron:           ciCron,
+				Cron:           cron,
+				Version:        actionRef,
 				NeedsPlausible: needsPlausible,
 			})
 			if err != nil {
@@ -90,8 +128,6 @@ func ciInstallCmd() *cobra.Command {
 			return nil
 		},
 	}
-
-	cmd.Flags().StringVar(&ciCron, "cron", "0 1 * * *", "cron schedule (default: 1am UTC daily)")
 
 	return cmd
 }
