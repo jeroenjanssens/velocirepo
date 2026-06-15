@@ -48,7 +48,8 @@ def build_wheel(binary_path: str, version: str, platform: str, output_dir: str):
         # Embed binary
         bin_dir = pkg_dir / "bin"
         bin_dir.mkdir()
-        dest = bin_dir / binary_path.name
+        bin_name = "velocirepo.exe" if binary_path.suffix == ".exe" else "velocirepo"
+        dest = bin_dir / bin_name
         shutil.copy2(binary_path, dest)
         dest.chmod(dest.stat().st_mode | stat.S_IEXEC)
 
