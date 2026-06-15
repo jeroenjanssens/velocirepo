@@ -423,5 +423,8 @@ jobs:
             --platform windows_amd64 \
             --output ../wheels
 
+      - name: List wheels
+        run: ls -la wheels/
+
       - name: Publish to PyPI
-        run: uv publish wheels/*
+        run: uv publish --trusted-publishing always wheels/*.whl

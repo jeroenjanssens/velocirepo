@@ -26,8 +26,8 @@ PLATFORM_TAGS = {
 
 
 def build_wheel(binary_path: str, version: str, platform: str, output_dir: str):
-    binary_path = Path(binary_path)
-    output_dir = Path(output_dir)
+    binary_path = Path(binary_path).resolve()
+    output_dir = Path(output_dir).resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
 
     with tempfile.TemporaryDirectory() as tmpdir:
