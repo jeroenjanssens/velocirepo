@@ -71,7 +71,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: jeroenjanssens/velocirepo@v1
+      - uses: jeroenjanssens/velocirepo@v0
         with:
           github-token: ${{ secrets.GH_TOKEN }}
           # plausible-key: ${{ secrets.PLAUSIBLE_KEY }}
@@ -131,6 +131,18 @@ git clone https://github.com/jeroenjanssens/velocirepo.git
 cd velocirepo
 go build -o bin/velocirepo ./cmd/velocirepo
 cp bin/velocirepo ~/.local/bin/
+```
+
+#### Shell installer (macOS / Linux)
+
+```bash
+curl -sSfL https://raw.githubusercontent.com/jeroenjanssens/velocirepo/main/install.sh | sh
+```
+
+This downloads the latest binary to `./bin/velocirepo`. Set `INSTALL_DIR` to install elsewhere:
+
+```bash
+curl -sSfL https://raw.githubusercontent.com/jeroenjanssens/velocirepo/main/install.sh | INSTALL_DIR=/usr/local/bin sh
 ```
 
 #### Download binary
