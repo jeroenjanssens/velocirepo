@@ -97,7 +97,7 @@ func UpdateProject(path string, id string, updates map[string]string, unsets []s
 			continue
 		}
 		if val, ok := updates[key]; ok {
-			lines[i] = fmt.Sprintf("%s = %q", key, val)
+			lines[i] = formatKeyValue(key, val)
 			delete(updates, key)
 		}
 	}
@@ -105,7 +105,7 @@ func UpdateProject(path string, id string, updates map[string]string, unsets []s
 	// Add new keys that weren't already in the section
 	var newLines []string
 	for key, val := range updates {
-		newLines = append(newLines, fmt.Sprintf("%s = %q", key, val))
+		newLines = append(newLines, formatKeyValue(key, val))
 	}
 	if len(newLines) > 0 {
 		// Insert before end of section
@@ -185,6 +185,36 @@ func writeStringList(b *strings.Builder, key string, values StringList) {
 		fmt.Fprintf(b, "%q", v)
 	}
 	b.WriteString("]\n")
+}
+
+func formatKeyValue(key, val string) string {
+	if key == "name" || !strings.Contains(val, ",") {
+		return fmt.Sprintf("%s = %q", key, val)
+	}
+	var trimmed []string
+	for _, p := range strings.Split(val, ",") {
+		p = strings.TrimSpace(p)
+		if p != "" {
+			trimmed = append(trimmed, p)
+		}
+	}
+	if len(trimmed) <= 1 {
+		v := ""
+		if len(trimmed) == 1 {
+			v = trimmed[0]
+		}
+		return fmt.Sprintf("%s = %q", key, v)
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "%s = [", key)
+	for i, v := range trimmed {
+		if i > 0 {
+			b.WriteString(", ")
+		}
+		fmt.Fprintf(&b, "%q", v)
+	}
+	b.WriteString("]")
+	return b.String()
 }
 
 func extractKey(line string) string {

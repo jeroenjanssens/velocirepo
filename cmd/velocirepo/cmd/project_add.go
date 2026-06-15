@@ -113,6 +113,9 @@ func projectAddInteractive(cfgPath string, id string) error {
 		return fmt.Errorf("project %q already exists (use 'project update' to modify)", id)
 	}
 
+	fmt.Fprintln(os.Stdout, "Tip: use commas to specify multiple values (e.g., owner/repo-a, owner/repo-b)")
+	fmt.Fprintln(os.Stdout)
+
 	name := prompt(os.Stdout, reader, "Name", id, "")
 	github := prompt(os.Stdout, reader, "GitHub (owner/repo)", detected.GitHub, detected.GitHubSource)
 	githubTraffic := prompt(os.Stdout, reader, "GitHub traffic (owner/repo)", detected.GitHub, detected.GitHubSource)
@@ -122,8 +125,15 @@ func projectAddInteractive(cfgPath string, id string) error {
 	plausible := prompt(os.Stdout, reader, "Plausible site ID", "", "")
 	openvsx := prompt(os.Stdout, reader, "OpenVSX extension", detected.OpenVSX, detected.OpenVSXSource)
 
-	if github != "" && !validGitHubRe.MatchString(github) {
-		return fmt.Errorf("invalid GitHub repo %q: must be owner/repo", github)
+	for _, repo := range parseCommaSeparated(github) {
+		if !validGitHubRe.MatchString(repo) {
+			return fmt.Errorf("invalid GitHub repo %q: must be owner/repo", repo)
+		}
+	}
+	for _, repo := range parseCommaSeparated(githubTraffic) {
+		if !validGitHubRe.MatchString(repo) {
+			return fmt.Errorf("invalid GitHub repo %q: must be owner/repo", repo)
+		}
 	}
 
 	proj := config.Project{
@@ -180,7 +190,25 @@ func toStringList(s string) config.StringList {
 	if s == "" {
 		return nil
 	}
-	return config.StringList{s}
+	return parseCommaSeparated(s)
+}
+
+func parseCommaSeparated(s string) config.StringList {
+	if s == "" {
+		return nil
+	}
+	parts := strings.Split(s, ",")
+	var result config.StringList
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p != "" {
+			result = append(result, p)
+		}
+	}
+	if len(result) == 0 {
+		return nil
+	}
+	return result
 }
 
 func cfgFilePath() string {

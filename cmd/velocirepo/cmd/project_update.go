@@ -105,19 +105,28 @@ func projectUpdateCmd() *cobra.Command {
 
 func projectUpdateInteractive(cfgPath string, id string, proj config.Project) error {
 	reader := bufio.NewReader(os.Stdin)
-	fmt.Fprintf(os.Stdout, "Updating project '%s' (press Enter to keep current value):\n\n", id)
+	fmt.Fprintf(os.Stdout, "Updating project '%s' (press Enter to keep current value):\n", id)
+	fmt.Fprintln(os.Stdout, "Tip: use commas to specify multiple values (e.g., owner/repo-a, owner/repo-b)")
+	fmt.Fprintln(os.Stdout)
 
 	name := prompt(os.Stdout, reader, "Name", proj.Name, "")
-	github := prompt(os.Stdout, reader, "GitHub (owner/repo)", proj.GitHub.First(), "")
-	githubTraffic := prompt(os.Stdout, reader, "GitHub traffic (owner/repo)", proj.GitHubTraffic.First(), "")
-	pypi := prompt(os.Stdout, reader, "PyPI package", proj.PyPI.First(), "")
-	cran := prompt(os.Stdout, reader, "CRAN package", proj.CRAN.First(), "")
-	homebrew := prompt(os.Stdout, reader, "Homebrew formula", proj.Homebrew.First(), "")
-	plausible := prompt(os.Stdout, reader, "Plausible site ID", proj.Plausible.First(), "")
-	openvsx := prompt(os.Stdout, reader, "OpenVSX extension", proj.OpenVSX.First(), "")
+	github := prompt(os.Stdout, reader, "GitHub (owner/repo)", proj.GitHub.String(), "")
+	githubTraffic := prompt(os.Stdout, reader, "GitHub traffic (owner/repo)", proj.GitHubTraffic.String(), "")
+	pypi := prompt(os.Stdout, reader, "PyPI package", proj.PyPI.String(), "")
+	cran := prompt(os.Stdout, reader, "CRAN package", proj.CRAN.String(), "")
+	homebrew := prompt(os.Stdout, reader, "Homebrew formula", proj.Homebrew.String(), "")
+	plausible := prompt(os.Stdout, reader, "Plausible site ID", proj.Plausible.String(), "")
+	openvsx := prompt(os.Stdout, reader, "OpenVSX extension", proj.OpenVSX.String(), "")
 
-	if github != "" && !validGitHubRe.MatchString(github) {
-		return fmt.Errorf("invalid GitHub repo %q: must be owner/repo", github)
+	for _, repo := range parseCommaSeparated(github) {
+		if !validGitHubRe.MatchString(repo) {
+			return fmt.Errorf("invalid GitHub repo %q: must be owner/repo", repo)
+		}
+	}
+	for _, repo := range parseCommaSeparated(githubTraffic) {
+		if !validGitHubRe.MatchString(repo) {
+			return fmt.Errorf("invalid GitHub repo %q: must be owner/repo", repo)
+		}
 	}
 
 	updates := make(map[string]string)
@@ -134,13 +143,13 @@ func projectUpdateInteractive(cfgPath string, id string, proj config.Project) er
 	}
 
 	updateOrUnset("name", name, proj.Name)
-	updateOrUnset("github", github, proj.GitHub.First())
-	updateOrUnset("github-traffic", githubTraffic, proj.GitHubTraffic.First())
-	updateOrUnset("pypi", pypi, proj.PyPI.First())
-	updateOrUnset("cran", cran, proj.CRAN.First())
-	updateOrUnset("homebrew", homebrew, proj.Homebrew.First())
-	updateOrUnset("plausible", plausible, proj.Plausible.First())
-	updateOrUnset("openvsx", openvsx, proj.OpenVSX.First())
+	updateOrUnset("github", github, proj.GitHub.String())
+	updateOrUnset("github-traffic", githubTraffic, proj.GitHubTraffic.String())
+	updateOrUnset("pypi", pypi, proj.PyPI.String())
+	updateOrUnset("cran", cran, proj.CRAN.String())
+	updateOrUnset("homebrew", homebrew, proj.Homebrew.String())
+	updateOrUnset("plausible", plausible, proj.Plausible.String())
+	updateOrUnset("openvsx", openvsx, proj.OpenVSX.String())
 
 	if len(updates) == 0 && len(unsets) == 0 {
 		fmt.Println("No changes.")
