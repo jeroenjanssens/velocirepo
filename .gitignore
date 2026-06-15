@@ -1,4 +1,5 @@
 bin/
+/velocirepo
 dist/
 wheels/
 __pycache__/
