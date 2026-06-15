@@ -30,26 +30,28 @@ func projectListCmd() *cobra.Command {
 
 			if jsonOutput {
 				type projectJSON struct {
-					ID        string   `json:"id"`
-					Name      string   `json:"name"`
-					GitHub    []string `json:"github,omitempty"`
-					PyPI      []string `json:"pypi,omitempty"`
-					CRAN      []string `json:"cran,omitempty"`
-					Homebrew  []string `json:"homebrew,omitempty"`
-					Plausible []string `json:"plausible,omitempty"`
-					OpenVSX   []string `json:"openvsx,omitempty"`
+					ID            string   `json:"id"`
+					Name          string   `json:"name"`
+					GitHub        []string `json:"github,omitempty"`
+					GitHubTraffic []string `json:"github-traffic,omitempty"`
+					PyPI          []string `json:"pypi,omitempty"`
+					CRAN          []string `json:"cran,omitempty"`
+					Homebrew      []string `json:"homebrew,omitempty"`
+					Plausible     []string `json:"plausible,omitempty"`
+					OpenVSX       []string `json:"openvsx,omitempty"`
 				}
 				var list []projectJSON
 				for id, p := range projects {
 					list = append(list, projectJSON{
-						ID:        id,
-						Name:      p.Name,
-						GitHub:    []string(p.GitHub),
-						PyPI:      []string(p.PyPI),
-						CRAN:      []string(p.CRAN),
-						Homebrew:  []string(p.Homebrew),
-						Plausible: []string(p.Plausible),
-						OpenVSX:   []string(p.OpenVSX),
+						ID:            id,
+						Name:          p.Name,
+						GitHub:        []string(p.GitHub),
+						GitHubTraffic: []string(p.GitHubTraffic),
+						PyPI:          []string(p.PyPI),
+						CRAN:          []string(p.CRAN),
+						Homebrew:      []string(p.Homebrew),
+						Plausible:     []string(p.Plausible),
+						OpenVSX:       []string(p.OpenVSX),
 					})
 				}
 				enc := json.NewEncoder(out)

@@ -98,6 +98,9 @@ func formatSection(id string, p config.Project) string {
 	if !p.GitHub.IsEmpty() {
 		s += fmt.Sprintf("github = %q\n", p.GitHub.First())
 	}
+	if !p.GitHubTraffic.IsEmpty() {
+		s += fmt.Sprintf("github-traffic = %q\n", p.GitHubTraffic.First())
+	}
 	if !p.PyPI.IsEmpty() {
 		s += fmt.Sprintf("pypi = %q\n", p.PyPI.First())
 	}

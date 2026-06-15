@@ -85,6 +85,9 @@ func ValidateProject(ctx context.Context, opts ValidationOptions, id string, pro
 	for _, v := range project.GitHub {
 		entries = append(entries, sourceEntry{"github", v})
 	}
+	for _, v := range project.GitHubTraffic {
+		entries = append(entries, sourceEntry{"github", v})
+	}
 	for _, v := range project.PyPI {
 		entries = append(entries, sourceEntry{"pypi", v})
 	}

@@ -3,6 +3,7 @@
 velocirepo fetches and aggregates metrics for your open-source projects, building a historical record you can query and commit to git. It currently supports the following sources:
 
 - **GitHub** — stars, forks, issues, pull requests, comments
+- **GitHub Traffic** — daily page views and git clones (requires admin access)
 - **PyPI** — daily download counts
 - **CRAN** — daily download counts
 - **Homebrew** — install counts
@@ -17,6 +18,7 @@ Create a `velocirepo.toml` in your project root:
 [projects.my-project]
 name = "My Project"
 github = "owner/repo"
+github-traffic = "owner/repo"
 pypi = "my-package"
 
 [projects.other-project]
@@ -27,6 +29,8 @@ homebrew = "other"
 ```
 
 Each source field accepts either a single string or an array of strings, so you can track multiple repositories or packages under one project.
+
+The `github-traffic` source fetches daily page views and clone counts. GitHub only retains this data for 14 days, so velocirepo preserves it before it's lost. It requires a token with **Administration:read** permission (or the `repo` scope for classic tokens).
 
 Or initialize one interactively (auto-detects sources from your repository):
 
@@ -136,13 +140,14 @@ Pre-built binaries for Linux, macOS, and Windows are available on the [Releases]
 ## Usage
 
 ```
-velocirepo fetch github      Fetch GitHub metrics (stars, forks, issues, PRs, comments)
-velocirepo fetch pypi        Fetch PyPI download counts
-velocirepo fetch cran        Fetch CRAN download counts
-velocirepo fetch homebrew    Fetch Homebrew install counts
-velocirepo fetch plausible   Fetch Plausible analytics
-velocirepo fetch openvsx     Fetch Open VSX install counts
-velocirepo fetch all         Fetch from all configured sources
+velocirepo fetch github          Fetch GitHub metrics (stars, forks, issues, PRs, comments)
+velocirepo fetch github-traffic  Fetch GitHub traffic (views and clones)
+velocirepo fetch pypi            Fetch PyPI download counts
+velocirepo fetch cran            Fetch CRAN download counts
+velocirepo fetch homebrew        Fetch Homebrew install counts
+velocirepo fetch plausible       Fetch Plausible analytics
+velocirepo fetch openvsx         Fetch Open VSX install counts
+velocirepo fetch all             Fetch from all configured sources
 
 velocirepo query run [sql]   Run a SQL query against the metrics data
 velocirepo query schema      Show the metrics table schema

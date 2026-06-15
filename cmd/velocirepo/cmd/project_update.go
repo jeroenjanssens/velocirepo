@@ -11,7 +11,7 @@ import (
 )
 
 func projectUpdateCmd() *cobra.Command {
-	var name, github, pypi, cran, homebrew, plausible, openvsx string
+	var name, github, githubTraffic, pypi, cran, homebrew, plausible, openvsx string
 	var unset []string
 
 	cmd := &cobra.Command{
@@ -30,9 +30,9 @@ func projectUpdateCmd() *cobra.Command {
 			cfgPath := cfgFilePath()
 
 			flagsProvided := cmd.Flags().Changed("name") || cmd.Flags().Changed("github") ||
-				cmd.Flags().Changed("pypi") || cmd.Flags().Changed("cran") ||
-				cmd.Flags().Changed("homebrew") || cmd.Flags().Changed("plausible") ||
-				cmd.Flags().Changed("openvsx") || len(unset) > 0
+				cmd.Flags().Changed("github-traffic") || cmd.Flags().Changed("pypi") ||
+				cmd.Flags().Changed("cran") || cmd.Flags().Changed("homebrew") ||
+				cmd.Flags().Changed("plausible") || cmd.Flags().Changed("openvsx") || len(unset) > 0
 
 			if !flagsProvided && isInteractive() {
 				return projectUpdateInteractive(cfgPath, id, proj)
@@ -51,6 +51,12 @@ func projectUpdateCmd() *cobra.Command {
 					return fmt.Errorf("invalid GitHub repo %q: must be owner/repo", github)
 				}
 				updates["github"] = github
+			}
+			if cmd.Flags().Changed("github-traffic") {
+				if githubTraffic != "" && !validGitHubRe.MatchString(githubTraffic) {
+					return fmt.Errorf("invalid GitHub repo %q: must be owner/repo", githubTraffic)
+				}
+				updates["github-traffic"] = githubTraffic
 			}
 			if cmd.Flags().Changed("pypi") {
 				updates["pypi"] = pypi
@@ -86,6 +92,7 @@ func projectUpdateCmd() *cobra.Command {
 
 	cmd.Flags().StringVar(&name, "name", "", "display name")
 	cmd.Flags().StringVar(&github, "github", "", "GitHub owner/repo")
+	cmd.Flags().StringVar(&githubTraffic, "github-traffic", "", "GitHub owner/repo for traffic data")
 	cmd.Flags().StringVar(&pypi, "pypi", "", "PyPI package name")
 	cmd.Flags().StringVar(&cran, "cran", "", "CRAN package name")
 	cmd.Flags().StringVar(&homebrew, "homebrew", "", "Homebrew formula")
@@ -102,6 +109,7 @@ func projectUpdateInteractive(cfgPath string, id string, proj config.Project) er
 
 	name := prompt(os.Stdout, reader, "Name", proj.Name, "")
 	github := prompt(os.Stdout, reader, "GitHub (owner/repo)", proj.GitHub.First(), "")
+	githubTraffic := prompt(os.Stdout, reader, "GitHub traffic (owner/repo)", proj.GitHubTraffic.First(), "")
 	pypi := prompt(os.Stdout, reader, "PyPI package", proj.PyPI.First(), "")
 	cran := prompt(os.Stdout, reader, "CRAN package", proj.CRAN.First(), "")
 	homebrew := prompt(os.Stdout, reader, "Homebrew formula", proj.Homebrew.First(), "")
@@ -127,6 +135,7 @@ func projectUpdateInteractive(cfgPath string, id string, proj config.Project) er
 
 	updateOrUnset("name", name, proj.Name)
 	updateOrUnset("github", github, proj.GitHub.First())
+	updateOrUnset("github-traffic", githubTraffic, proj.GitHubTraffic.First())
 	updateOrUnset("pypi", pypi, proj.PyPI.First())
 	updateOrUnset("cran", cran, proj.CRAN.First())
 	updateOrUnset("homebrew", homebrew, proj.Homebrew.First())

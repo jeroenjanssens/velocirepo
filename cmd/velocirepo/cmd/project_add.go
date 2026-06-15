@@ -15,7 +15,7 @@ var validIDRe = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
 var validGitHubRe = regexp.MustCompile(`^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$`)
 
 func projectAddCmd() *cobra.Command {
-	var name, github, pypi, cran, homebrew, plausible, openvsx string
+	var name, github, githubTraffic, pypi, cran, homebrew, plausible, openvsx string
 
 	cmd := &cobra.Command{
 		Use:   "add [id]",
@@ -29,7 +29,7 @@ func projectAddCmd() *cobra.Command {
 				id = args[0]
 			}
 
-			flagsProvided := github != "" || pypi != "" || cran != "" ||
+			flagsProvided := github != "" || githubTraffic != "" || pypi != "" || cran != "" ||
 				homebrew != "" || plausible != "" || openvsx != ""
 
 			if !flagsProvided && isInteractive() {
@@ -61,13 +61,14 @@ func projectAddCmd() *cobra.Command {
 			}
 
 			proj := config.Project{
-				Name:      name,
-				GitHub:    toStringList(github),
-				PyPI:      toStringList(pypi),
-				CRAN:      toStringList(cran),
-				Homebrew:  toStringList(homebrew),
-				Plausible: toStringList(plausible),
-				OpenVSX:   toStringList(openvsx),
+				Name:          name,
+				GitHub:        toStringList(github),
+				GitHubTraffic: toStringList(githubTraffic),
+				PyPI:          toStringList(pypi),
+				CRAN:          toStringList(cran),
+				Homebrew:      toStringList(homebrew),
+				Plausible:     toStringList(plausible),
+				OpenVSX:       toStringList(openvsx),
 			}
 
 			if err := config.AppendProject(cfgPath, id, proj); err != nil {
@@ -84,6 +85,7 @@ func projectAddCmd() *cobra.Command {
 	cmd.Flags().StringVar(&github, "github", "", "GitHub owner/repo")
 	cmd.Flags().StringVar(&pypi, "pypi", "", "PyPI package name")
 	cmd.Flags().StringVar(&cran, "cran", "", "CRAN package name")
+	cmd.Flags().StringVar(&githubTraffic, "github-traffic", "", "GitHub owner/repo for traffic data")
 	cmd.Flags().StringVar(&homebrew, "homebrew", "", "Homebrew formula (user/tap/formula)")
 	cmd.Flags().StringVar(&plausible, "plausible", "", "Plausible site ID")
 	cmd.Flags().StringVar(&openvsx, "openvsx", "", "OpenVSX extension (publisher/extension)")
@@ -113,6 +115,7 @@ func projectAddInteractive(cfgPath string, id string) error {
 
 	name := prompt(os.Stdout, reader, "Name", id, "")
 	github := prompt(os.Stdout, reader, "GitHub (owner/repo)", detected.GitHub, detected.GitHubSource)
+	githubTraffic := prompt(os.Stdout, reader, "GitHub traffic (owner/repo)", detected.GitHub, detected.GitHubSource)
 	pypi := prompt(os.Stdout, reader, "PyPI package", detected.PyPI, detected.PyPISource)
 	cran := prompt(os.Stdout, reader, "CRAN package", detected.CRAN, detected.CRANSource)
 	homebrew := prompt(os.Stdout, reader, "Homebrew formula", "", "")
@@ -124,13 +127,14 @@ func projectAddInteractive(cfgPath string, id string) error {
 	}
 
 	proj := config.Project{
-		Name:      name,
-		GitHub:    toStringList(github),
-		PyPI:      toStringList(pypi),
-		CRAN:      toStringList(cran),
-		Homebrew:  toStringList(homebrew),
-		Plausible: toStringList(plausible),
-		OpenVSX:   toStringList(openvsx),
+		Name:          name,
+		GitHub:        toStringList(github),
+		GitHubTraffic: toStringList(githubTraffic),
+		PyPI:          toStringList(pypi),
+		CRAN:          toStringList(cran),
+		Homebrew:      toStringList(homebrew),
+		Plausible:     toStringList(plausible),
+		OpenVSX:       toStringList(openvsx),
 	}
 
 	sources := listSources(proj)
@@ -150,6 +154,9 @@ func listSources(p config.Project) []string {
 	var sources []string
 	if !p.GitHub.IsEmpty() {
 		sources = append(sources, "github")
+	}
+	if !p.GitHubTraffic.IsEmpty() {
+		sources = append(sources, "github-traffic")
 	}
 	if !p.PyPI.IsEmpty() {
 		sources = append(sources, "pypi")

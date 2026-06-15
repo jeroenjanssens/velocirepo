@@ -48,6 +48,9 @@ func fetchAllCmd() *cobra.Command {
 				for _, repo := range proj.GitHub {
 					jobs = append(jobs, fetchJob{"github", id, &source.GitHub{Client: client, Token: token, Repo: repo}})
 				}
+				for _, repo := range proj.GitHubTraffic {
+					jobs = append(jobs, fetchJob{"github-traffic", id, &source.GitHubTraffic{Client: client, Token: token, Repo: repo}})
+				}
 				for _, pkg := range proj.PyPI {
 					jobs = append(jobs, fetchJob{"pypi", id, &source.PyPI{Client: client, Package: pkg}})
 				}

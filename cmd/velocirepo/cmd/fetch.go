@@ -33,6 +33,7 @@ func fetchCmd() *cobra.Command {
 	cmd.PersistentFlags().BoolVar(&noAggregate, "no-aggregate", false, "skip aggregation after fetch")
 
 	cmd.AddCommand(fetchGitHubCmd())
+	cmd.AddCommand(fetchGitHubTrafficCmd())
 	cmd.AddCommand(fetchPyPICmd())
 	cmd.AddCommand(fetchCRANCmd())
 	cmd.AddCommand(fetchHomebrewCmd())
@@ -61,10 +62,22 @@ func resolveStartDate(dataDir, sourceName, projectID string) (time.Time, error) 
 	if err != nil {
 		return time.Time{}, err
 	}
+	var start time.Time
 	if last.IsZero() {
-		return time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC), nil
+		start = time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
+	} else {
+		start = last.AddDate(0, 0, 1)
 	}
-	return last.AddDate(0, 0, 1), nil
+
+	// GitHub Traffic API only retains 14 days of history
+	if sourceName == "github-traffic" {
+		earliest := time.Now().UTC().AddDate(0, 0, -14).Truncate(24 * time.Hour)
+		if start.Before(earliest) {
+			start = earliest
+		}
+	}
+
+	return start, nil
 }
 
 func filterProjects(projects map[string]config.Project) map[string]config.Project {

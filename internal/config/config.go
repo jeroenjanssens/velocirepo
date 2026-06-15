@@ -55,13 +55,14 @@ func (s StringList) String() string {
 }
 
 type Project struct {
-	Name      string     `toml:"name"`
-	GitHub    StringList `toml:"github"`
-	PyPI      StringList `toml:"pypi"`
-	CRAN      StringList `toml:"cran"`
-	Homebrew  StringList `toml:"homebrew"`
-	Plausible StringList `toml:"plausible"`
-	OpenVSX   StringList `toml:"openvsx"`
+	Name          string     `toml:"name"`
+	GitHub        StringList `toml:"github"`
+	GitHubTraffic StringList `toml:"github-traffic"`
+	PyPI          StringList `toml:"pypi"`
+	CRAN          StringList `toml:"cran"`
+	Homebrew      StringList `toml:"homebrew"`
+	Plausible     StringList `toml:"plausible"`
+	OpenVSX       StringList `toml:"openvsx"`
 }
 
 type DataConfig struct {

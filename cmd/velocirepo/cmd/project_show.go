@@ -56,29 +56,31 @@ func projectShowCmd() *cobra.Command {
 
 			if jsonOutput {
 				out := struct {
-					ID        string        `json:"id"`
-					Name      string        `json:"name"`
-					GitHub    []string      `json:"github,omitempty"`
-					PyPI      []string      `json:"pypi,omitempty"`
-					CRAN      []string      `json:"cran,omitempty"`
-					Homebrew  []string      `json:"homebrew,omitempty"`
-					Plausible []string      `json:"plausible,omitempty"`
-					OpenVSX   []string      `json:"openvsx,omitempty"`
-					Sources   []sourceStats `json:"sources"`
-					Total     struct {
+					ID            string        `json:"id"`
+					Name          string        `json:"name"`
+					GitHub        []string      `json:"github,omitempty"`
+					GitHubTraffic []string      `json:"github-traffic,omitempty"`
+					PyPI          []string      `json:"pypi,omitempty"`
+					CRAN          []string      `json:"cran,omitempty"`
+					Homebrew      []string      `json:"homebrew,omitempty"`
+					Plausible     []string      `json:"plausible,omitempty"`
+					OpenVSX       []string      `json:"openvsx,omitempty"`
+					Sources       []sourceStats `json:"sources"`
+					Total         struct {
 						Records   int   `json:"records"`
 						SizeBytes int64 `json:"size_bytes"`
 					} `json:"total"`
 				}{
-					ID:        id,
-					Name:      proj.Name,
-					GitHub:    []string(proj.GitHub),
-					PyPI:      []string(proj.PyPI),
-					CRAN:      []string(proj.CRAN),
-					Homebrew:  []string(proj.Homebrew),
-					Plausible: []string(proj.Plausible),
-					OpenVSX:   []string(proj.OpenVSX),
-					Sources:   stats,
+					ID:            id,
+					Name:          proj.Name,
+					GitHub:        []string(proj.GitHub),
+					GitHubTraffic: []string(proj.GitHubTraffic),
+					PyPI:          []string(proj.PyPI),
+					CRAN:          []string(proj.CRAN),
+					Homebrew:      []string(proj.Homebrew),
+					Plausible:     []string(proj.Plausible),
+					OpenVSX:       []string(proj.OpenVSX),
+					Sources:       stats,
 				}
 				out.Total.Records = totalRecords
 				out.Total.SizeBytes = totalSize
@@ -91,6 +93,9 @@ func projectShowCmd() *cobra.Command {
 			fmt.Fprintf(cmd.OutOrStdout(), "Name:    %s\n", proj.Name)
 			if !proj.GitHub.IsEmpty() {
 				fmt.Fprintf(cmd.OutOrStdout(), "GitHub:  %s\n", proj.GitHub.String())
+			}
+			if !proj.GitHubTraffic.IsEmpty() {
+				fmt.Fprintf(cmd.OutOrStdout(), "GitHub Traffic: %s\n", proj.GitHubTraffic.String())
 			}
 			if !proj.PyPI.IsEmpty() {
 				fmt.Fprintf(cmd.OutOrStdout(), "PyPI:    %s\n", proj.PyPI.String())
