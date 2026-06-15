@@ -108,7 +108,7 @@ func ciInstallCmd() *cobra.Command {
 				actionRef = "v" + ver
 			}
 			if ver == "latest" {
-				actionRef = "v1"
+				actionRef = "v0"
 			}
 
 			err = tmpl.Execute(f, struct {
