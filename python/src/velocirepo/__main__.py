@@ -2,19 +2,13 @@
 
 import os
 import sys
-import sysconfig
 
 
 def _find_binary():
-    scripts_dir = sysconfig.get_path("scripts")
-    if scripts_dir:
-        name = "velocirepo.exe" if sys.platform == "win32" else "velocirepo"
-        path = os.path.join(scripts_dir, name)
-        if os.path.isfile(path):
-            return path
-
-    pkg_dir = os.path.dirname(os.path.abspath(__file__))
     name = "velocirepo.exe" if sys.platform == "win32" else "velocirepo"
+
+    # Look in the package's own bin/ directory (where build_wheels embeds it)
+    pkg_dir = os.path.dirname(os.path.abspath(__file__))
     path = os.path.join(pkg_dir, "bin", name)
     if os.path.isfile(path):
         return path
