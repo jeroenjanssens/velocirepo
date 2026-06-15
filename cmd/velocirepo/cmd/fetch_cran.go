@@ -11,14 +11,15 @@ func fetchCRANCmd() *cobra.Command {
 		Use:   "cran",
 		Short: "Fetch CRAN download statistics",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runFetch(cmd, "cran", func(id string, p config.Project) source.Source {
-				if p.CRAN == "" {
-					return nil
+			return runFetchMulti(cmd, "cran", func(id string, p config.Project) []source.Source {
+				var sources []source.Source
+				for _, pkg := range p.CRAN {
+					sources = append(sources, &source.CRAN{
+						Client:  newHTTPClient(),
+						Package: pkg,
+					})
 				}
-				return &source.CRAN{
-					Client:  newHTTPClient(),
-					Package: p.CRAN,
-				}
+				return sources
 			})
 		},
 	}

@@ -62,12 +62,12 @@ func projectAddCmd() *cobra.Command {
 
 			proj := config.Project{
 				Name:      name,
-				GitHub:    github,
-				PyPI:      pypi,
-				CRAN:      cran,
-				Homebrew:  homebrew,
-				Plausible: plausible,
-				OpenVSX:   openvsx,
+				GitHub:    toStringList(github),
+				PyPI:      toStringList(pypi),
+				CRAN:      toStringList(cran),
+				Homebrew:  toStringList(homebrew),
+				Plausible: toStringList(plausible),
+				OpenVSX:   toStringList(openvsx),
 			}
 
 			if err := config.AppendProject(cfgPath, id, proj); err != nil {
@@ -125,12 +125,12 @@ func projectAddInteractive(cfgPath string, id string) error {
 
 	proj := config.Project{
 		Name:      name,
-		GitHub:    github,
-		PyPI:      pypi,
-		CRAN:      cran,
-		Homebrew:  homebrew,
-		Plausible: plausible,
-		OpenVSX:   openvsx,
+		GitHub:    toStringList(github),
+		PyPI:      toStringList(pypi),
+		CRAN:      toStringList(cran),
+		Homebrew:  toStringList(homebrew),
+		Plausible: toStringList(plausible),
+		OpenVSX:   toStringList(openvsx),
 	}
 
 	sources := listSources(proj)
@@ -148,25 +148,32 @@ func projectAddInteractive(cfgPath string, id string) error {
 
 func listSources(p config.Project) []string {
 	var sources []string
-	if p.GitHub != "" {
+	if !p.GitHub.IsEmpty() {
 		sources = append(sources, "github")
 	}
-	if p.PyPI != "" {
+	if !p.PyPI.IsEmpty() {
 		sources = append(sources, "pypi")
 	}
-	if p.CRAN != "" {
+	if !p.CRAN.IsEmpty() {
 		sources = append(sources, "cran")
 	}
-	if p.Homebrew != "" {
+	if !p.Homebrew.IsEmpty() {
 		sources = append(sources, "homebrew")
 	}
-	if p.Plausible != "" {
+	if !p.Plausible.IsEmpty() {
 		sources = append(sources, "plausible")
 	}
-	if p.OpenVSX != "" {
+	if !p.OpenVSX.IsEmpty() {
 		sources = append(sources, "openvsx")
 	}
 	return sources
+}
+
+func toStringList(s string) config.StringList {
+	if s == "" {
+		return nil
+	}
+	return config.StringList{s}
 }
 
 func cfgFilePath() string {

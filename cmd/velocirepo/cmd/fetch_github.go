@@ -11,15 +11,16 @@ func fetchGitHubCmd() *cobra.Command {
 		Use:   "github",
 		Short: "Fetch GitHub events (stars, forks, issues, PRs, comments)",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runFetch(cmd, "github", func(id string, p config.Project) source.Source {
-				if p.GitHub == "" {
-					return nil
+			return runFetchMulti(cmd, "github", func(id string, p config.Project) []source.Source {
+				var sources []source.Source
+				for _, repo := range p.GitHub {
+					sources = append(sources, &source.GitHub{
+						Client: newHTTPClient(),
+						Token:  githubToken(),
+						Repo:   repo,
+					})
 				}
-				return &source.GitHub{
-					Client: newHTTPClient(),
-					Token:  githubToken(),
-					Repo:   p.GitHub,
-				}
+				return sources
 			})
 		},
 	}

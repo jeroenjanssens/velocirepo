@@ -82,20 +82,20 @@ func ValidateProject(ctx context.Context, opts ValidationOptions, id string, pro
 	}
 
 	var entries []sourceEntry
-	if project.GitHub != "" {
-		entries = append(entries, sourceEntry{"github", project.GitHub})
+	for _, v := range project.GitHub {
+		entries = append(entries, sourceEntry{"github", v})
 	}
-	if project.PyPI != "" {
-		entries = append(entries, sourceEntry{"pypi", project.PyPI})
+	for _, v := range project.PyPI {
+		entries = append(entries, sourceEntry{"pypi", v})
 	}
-	if project.CRAN != "" {
-		entries = append(entries, sourceEntry{"cran", project.CRAN})
+	for _, v := range project.CRAN {
+		entries = append(entries, sourceEntry{"cran", v})
 	}
-	if project.Homebrew != "" {
-		entries = append(entries, sourceEntry{"homebrew", project.Homebrew})
+	for _, v := range project.Homebrew {
+		entries = append(entries, sourceEntry{"homebrew", v})
 	}
-	if project.OpenVSX != "" {
-		entries = append(entries, sourceEntry{"openvsx", project.OpenVSX})
+	for _, v := range project.OpenVSX {
+		entries = append(entries, sourceEntry{"openvsx", v})
 	}
 
 	for _, e := range entries {

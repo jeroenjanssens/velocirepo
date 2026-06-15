@@ -32,7 +32,7 @@ func projectInitCmd() *cobra.Command {
 			}
 
 			if dataDir == "" {
-				dataDir = "data"
+				dataDir = "velocirepo/data"
 			}
 
 			content := fmt.Sprintf("[data]\ndir = %q\n", dataDir)
@@ -60,11 +60,11 @@ func projectInitCmd() *cobra.Command {
 					if confirm(os.Stdout, reader, "Add this project to config?") {
 						id := prompt(os.Stdout, reader, "Project ID", detected.ProjectID, detected.IDSource)
 						proj := config.Project{
-							Name:   id,
-							GitHub: detected.GitHub,
-							PyPI:   detected.PyPI,
-							CRAN:   detected.CRAN,
-							OpenVSX: detected.OpenVSX,
+							Name:    id,
+							GitHub:  toStringList(detected.GitHub),
+							PyPI:    toStringList(detected.PyPI),
+							CRAN:    toStringList(detected.CRAN),
+							OpenVSX: toStringList(detected.OpenVSX),
 						}
 						content += "\n" + formatSection(id, proj)
 						fmt.Fprintf(os.Stdout, "\nAdded project '%s'\n", id)
@@ -88,30 +88,30 @@ func projectInitCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&dir, "dir", "", "directory to create config in (default: current directory)")
-	cmd.Flags().StringVar(&dataDir, "data-dir", "data", "data directory path")
+	cmd.Flags().StringVar(&dataDir, "data-dir", "velocirepo/data", "data directory path")
 
 	return cmd
 }
 
 func formatSection(id string, p config.Project) string {
 	s := fmt.Sprintf("[projects.%s]\nname = %q\n", id, p.Name)
-	if p.GitHub != "" {
-		s += fmt.Sprintf("github = %q\n", p.GitHub)
+	if !p.GitHub.IsEmpty() {
+		s += fmt.Sprintf("github = %q\n", p.GitHub.First())
 	}
-	if p.PyPI != "" {
-		s += fmt.Sprintf("pypi = %q\n", p.PyPI)
+	if !p.PyPI.IsEmpty() {
+		s += fmt.Sprintf("pypi = %q\n", p.PyPI.First())
 	}
-	if p.CRAN != "" {
-		s += fmt.Sprintf("cran = %q\n", p.CRAN)
+	if !p.CRAN.IsEmpty() {
+		s += fmt.Sprintf("cran = %q\n", p.CRAN.First())
 	}
-	if p.Homebrew != "" {
-		s += fmt.Sprintf("homebrew = %q\n", p.Homebrew)
+	if !p.Homebrew.IsEmpty() {
+		s += fmt.Sprintf("homebrew = %q\n", p.Homebrew.First())
 	}
-	if p.Plausible != "" {
-		s += fmt.Sprintf("plausible = %q\n", p.Plausible)
+	if !p.Plausible.IsEmpty() {
+		s += fmt.Sprintf("plausible = %q\n", p.Plausible.First())
 	}
-	if p.OpenVSX != "" {
-		s += fmt.Sprintf("openvsx = %q\n", p.OpenVSX)
+	if !p.OpenVSX.IsEmpty() {
+		s += fmt.Sprintf("openvsx = %q\n", p.OpenVSX.First())
 	}
 	return s
 }

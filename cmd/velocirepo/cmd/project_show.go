@@ -56,28 +56,28 @@ func projectShowCmd() *cobra.Command {
 
 			if jsonOutput {
 				out := struct {
-					ID       string        `json:"id"`
-					Name     string        `json:"name"`
-					GitHub   string        `json:"github,omitempty"`
-					PyPI     string        `json:"pypi,omitempty"`
-					CRAN     string        `json:"cran,omitempty"`
-					Homebrew string        `json:"homebrew,omitempty"`
-					Plausible string       `json:"plausible,omitempty"`
-					OpenVSX  string        `json:"openvsx,omitempty"`
-					Sources  []sourceStats `json:"sources"`
-					Total    struct {
+					ID        string        `json:"id"`
+					Name      string        `json:"name"`
+					GitHub    []string      `json:"github,omitempty"`
+					PyPI      []string      `json:"pypi,omitempty"`
+					CRAN      []string      `json:"cran,omitempty"`
+					Homebrew  []string      `json:"homebrew,omitempty"`
+					Plausible []string      `json:"plausible,omitempty"`
+					OpenVSX   []string      `json:"openvsx,omitempty"`
+					Sources   []sourceStats `json:"sources"`
+					Total     struct {
 						Records   int   `json:"records"`
 						SizeBytes int64 `json:"size_bytes"`
 					} `json:"total"`
 				}{
 					ID:        id,
 					Name:      proj.Name,
-					GitHub:    proj.GitHub,
-					PyPI:      proj.PyPI,
-					CRAN:      proj.CRAN,
-					Homebrew:  proj.Homebrew,
-					Plausible: proj.Plausible,
-					OpenVSX:   proj.OpenVSX,
+					GitHub:    []string(proj.GitHub),
+					PyPI:      []string(proj.PyPI),
+					CRAN:      []string(proj.CRAN),
+					Homebrew:  []string(proj.Homebrew),
+					Plausible: []string(proj.Plausible),
+					OpenVSX:   []string(proj.OpenVSX),
 					Sources:   stats,
 				}
 				out.Total.Records = totalRecords
@@ -89,23 +89,23 @@ func projectShowCmd() *cobra.Command {
 
 			fmt.Fprintf(cmd.OutOrStdout(), "Project: %s\n", id)
 			fmt.Fprintf(cmd.OutOrStdout(), "Name:    %s\n", proj.Name)
-			if proj.GitHub != "" {
-				fmt.Fprintf(cmd.OutOrStdout(), "GitHub:  %s\n", proj.GitHub)
+			if !proj.GitHub.IsEmpty() {
+				fmt.Fprintf(cmd.OutOrStdout(), "GitHub:  %s\n", proj.GitHub.String())
 			}
-			if proj.PyPI != "" {
-				fmt.Fprintf(cmd.OutOrStdout(), "PyPI:    %s\n", proj.PyPI)
+			if !proj.PyPI.IsEmpty() {
+				fmt.Fprintf(cmd.OutOrStdout(), "PyPI:    %s\n", proj.PyPI.String())
 			}
-			if proj.CRAN != "" {
-				fmt.Fprintf(cmd.OutOrStdout(), "CRAN:    %s\n", proj.CRAN)
+			if !proj.CRAN.IsEmpty() {
+				fmt.Fprintf(cmd.OutOrStdout(), "CRAN:    %s\n", proj.CRAN.String())
 			}
-			if proj.Homebrew != "" {
-				fmt.Fprintf(cmd.OutOrStdout(), "Homebrew: %s\n", proj.Homebrew)
+			if !proj.Homebrew.IsEmpty() {
+				fmt.Fprintf(cmd.OutOrStdout(), "Homebrew: %s\n", proj.Homebrew.String())
 			}
-			if proj.Plausible != "" {
-				fmt.Fprintf(cmd.OutOrStdout(), "Plausible: %s\n", proj.Plausible)
+			if !proj.Plausible.IsEmpty() {
+				fmt.Fprintf(cmd.OutOrStdout(), "Plausible: %s\n", proj.Plausible.String())
 			}
-			if proj.OpenVSX != "" {
-				fmt.Fprintf(cmd.OutOrStdout(), "OpenVSX: %s\n", proj.OpenVSX)
+			if !proj.OpenVSX.IsEmpty() {
+				fmt.Fprintf(cmd.OutOrStdout(), "OpenVSX: %s\n", proj.OpenVSX.String())
 			}
 
 			if len(stats) > 0 {

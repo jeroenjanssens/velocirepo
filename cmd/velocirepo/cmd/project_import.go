@@ -99,7 +99,7 @@ func projectImportCmd() *cobra.Command {
 
 			fmt.Fprintf(os.Stdout, "Projects to add (%d):\n", len(toAdd))
 			for _, p := range toAdd {
-				fmt.Fprintf(os.Stdout, "  %s (%s)\n", p.ID, p.Project.GitHub)
+				fmt.Fprintf(os.Stdout, "  %s (%s)\n", p.ID, p.Project.GitHub.String())
 			}
 			if skipped > 0 {
 				fmt.Fprintf(os.Stdout, "  (%d skipped as existing)\n", skipped)
@@ -215,7 +215,7 @@ func fetchGitHubRepos(cmd *cobra.Command, endpoint string, filter string, includ
 				ID: id,
 				Project: config.Project{
 					Name:   r.Name,
-					GitHub: r.FullName,
+					GitHub: config.StringList{r.FullName},
 				},
 			})
 		}
@@ -272,12 +272,12 @@ func loadFromJSON(path string) ([]importEntry, error) {
 			ID: item.ID,
 			Project: config.Project{
 				Name:      name,
-				GitHub:    item.GitHub,
-				PyPI:      item.PyPI,
-				CRAN:      item.CRAN,
-				Homebrew:  item.Homebrew,
-				Plausible: item.Plausible,
-				OpenVSX:   item.OpenVSX,
+				GitHub:    toStringList(item.GitHub),
+				PyPI:      toStringList(item.PyPI),
+				CRAN:      toStringList(item.CRAN),
+				Homebrew:  toStringList(item.Homebrew),
+				Plausible: toStringList(item.Plausible),
+				OpenVSX:   toStringList(item.OpenVSX),
 			},
 		})
 	}
@@ -331,22 +331,22 @@ func loadFromCSV(path string) ([]importEntry, error) {
 			p.Name = id
 		}
 		if idx, ok := colIndex["github"]; ok && idx < len(row) {
-			p.GitHub = row[idx]
+			p.GitHub = toStringList(row[idx])
 		}
 		if idx, ok := colIndex["pypi"]; ok && idx < len(row) {
-			p.PyPI = row[idx]
+			p.PyPI = toStringList(row[idx])
 		}
 		if idx, ok := colIndex["cran"]; ok && idx < len(row) {
-			p.CRAN = row[idx]
+			p.CRAN = toStringList(row[idx])
 		}
 		if idx, ok := colIndex["homebrew"]; ok && idx < len(row) {
-			p.Homebrew = row[idx]
+			p.Homebrew = toStringList(row[idx])
 		}
 		if idx, ok := colIndex["plausible"]; ok && idx < len(row) {
-			p.Plausible = row[idx]
+			p.Plausible = toStringList(row[idx])
 		}
 		if idx, ok := colIndex["openvsx"]; ok && idx < len(row) {
-			p.OpenVSX = row[idx]
+			p.OpenVSX = toStringList(row[idx])
 		}
 
 		entries = append(entries, importEntry{ID: id, Project: p})

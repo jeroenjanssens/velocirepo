@@ -56,8 +56,8 @@ func TestAppendProject(t *testing.T) {
 
 	err := AppendProject(path, "beta", Project{
 		Name:   "Beta",
-		GitHub: "org/beta",
-		PyPI:   "beta-pkg",
+		GitHub: StringList{"org/beta"},
+		PyPI:   StringList{"beta-pkg"},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -87,7 +87,7 @@ func TestAppendProjectPreservesComments(t *testing.T) {
 	initial := "# Main config\n[data]\ndir = \"data\"\n\n# Alpha project\n[projects.alpha]\nname = \"Alpha\"\n"
 	os.WriteFile(path, []byte(initial), 0644)
 
-	err := AppendProject(path, "beta", Project{Name: "Beta", GitHub: "org/beta"})
+	err := AppendProject(path, "beta", Project{Name: "Beta", GitHub: StringList{"org/beta"}})
 	if err != nil {
 		t.Fatal(err)
 	}

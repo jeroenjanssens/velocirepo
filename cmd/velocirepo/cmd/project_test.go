@@ -550,11 +550,11 @@ func TestProjectInitCreatesConfig(t *testing.T) {
 		t.Fatal("config file not created")
 	}
 	content := string(data)
-	if !strings.Contains(content, `dir = "data"`) {
+	if !strings.Contains(content, `dir = "velocirepo/data"`) {
 		t.Errorf("missing data dir in config:\n%s", content)
 	}
 
-	dataDir := filepath.Join(dir, "data")
+	dataDir := filepath.Join(dir, "velocirepo/data")
 	if _, err := os.Stat(dataDir); os.IsNotExist(err) {
 		t.Error("data directory not created")
 	}

@@ -11,14 +11,15 @@ func fetchHomebrewCmd() *cobra.Command {
 		Use:   "homebrew",
 		Short: "Fetch Homebrew install counts",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runFetch(cmd, "homebrew", func(id string, proj config.Project) source.Source {
-				if proj.Homebrew == "" {
-					return nil
+			return runFetchMulti(cmd, "homebrew", func(id string, proj config.Project) []source.Source {
+				var sources []source.Source
+				for _, formula := range proj.Homebrew {
+					sources = append(sources, &source.Homebrew{
+						Client:  newHTTPClient(),
+						Formula: formula,
+					})
 				}
-				return &source.Homebrew{
-					Client:  newHTTPClient(),
-					Formula: proj.Homebrew,
-				}
+				return sources
 			})
 		},
 	}

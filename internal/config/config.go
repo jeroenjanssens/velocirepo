@@ -8,14 +8,60 @@ import (
 	"github.com/BurntSushi/toml"
 )
 
+// StringList is a TOML type that accepts either a single string or an array of strings.
+type StringList []string
+
+func (s *StringList) UnmarshalTOML(data interface{}) error {
+	switch v := data.(type) {
+	case string:
+		*s = StringList{v}
+	case []interface{}:
+		for _, item := range v {
+			str, ok := item.(string)
+			if !ok {
+				return fmt.Errorf("expected string in array, got %T", item)
+			}
+			*s = append(*s, str)
+		}
+	default:
+		return fmt.Errorf("expected string or array, got %T", data)
+	}
+	return nil
+}
+
+func (s StringList) IsEmpty() bool {
+	return len(s) == 0
+}
+
+func (s StringList) First() string {
+	if len(s) == 0 {
+		return ""
+	}
+	return s[0]
+}
+
+func (s StringList) String() string {
+	if len(s) == 0 {
+		return ""
+	}
+	if len(s) == 1 {
+		return s[0]
+	}
+	result := s[0]
+	for _, v := range s[1:] {
+		result += ", " + v
+	}
+	return result
+}
+
 type Project struct {
-	Name      string `toml:"name"`
-	GitHub    string `toml:"github"`
-	PyPI      string `toml:"pypi"`
-	CRAN      string `toml:"cran"`
-	Homebrew  string `toml:"homebrew"`
-	Plausible string `toml:"plausible"`
-	OpenVSX   string `toml:"openvsx"`
+	Name      string     `toml:"name"`
+	GitHub    StringList `toml:"github"`
+	PyPI      StringList `toml:"pypi"`
+	CRAN      StringList `toml:"cran"`
+	Homebrew  StringList `toml:"homebrew"`
+	Plausible StringList `toml:"plausible"`
+	OpenVSX   StringList `toml:"openvsx"`
 }
 
 type DataConfig struct {
@@ -38,7 +84,7 @@ type Config struct {
 func (c *Config) DataDir() string {
 	dir := c.Data.Dir
 	if dir == "" {
-		dir = "data"
+		dir = "velocirepo/data"
 	}
 	if filepath.IsAbs(dir) {
 		return dir

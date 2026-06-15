@@ -129,9 +129,9 @@ func TestValidateProject(t *testing.T) {
 	client.Transport = &rewriteTransport{base: http.DefaultTransport, target: srv.URL}
 
 	results := ValidateProject(context.Background(), ValidationOptions{Client: client}, "test", Project{
-		GitHub: "org/repo",
-		PyPI:   "mypkg",
-		CRAN:   "nonexistent",
+		GitHub: StringList{"org/repo"},
+		PyPI:   StringList{"mypkg"},
+		CRAN:   StringList{"nonexistent"},
 	})
 
 	if len(results) != 3 {

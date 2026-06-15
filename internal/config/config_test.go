@@ -47,11 +47,11 @@ pypi = "my-project"
 	if p.Name != "My Project" {
 		t.Errorf("Name = %q, want %q", p.Name, "My Project")
 	}
-	if p.GitHub != "owner/repo" {
-		t.Errorf("GitHub = %q, want %q", p.GitHub, "owner/repo")
+	if p.GitHub.First() != "owner/repo" {
+		t.Errorf("GitHub = %q, want %q", p.GitHub.First(), "owner/repo")
 	}
-	if p.PyPI != "my-project" {
-		t.Errorf("PyPI = %q, want %q", p.PyPI, "my-project")
+	if p.PyPI.First() != "my-project" {
+		t.Errorf("PyPI = %q, want %q", p.PyPI.First(), "my-project")
 	}
 }
 
@@ -86,8 +86,45 @@ cran = "beta"
 	if projects["alpha"].Name != "Alpha" {
 		t.Errorf("alpha.Name = %q, want %q", projects["alpha"].Name, "Alpha")
 	}
-	if projects["beta"].CRAN != "beta" {
-		t.Errorf("beta.CRAN = %q, want %q", projects["beta"].CRAN, "beta")
+	if projects["beta"].CRAN.First() != "beta" {
+		t.Errorf("beta.CRAN = %q, want %q", projects["beta"].CRAN.First(), "beta")
+	}
+}
+
+func TestLoadMultiValueSources(t *testing.T) {
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "velocirepo.toml")
+	content := `
+[projects.my-org]
+name = "My Org"
+github = ["org/repo-a", "org/repo-b"]
+pypi = ["pkg-one", "pkg-two"]
+cran = "single-pkg"
+`
+	if err := os.WriteFile(cfgPath, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := Load(cfgPath)
+	if err != nil {
+		t.Fatalf("Load failed: %v", err)
+	}
+
+	proj := cfg.ResolveProjects()["my-org"]
+	if len(proj.GitHub) != 2 {
+		t.Fatalf("GitHub has %d entries, want 2", len(proj.GitHub))
+	}
+	if proj.GitHub[0] != "org/repo-a" || proj.GitHub[1] != "org/repo-b" {
+		t.Errorf("GitHub = %v, want [org/repo-a, org/repo-b]", proj.GitHub)
+	}
+	if len(proj.PyPI) != 2 {
+		t.Fatalf("PyPI has %d entries, want 2", len(proj.PyPI))
+	}
+	if proj.CRAN.First() != "single-pkg" {
+		t.Errorf("CRAN = %q, want %q", proj.CRAN.First(), "single-pkg")
+	}
+	if len(proj.CRAN) != 1 {
+		t.Errorf("CRAN has %d entries, want 1", len(proj.CRAN))
 	}
 }
 
@@ -184,7 +221,7 @@ github = "org/test"
 		t.Fatalf("Load failed: %v", err)
 	}
 
-	want := filepath.Join(dir, "data")
+	want := filepath.Join(dir, "velocirepo/data")
 	if cfg.DataDir() != want {
 		t.Errorf("DataDir() = %q, want %q", cfg.DataDir(), want)
 	}

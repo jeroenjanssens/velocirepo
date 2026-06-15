@@ -45,23 +45,25 @@ func fetchAllCmd() *cobra.Command {
 
 			var jobs []fetchJob
 			for id, proj := range projects {
-				if proj.GitHub != "" {
-					jobs = append(jobs, fetchJob{"github", id, &source.GitHub{Client: client, Token: token, Repo: proj.GitHub}})
+				for _, repo := range proj.GitHub {
+					jobs = append(jobs, fetchJob{"github", id, &source.GitHub{Client: client, Token: token, Repo: repo}})
 				}
-				if proj.PyPI != "" {
-					jobs = append(jobs, fetchJob{"pypi", id, &source.PyPI{Client: client, Package: proj.PyPI}})
+				for _, pkg := range proj.PyPI {
+					jobs = append(jobs, fetchJob{"pypi", id, &source.PyPI{Client: client, Package: pkg}})
 				}
-				if proj.CRAN != "" {
-					jobs = append(jobs, fetchJob{"cran", id, &source.CRAN{Client: client, Package: proj.CRAN}})
+				for _, pkg := range proj.CRAN {
+					jobs = append(jobs, fetchJob{"cran", id, &source.CRAN{Client: client, Package: pkg}})
 				}
-				if proj.Homebrew != "" {
-					jobs = append(jobs, fetchJob{"homebrew", id, &source.Homebrew{Client: client, Formula: proj.Homebrew}})
+				for _, formula := range proj.Homebrew {
+					jobs = append(jobs, fetchJob{"homebrew", id, &source.Homebrew{Client: client, Formula: formula}})
 				}
-				if proj.Plausible != "" && pKey != "" {
-					jobs = append(jobs, fetchJob{"plausible", id, &source.Plausible{Client: client, APIKey: pKey, SiteID: proj.Plausible}})
+				if pKey != "" {
+					for _, site := range proj.Plausible {
+						jobs = append(jobs, fetchJob{"plausible", id, &source.Plausible{Client: client, APIKey: pKey, SiteID: site}})
+					}
 				}
-				if proj.OpenVSX != "" {
-					jobs = append(jobs, fetchJob{"openvsx", id, &source.OpenVSX{Client: client, ExtensionID: proj.OpenVSX}})
+				for _, ext := range proj.OpenVSX {
+					jobs = append(jobs, fetchJob{"openvsx", id, &source.OpenVSX{Client: client, ExtensionID: ext}})
 				}
 			}
 

@@ -78,7 +78,7 @@ func filterProjects(projects map[string]config.Project) map[string]config.Projec
 	return map[string]config.Project{fetchProject: p}
 }
 
-func runFetch(cmd *cobra.Command, sourceName string, createSource func(projectID string, project config.Project) source.Source) error {
+func runFetchMulti(cmd *cobra.Command, sourceName string, createSources func(projectID string, project config.Project) []source.Source) error {
 	projects := cfg.ResolveProjects()
 	if projects == nil {
 		return fmt.Errorf("no projects configured")
@@ -97,8 +97,8 @@ func runFetch(cmd *cobra.Command, sourceName string, createSource func(projectID
 	dataDir := cfg.DataDir()
 
 	for id, proj := range projects {
-		src := createSource(id, proj)
-		if src == nil {
+		sources := createSources(id, proj)
+		if len(sources) == 0 {
 			continue
 		}
 
@@ -113,31 +113,33 @@ func runFetch(cmd *cobra.Command, sourceName string, createSource func(projectID
 			continue
 		}
 
-		slog.Info("fetching", "source", sourceName, "project", id,
-			"start", startDate.Format("2006-01-02"),
-			"end", endDate.Format("2006-01-02"))
+		for _, src := range sources {
+			slog.Info("fetching", "source", sourceName, "project", id,
+				"start", startDate.Format("2006-01-02"),
+				"end", endDate.Format("2006-01-02"))
 
-		records, err := src.Fetch(cmd.Context(), source.FetchOptions{
-			ProjectID: id,
-			StartDate: startDate,
-			EndDate:   endDate,
-		})
-		if err != nil {
-			slog.Error("fetch failed", "source", sourceName, "project", id, "error", err)
-			continue
+			records, err := src.Fetch(cmd.Context(), source.FetchOptions{
+				ProjectID: id,
+				StartDate: startDate,
+				EndDate:   endDate,
+			})
+			if err != nil {
+				slog.Error("fetch failed", "source", sourceName, "project", id, "error", err)
+				continue
+			}
+
+			if len(records) == 0 {
+				slog.Info("no data", "source", sourceName, "project", id)
+				continue
+			}
+
+			if err := store.WriteRecords(dataDir, sourceName, id, records); err != nil {
+				slog.Error("write failed", "source", sourceName, "project", id, "error", err)
+				continue
+			}
+
+			slog.Info("wrote records", "source", sourceName, "project", id, "count", len(records))
 		}
-
-		if len(records) == 0 {
-			slog.Info("no data", "source", sourceName, "project", id)
-			continue
-		}
-
-		if err := store.WriteRecords(dataDir, sourceName, id, records); err != nil {
-			slog.Error("write failed", "source", sourceName, "project", id, "error", err)
-			continue
-		}
-
-		slog.Info("wrote records", "source", sourceName, "project", id, "count", len(records))
 	}
 
 	if !noAggregate {

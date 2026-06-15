@@ -38,7 +38,7 @@ jobs:
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
-          git add data/
+          git add velocirepo/
           git diff --staged --quiet || git commit -m "Update metrics - $(date -u +'%Y-%m-%d')"
           git push
 `
@@ -57,7 +57,7 @@ func ciInstallCmd() *cobra.Command {
 			needsPlausible := false
 			projects := cfg.ResolveProjects()
 			for _, p := range projects {
-				if p.Plausible != "" {
+				if !p.Plausible.IsEmpty() {
 					needsPlausible = true
 					break
 				}

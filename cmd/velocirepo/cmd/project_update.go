@@ -101,12 +101,12 @@ func projectUpdateInteractive(cfgPath string, id string, proj config.Project) er
 	fmt.Fprintf(os.Stdout, "Updating project '%s' (press Enter to keep current value):\n\n", id)
 
 	name := prompt(os.Stdout, reader, "Name", proj.Name, "")
-	github := prompt(os.Stdout, reader, "GitHub (owner/repo)", proj.GitHub, "")
-	pypi := prompt(os.Stdout, reader, "PyPI package", proj.PyPI, "")
-	cran := prompt(os.Stdout, reader, "CRAN package", proj.CRAN, "")
-	homebrew := prompt(os.Stdout, reader, "Homebrew formula", proj.Homebrew, "")
-	plausible := prompt(os.Stdout, reader, "Plausible site ID", proj.Plausible, "")
-	openvsx := prompt(os.Stdout, reader, "OpenVSX extension", proj.OpenVSX, "")
+	github := prompt(os.Stdout, reader, "GitHub (owner/repo)", proj.GitHub.First(), "")
+	pypi := prompt(os.Stdout, reader, "PyPI package", proj.PyPI.First(), "")
+	cran := prompt(os.Stdout, reader, "CRAN package", proj.CRAN.First(), "")
+	homebrew := prompt(os.Stdout, reader, "Homebrew formula", proj.Homebrew.First(), "")
+	plausible := prompt(os.Stdout, reader, "Plausible site ID", proj.Plausible.First(), "")
+	openvsx := prompt(os.Stdout, reader, "OpenVSX extension", proj.OpenVSX.First(), "")
 
 	if github != "" && !validGitHubRe.MatchString(github) {
 		return fmt.Errorf("invalid GitHub repo %q: must be owner/repo", github)
@@ -126,12 +126,12 @@ func projectUpdateInteractive(cfgPath string, id string, proj config.Project) er
 	}
 
 	updateOrUnset("name", name, proj.Name)
-	updateOrUnset("github", github, proj.GitHub)
-	updateOrUnset("pypi", pypi, proj.PyPI)
-	updateOrUnset("cran", cran, proj.CRAN)
-	updateOrUnset("homebrew", homebrew, proj.Homebrew)
-	updateOrUnset("plausible", plausible, proj.Plausible)
-	updateOrUnset("openvsx", openvsx, proj.OpenVSX)
+	updateOrUnset("github", github, proj.GitHub.First())
+	updateOrUnset("pypi", pypi, proj.PyPI.First())
+	updateOrUnset("cran", cran, proj.CRAN.First())
+	updateOrUnset("homebrew", homebrew, proj.Homebrew.First())
+	updateOrUnset("plausible", plausible, proj.Plausible.First())
+	updateOrUnset("openvsx", openvsx, proj.OpenVSX.First())
 
 	if len(updates) == 0 && len(unsets) == 0 {
 		fmt.Println("No changes.")

@@ -11,14 +11,15 @@ func fetchOpenVSXCmd() *cobra.Command {
 		Use:   "openvsx",
 		Short: "Fetch Open VSX extension metrics",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runFetch(cmd, "openvsx", func(id string, p config.Project) source.Source {
-				if p.OpenVSX == "" {
-					return nil
+			return runFetchMulti(cmd, "openvsx", func(id string, p config.Project) []source.Source {
+				var sources []source.Source
+				for _, ext := range p.OpenVSX {
+					sources = append(sources, &source.OpenVSX{
+						Client:      newHTTPClient(),
+						ExtensionID: ext,
+					})
 				}
-				return &source.OpenVSX{
-					Client:      newHTTPClient(),
-					ExtensionID: p.OpenVSX,
-				}
+				return sources
 			})
 		},
 	}

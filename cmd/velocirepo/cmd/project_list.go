@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"text/tabwriter"
 
+	"github.com/jeroenjanssens/velocirepo/internal/config"
 	"github.com/spf13/cobra"
 )
 
@@ -29,26 +30,26 @@ func projectListCmd() *cobra.Command {
 
 			if jsonOutput {
 				type projectJSON struct {
-					ID        string `json:"id"`
-					Name      string `json:"name"`
-					GitHub    string `json:"github,omitempty"`
-					PyPI      string `json:"pypi,omitempty"`
-					CRAN      string `json:"cran,omitempty"`
-					Homebrew  string `json:"homebrew,omitempty"`
-					Plausible string `json:"plausible,omitempty"`
-					OpenVSX   string `json:"openvsx,omitempty"`
+					ID        string   `json:"id"`
+					Name      string   `json:"name"`
+					GitHub    []string `json:"github,omitempty"`
+					PyPI      []string `json:"pypi,omitempty"`
+					CRAN      []string `json:"cran,omitempty"`
+					Homebrew  []string `json:"homebrew,omitempty"`
+					Plausible []string `json:"plausible,omitempty"`
+					OpenVSX   []string `json:"openvsx,omitempty"`
 				}
 				var list []projectJSON
 				for id, p := range projects {
 					list = append(list, projectJSON{
 						ID:        id,
 						Name:      p.Name,
-						GitHub:    p.GitHub,
-						PyPI:      p.PyPI,
-						CRAN:      p.CRAN,
-						Homebrew:  p.Homebrew,
-						Plausible: p.Plausible,
-						OpenVSX:   p.OpenVSX,
+						GitHub:    []string(p.GitHub),
+						PyPI:      []string(p.PyPI),
+						CRAN:      []string(p.CRAN),
+						Homebrew:  []string(p.Homebrew),
+						Plausible: []string(p.Plausible),
+						OpenVSX:   []string(p.OpenVSX),
 					})
 				}
 				enc := json.NewEncoder(out)
@@ -67,12 +68,12 @@ func projectListCmd() *cobra.Command {
 				fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
 					id,
 					valOrDash(p.Name),
-					valOrDash(p.GitHub),
-					valOrDash(p.PyPI),
-					valOrDash(p.CRAN),
-					valOrDash(p.Homebrew),
-					valOrDash(p.Plausible),
-					valOrDash(p.OpenVSX),
+					sliceOrDash(p.GitHub),
+					sliceOrDash(p.PyPI),
+					sliceOrDash(p.CRAN),
+					sliceOrDash(p.Homebrew),
+					sliceOrDash(p.Plausible),
+					sliceOrDash(p.OpenVSX),
 				)
 			}
 			return w.Flush()
@@ -90,4 +91,11 @@ func valOrDash(s string) string {
 		return "—"
 	}
 	return s
+}
+
+func sliceOrDash(s config.StringList) string {
+	if s.IsEmpty() {
+		return "—"
+	}
+	return s.String()
 }

@@ -34,7 +34,7 @@ func projectValidateCmd() *cobra.Command {
 			token := os.Getenv("GITHUB_TOKEN")
 			if token == "" {
 				for _, p := range projects {
-					if p.GitHub != "" {
+					if !p.GitHub.IsEmpty() {
 						fmt.Fprintln(os.Stderr, "Warning: GITHUB_TOKEN not set (private repos will fail)")
 						break
 					}

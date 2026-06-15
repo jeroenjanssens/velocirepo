@@ -159,25 +159,31 @@ func formatProjectSection(id string, project Project) string {
 	if project.Name != "" {
 		fmt.Fprintf(&b, "name = %q\n", project.Name)
 	}
-	if project.GitHub != "" {
-		fmt.Fprintf(&b, "github = %q\n", project.GitHub)
-	}
-	if project.PyPI != "" {
-		fmt.Fprintf(&b, "pypi = %q\n", project.PyPI)
-	}
-	if project.CRAN != "" {
-		fmt.Fprintf(&b, "cran = %q\n", project.CRAN)
-	}
-	if project.Homebrew != "" {
-		fmt.Fprintf(&b, "homebrew = %q\n", project.Homebrew)
-	}
-	if project.Plausible != "" {
-		fmt.Fprintf(&b, "plausible = %q\n", project.Plausible)
-	}
-	if project.OpenVSX != "" {
-		fmt.Fprintf(&b, "openvsx = %q\n", project.OpenVSX)
-	}
+	writeStringList(&b, "github", project.GitHub)
+	writeStringList(&b, "pypi", project.PyPI)
+	writeStringList(&b, "cran", project.CRAN)
+	writeStringList(&b, "homebrew", project.Homebrew)
+	writeStringList(&b, "plausible", project.Plausible)
+	writeStringList(&b, "openvsx", project.OpenVSX)
 	return b.String()
+}
+
+func writeStringList(b *strings.Builder, key string, values StringList) {
+	if len(values) == 0 {
+		return
+	}
+	if len(values) == 1 {
+		fmt.Fprintf(b, "%s = %q\n", key, values[0])
+		return
+	}
+	fmt.Fprintf(b, "%s = [", key)
+	for i, v := range values {
+		if i > 0 {
+			b.WriteString(", ")
+		}
+		fmt.Fprintf(b, "%q", v)
+	}
+	b.WriteString("]\n")
 }
 
 func extractKey(line string) string {

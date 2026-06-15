@@ -17,15 +17,16 @@ func fetchPlausibleCmd() *cobra.Command {
 			if key == "" {
 				return fmt.Errorf("PLAUSIBLE_KEY environment variable is required")
 			}
-			return runFetch(cmd, "plausible", func(id string, p config.Project) source.Source {
-				if p.Plausible == "" {
-					return nil
+			return runFetchMulti(cmd, "plausible", func(id string, p config.Project) []source.Source {
+				var sources []source.Source
+				for _, site := range p.Plausible {
+					sources = append(sources, &source.Plausible{
+						Client: newHTTPClient(),
+						APIKey: key,
+						SiteID: site,
+					})
 				}
-				return &source.Plausible{
-					Client: newHTTPClient(),
-					APIKey: key,
-					SiteID: p.Plausible,
-				}
+				return sources
 			})
 		},
 	}
