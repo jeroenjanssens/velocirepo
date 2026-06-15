@@ -149,6 +149,8 @@ velocirepo fetch plausible       Fetch Plausible analytics
 velocirepo fetch openvsx         Fetch Open VSX install counts
 velocirepo fetch all             Fetch from all configured sources
 
+velocirepo export -o FILE    Export all metrics to Parquet or CSV
+
 velocirepo query run [sql]   Run a SQL query against the metrics data
 velocirepo query schema      Show the metrics table schema
 

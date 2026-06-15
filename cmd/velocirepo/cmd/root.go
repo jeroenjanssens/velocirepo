@@ -46,6 +46,7 @@ func newRootCmd() *cobra.Command {
 	rootCmd.AddCommand(versionCmd())
 	rootCmd.AddCommand(fetchCmd())
 	rootCmd.AddCommand(queryCmd())
+	rootCmd.AddCommand(exportCmd())
 	rootCmd.AddCommand(ciCmd())
 	rootCmd.AddCommand(projectCmd())
 
