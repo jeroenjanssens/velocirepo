@@ -168,6 +168,7 @@ func formatProjectSection(id string, project Project) string {
 	}
 	writeStringList(&b, "github", project.GitHub)
 	writeStringList(&b, "github-traffic", project.GitHubTraffic)
+	writeStringList(&b, "github-events", project.GitHubEvents)
 	writeStringList(&b, "pypi", project.PyPI)
 	writeStringList(&b, "cran", project.CRAN)
 	writeStringList(&b, "homebrew", project.Homebrew)
