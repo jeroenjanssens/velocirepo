@@ -195,12 +195,14 @@ jobs:
             artifacts/SHA256SUMS
           generate_release_notes: true
 
-      - name: Update major version tag
+      - name: Update floating version tags
         run: |
           TAG="${{ needs.validate-tag.outputs.tag_name }}"
           MAJOR="v$(echo "$TAG" | cut -d. -f1 | tr -d v)"
+          MINOR="$(echo "$TAG" | cut -d. -f1-2)"
           git tag -f "$MAJOR" "$TAG"
-          git push origin "$MAJOR" --force
+          git tag -f "$MINOR" "$TAG"
+          git push origin "$MAJOR" "$MINOR" --force
 
   update-homebrew:
     needs: [validate-tag, release]
