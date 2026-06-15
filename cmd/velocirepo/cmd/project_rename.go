@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/jeroenjanssens/velocirepo/internal/config"
 	"github.com/spf13/cobra"
@@ -70,12 +71,5 @@ func projectRenameCmd() *cobra.Command {
 }
 
 func joinComma(s []string) string {
-	result := ""
-	for i, v := range s {
-		if i > 0 {
-			result += ", "
-		}
-		result += v
-	}
-	return result
+	return strings.Join(s, ", ")
 }

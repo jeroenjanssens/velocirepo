@@ -15,7 +15,7 @@ func FindSection(lines []string, header string) (start, end int, found bool) {
 			found = true
 			for j := i + 1; j < len(lines); j++ {
 				trimmed := strings.TrimSpace(lines[j])
-				if strings.HasPrefix(trimmed, "[") && !strings.HasPrefix(trimmed, "[[") {
+				if strings.HasPrefix(trimmed, "[") {
 					return start, j, true
 				}
 			}
@@ -144,13 +144,20 @@ func RenameSection(path string, oldID string, newID string) error {
 	oldHeader := "[projects." + oldID + "]"
 	newHeader := "[projects." + newID + "]"
 
-	content := string(data)
-	if !strings.Contains(content, oldHeader) {
+	lines := strings.Split(string(data), "\n")
+	found := false
+	for i, line := range lines {
+		if strings.TrimSpace(line) == oldHeader {
+			lines[i] = newHeader
+			found = true
+			break
+		}
+	}
+	if !found {
 		return fmt.Errorf("project %q not found in config", oldID)
 	}
 
-	content = strings.Replace(content, oldHeader, newHeader, 1)
-	return os.WriteFile(path, []byte(content), 0644)
+	return os.WriteFile(path, []byte(strings.Join(lines, "\n")), 0644)
 }
 
 func formatProjectSection(id string, project Project) string {

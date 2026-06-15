@@ -26,7 +26,7 @@ func newRootCmd() *cobra.Command {
 			cmd.SilenceUsage = true
 			setupLogging()
 
-			if cmd.Name() == "version" || cmd.Name() == "init" {
+			if cmd.Name() == "version" || cmd.CommandPath() == "velocirepo project init" {
 				return nil
 			}
 

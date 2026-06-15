@@ -17,7 +17,7 @@ func ExportParquet(dataDir, outPath string) error {
 		return fmt.Errorf("resolve output path: %w", err)
 	}
 
-	query := fmt.Sprintf(`COPY (SELECT * FROM metrics ORDER BY project, source, metric, date) TO '%s' (FORMAT PARQUET)`, absOut)
+	query := fmt.Sprintf(`COPY (SELECT * FROM metrics ORDER BY project, source, metric, date) TO '%s' (FORMAT PARQUET)`, escapeSQLString(absOut))
 	if _, err := db.Exec(query); err != nil {
 		return fmt.Errorf("export parquet: %w", err)
 	}
@@ -36,7 +36,7 @@ func ExportCSV(dataDir, outPath string) error {
 		return fmt.Errorf("resolve output path: %w", err)
 	}
 
-	query := fmt.Sprintf(`COPY (SELECT * FROM metrics ORDER BY project, source, metric, date) TO '%s' (FORMAT CSV, HEADER)`, absOut)
+	query := fmt.Sprintf(`COPY (SELECT * FROM metrics ORDER BY project, source, metric, date) TO '%s' (FORMAT CSV, HEADER)`, escapeSQLString(absOut))
 	if _, err := db.Exec(query); err != nil {
 		return fmt.Errorf("export csv: %w", err)
 	}

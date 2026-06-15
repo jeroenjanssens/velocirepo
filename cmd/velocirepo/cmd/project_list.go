@@ -83,7 +83,7 @@ func projectListCmd() *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "output as JSON")
-	cmd.Flags().BoolVarP(&quietOutput, "quiet", "q", false, "output only project IDs")
+	cmd.Flags().BoolVar(&quietOutput, "ids-only", false, "output only project IDs")
 
 	return cmd
 }

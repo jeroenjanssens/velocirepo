@@ -33,31 +33,47 @@ func WriteRecords(dataDir, sourceName, projectID string, records []source.Record
 		}
 
 		path := filepath.Join(dir, date+".jsonl")
-		f, err := os.Create(path)
-		if err != nil {
-			return fmt.Errorf("create file %s: %w", path, err)
-		}
-
-		w := bufio.NewWriter(f)
-		for _, r := range dateRecords {
-			data, err := json.Marshal(r)
-			if err != nil {
-				f.Close()
-				return fmt.Errorf("marshal record: %w", err)
-			}
-			w.Write(data)
-			w.WriteByte('\n')
-		}
-
-		if err := w.Flush(); err != nil {
-			f.Close()
-			return fmt.Errorf("flush %s: %w", path, err)
-		}
-		if err := f.Close(); err != nil {
-			return fmt.Errorf("close %s: %w", path, err)
+		if err := writeFileAtomic(path, dateRecords); err != nil {
+			return err
 		}
 	}
 
+	return nil
+}
+
+func writeFileAtomic(path string, records []source.Record) error {
+	dir := filepath.Dir(path)
+	tmp, err := os.CreateTemp(dir, ".tmp-*.jsonl")
+	if err != nil {
+		return fmt.Errorf("create temp file in %s: %w", dir, err)
+	}
+	tmpPath := tmp.Name()
+
+	w := bufio.NewWriter(tmp)
+	for _, r := range records {
+		data, err := json.Marshal(r)
+		if err != nil {
+			tmp.Close()
+			os.Remove(tmpPath)
+			return fmt.Errorf("marshal record: %w", err)
+		}
+		w.Write(data)
+		w.WriteByte('\n')
+	}
+
+	if err := w.Flush(); err != nil {
+		tmp.Close()
+		os.Remove(tmpPath)
+		return fmt.Errorf("flush %s: %w", tmpPath, err)
+	}
+	if err := tmp.Close(); err != nil {
+		os.Remove(tmpPath)
+		return fmt.Errorf("close %s: %w", tmpPath, err)
+	}
+	if err := os.Rename(tmpPath, path); err != nil {
+		os.Remove(tmpPath)
+		return fmt.Errorf("rename %s -> %s: %w", tmpPath, path, err)
+	}
 	return nil
 }
 
@@ -70,6 +86,7 @@ func ReadRecords(path string) ([]source.Record, error) {
 
 	var records []source.Record
 	scanner := bufio.NewScanner(f)
+	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
 	for scanner.Scan() {
 		var r source.Record
 		if err := json.Unmarshal(scanner.Bytes(), &r); err != nil {

@@ -20,7 +20,7 @@ All tests run offline using httptest — no network access required.
 
 - `cmd/velocirepo/` — CLI entrypoint and Cobra commands
 - `internal/config/` — TOML config loading (BurntSushi/toml)
-- `internal/source/` — Fetcher implementations (GitHub, PyPI, CRAN, Homebrew, Plausible, OpenVSX)
+- `internal/source/` — Fetcher implementations (GitHub, GitHub Traffic, PyPI, CRAN, Homebrew, Plausible, OpenVSX)
 - `internal/store/` — JSONL read/write, aggregation, DuckDB build
 - `internal/version/` — Version vars injected via ldflags
 

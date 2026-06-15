@@ -156,6 +156,9 @@ velocirepo query schema      Show the metrics table schema
 
 velocirepo project init      Create a new velocirepo.toml
 velocirepo project add       Add a project to the config
+velocirepo project update    Update a project's configuration
+velocirepo project remove    Remove a project from the config
+velocirepo project rename    Rename a project's ID
 velocirepo project list      List configured projects
 velocirepo project show      Show project details
 velocirepo project import    Bulk-import from GitHub org/user or file

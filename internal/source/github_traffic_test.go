@@ -27,6 +27,9 @@ func TestGitHubTrafficFetch(t *testing.T) {
 	}`
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("per") != "day" {
+			t.Errorf("expected per=day query param, got %q", r.URL.Query().Get("per"))
+		}
 		switch r.URL.Path {
 		case "/repos/owner/repo/traffic/views":
 			w.Write([]byte(viewsResp))

@@ -19,10 +19,6 @@ func exportCmd() *cobra.Command {
 		Long:  "Export all metrics data to Parquet or CSV format. The format is determined by the file extension.",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if output == "" {
-				return fmt.Errorf("--output flag is required")
-			}
-
 			ext := strings.ToLower(filepath.Ext(output))
 			dataDir := cfg.DataDir()
 

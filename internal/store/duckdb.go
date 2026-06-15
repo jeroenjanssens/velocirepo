@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"path/filepath"
+	"strings"
 
 	_ "github.com/marcboeker/go-duckdb"
 )
@@ -74,7 +75,7 @@ func openLiveDB(dataDir string) (*sql.DB, error) {
 		FROM read_json('%s',
 			format='newline_delimited',
 			columns={source: 'VARCHAR', metric: 'VARCHAR', project_id: 'VARCHAR', date: 'VARCHAR', value: 'BIGINT', tags: 'JSON'})`,
-		glob)
+		escapeSQLString(glob))
 
 	if _, err := db.Exec(query); err != nil {
 		slog.Debug("live view creation failed, using empty view", "error", err)
@@ -88,6 +89,10 @@ func openLiveDB(dataDir string) (*sql.DB, error) {
 	}
 
 	return db, nil
+}
+
+func escapeSQLString(s string) string {
+	return strings.ReplaceAll(s, "'", "''")
 }
 
 func queryRows(db *sql.DB, query string) ([]map[string]interface{}, error) {

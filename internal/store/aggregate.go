@@ -1,7 +1,6 @@
 package store
 
 import (
-	"encoding/json"
 	"fmt"
 	"log/slog"
 	"os"
@@ -89,12 +88,14 @@ func aggregateDailyToMonthly(projDir string, now time.Time) error {
 		})
 
 		outPath := filepath.Join(projDir, yearMonth+".jsonl")
-		if err := writeRecordsToFile(outPath, records); err != nil {
+		if err := writeFileAtomic(outPath, records); err != nil {
 			return err
 		}
 
 		for _, f := range files {
-			os.Remove(f)
+			if err := os.Remove(f); err != nil {
+				slog.Warn("remove source file", "path", f, "error", err)
+			}
 		}
 
 		slog.Debug("aggregated daily to monthly", "month", yearMonth, "files", len(files))
@@ -138,12 +139,14 @@ func aggregateMonthlyToYearly(projDir string, now time.Time) error {
 		})
 
 		outPath := filepath.Join(projDir, year+".jsonl")
-		if err := writeRecordsToFile(outPath, records); err != nil {
+		if err := writeFileAtomic(outPath, records); err != nil {
 			return err
 		}
 
 		for _, f := range files {
-			os.Remove(f)
+			if err := os.Remove(f); err != nil {
+				slog.Warn("remove source file", "path", f, "error", err)
+			}
 		}
 
 		slog.Debug("aggregated monthly to yearly", "year", year, "files", len(files))
@@ -199,6 +202,8 @@ func dedup(records []source.Record) []source.Record {
 
 func dedupKey(r source.Record) string {
 	var b strings.Builder
+	b.WriteString(r.Source)
+	b.WriteByte('|')
 	b.WriteString(r.ProjectID)
 	b.WriteByte('|')
 	b.WriteString(r.Metric)
@@ -222,18 +227,3 @@ func dedupKey(r source.Record) string {
 	return b.String()
 }
 
-func writeRecordsToFile(path string, records []source.Record) error {
-	f, err := os.Create(path)
-	if err != nil {
-		return fmt.Errorf("create %s: %w", path, err)
-	}
-	defer f.Close()
-
-	enc := json.NewEncoder(f)
-	for _, r := range records {
-		if err := enc.Encode(r); err != nil {
-			return fmt.Errorf("encode record to %s: %w", path, err)
-		}
-	}
-	return nil
-}

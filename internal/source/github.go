@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 )
@@ -70,8 +71,8 @@ func (g *GitHub) fetchStars(ctx context.Context, owner, repo string, opts FetchO
 	url := fmt.Sprintf("%s/repos/%s/%s/stargazers", g.baseURL(), owner, repo)
 
 	err := g.paginate(ctx, url, map[string]string{
-		"Accept": "application/vnd.github.v3.star+json",
-	}, nil, func(data []byte) (bool, error) {
+		"Accept": "application/vnd.github.star+json",
+	}, map[string]string{"direction": "desc"}, func(data []byte) (bool, error) {
 		var items []struct {
 			StarredAt string `json:"starred_at"`
 		}
@@ -87,11 +88,11 @@ func (g *GitHub) fetchStars(ctx context.Context, owner, repo string, opts FetchO
 			if err != nil {
 				continue
 			}
-			if t.Before(opts.StartDate) {
-				return false, nil
-			}
 			if !t.Before(opts.EndDate.AddDate(0, 0, 1)) {
 				continue
+			}
+			if t.Before(opts.StartDate) {
+				return false, nil
 			}
 			counts[t.Format("2006-01-02")]++
 		}
@@ -279,11 +280,13 @@ func (g *GitHub) fetchComments(ctx context.Context, owner, repo string, opts Fet
 	return countsToRecords(counts, opts.ProjectID, "comments"), nil
 }
 
+const maxPages = 1000
+
 func (g *GitHub) paginate(ctx context.Context, baseURL string, headers map[string]string, params map[string]string, fn func([]byte) (bool, error)) error {
 	page := 1
 	perPage := "100"
 
-	for {
+	for page <= maxPages {
 		req, err := http.NewRequestWithContext(ctx, "GET", baseURL, nil)
 		if err != nil {
 			return err
@@ -292,6 +295,7 @@ func (g *GitHub) paginate(ctx context.Context, baseURL string, headers map[strin
 		if g.Token != "" {
 			req.Header.Set("Authorization", "Bearer "+g.Token)
 		}
+		req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
 		for k, v := range headers {
 			req.Header.Set(k, v)
 		}
@@ -314,11 +318,10 @@ func (g *GitHub) paginate(ctx context.Context, baseURL string, headers map[strin
 			return fmt.Errorf("github API %s returned %d", req.URL.Path, resp.StatusCode)
 		}
 
-		var body []byte
-		body, err = readBody(resp)
+		body, err := io.ReadAll(resp.Body)
 		resp.Body.Close()
 		if err != nil {
-			return err
+			return fmt.Errorf("read response body: %w", err)
 		}
 
 		cont, err := fn(body)
@@ -331,25 +334,9 @@ func (g *GitHub) paginate(ctx context.Context, baseURL string, headers map[strin
 
 		page++
 	}
+	return fmt.Errorf("pagination exceeded %d pages for %s", maxPages, baseURL)
 }
 
-func readBody(resp *http.Response) ([]byte, error) {
-	var buf []byte
-	tmp := make([]byte, 4096)
-	for {
-		n, err := resp.Body.Read(tmp)
-		if n > 0 {
-			buf = append(buf, tmp[:n]...)
-		}
-		if err != nil {
-			if err.Error() == "EOF" {
-				break
-			}
-			return buf, err
-		}
-	}
-	return buf, nil
-}
 
 func parseGitHubTime(s string) (time.Time, error) {
 	t, err := time.Parse(time.RFC3339, s)

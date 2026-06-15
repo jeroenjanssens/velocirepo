@@ -89,7 +89,7 @@ name = "Beta"
 github = "org/beta"
 `)
 
-	_, buf, err := execCmd(cfgPath, "project", "list", "-q")
+	_, buf, err := execCmd(cfgPath, "project", "list", "--ids-only")
 	if err != nil {
 		t.Fatal(err)
 	}

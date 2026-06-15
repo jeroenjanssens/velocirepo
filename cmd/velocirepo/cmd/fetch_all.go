@@ -3,7 +3,7 @@ package cmd
 import (
 	"fmt"
 	"log/slog"
-	"os"
+	"sync/atomic"
 	"time"
 
 	"github.com/jeroenjanssens/velocirepo/internal/source"
@@ -64,12 +64,15 @@ func fetchAllCmd() *cobra.Command {
 					for _, site := range proj.Plausible {
 						jobs = append(jobs, fetchJob{"plausible", id, &source.Plausible{Client: client, APIKey: pKey, SiteID: site}})
 					}
+				} else if !proj.Plausible.IsEmpty() {
+					slog.Warn("skipping plausible: PLAUSIBLE_KEY not set", "project", id)
 				}
 				for _, ext := range proj.OpenVSX {
 					jobs = append(jobs, fetchJob{"openvsx", id, &source.OpenVSX{Client: client, ExtensionID: ext}})
 				}
 			}
 
+			var fetchErrors atomic.Int32
 			g, ctx := errgroup.WithContext(cmd.Context())
 			g.SetLimit(4)
 
@@ -79,6 +82,7 @@ func fetchAllCmd() *cobra.Command {
 					startDate, err := resolveStartDate(dataDir, job.sourceName, job.projectID)
 					if err != nil {
 						slog.Error("resolve start date", "source", job.sourceName, "project", job.projectID, "error", err)
+						fetchErrors.Add(1)
 						return nil
 					}
 
@@ -96,6 +100,7 @@ func fetchAllCmd() *cobra.Command {
 					})
 					if err != nil {
 						slog.Error("fetch failed", "source", job.sourceName, "project", job.projectID, "error", err)
+						fetchErrors.Add(1)
 						return nil
 					}
 
@@ -105,6 +110,7 @@ func fetchAllCmd() *cobra.Command {
 
 					if err := store.WriteRecords(dataDir, job.sourceName, job.projectID, records); err != nil {
 						slog.Error("write failed", "source", job.sourceName, "project", job.projectID, "error", err)
+						fetchErrors.Add(1)
 					} else {
 						slog.Info("wrote records", "source", job.sourceName, "project", job.projectID, "count", len(records))
 					}
@@ -113,9 +119,7 @@ func fetchAllCmd() *cobra.Command {
 				})
 			}
 
-			if err := g.Wait(); err != nil {
-				fmt.Fprintf(os.Stderr, "fetch all: %v\n", err)
-			}
+			g.Wait()
 
 			if !noAggregate {
 				if err := store.Aggregate(dataDir, time.Now().UTC()); err != nil {
@@ -123,6 +127,9 @@ func fetchAllCmd() *cobra.Command {
 				}
 			}
 
+			if n := fetchErrors.Load(); n > 0 {
+				return fmt.Errorf("%d source(s) failed to fetch", n)
+			}
 			return nil
 		},
 	}

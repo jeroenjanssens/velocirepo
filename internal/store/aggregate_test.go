@@ -98,7 +98,7 @@ func TestAggregateMonthlyToYearly(t *testing.T) {
 			{Metric: "downloads", ProjectID: "pkg", Date: date, Value: int64(month * 1000)},
 		}
 		monthStr := time.Date(2024, time.Month(month), 1, 0, 0, 0, 0, time.UTC).Format("2006-01")
-		if err := writeRecordsToFile(filepath.Join(projDir, monthStr+".jsonl"), records); err != nil {
+		if err := writeFileAtomic(filepath.Join(projDir, monthStr+".jsonl"), records); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -147,10 +147,10 @@ func TestAggregateDedup(t *testing.T) {
 		{Metric: "downloads", ProjectID: "mylib", Date: "2025-01-02", Value: 200},
 	}
 
-	if err := writeRecordsToFile(filepath.Join(projDir, "2025-01-01.jsonl"), r1); err != nil {
+	if err := writeFileAtomic(filepath.Join(projDir, "2025-01-01.jsonl"), r1); err != nil {
 		t.Fatal(err)
 	}
-	if err := writeRecordsToFile(filepath.Join(projDir, "2025-01-02.jsonl"), r2); err != nil {
+	if err := writeFileAtomic(filepath.Join(projDir, "2025-01-02.jsonl"), r2); err != nil {
 		t.Fatal(err)
 	}
 
@@ -182,7 +182,7 @@ func TestAggregateDedupWithTags(t *testing.T) {
 		{Metric: "views", ProjectID: "proj", Date: "2025-01-01", Value: 100, Tags: map[string]string{"video_id": "a"}},
 	}
 
-	if err := writeRecordsToFile(filepath.Join(projDir, "2025-01-01.jsonl"), records); err != nil {
+	if err := writeFileAtomic(filepath.Join(projDir, "2025-01-01.jsonl"), records); err != nil {
 		t.Fatal(err)
 	}
 

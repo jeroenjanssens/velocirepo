@@ -1,6 +1,9 @@
 bin/
+dist/
+wheels/
+__pycache__/
+*.egg-info/
 data/
 devrel-io/
 plan.md
 research.md
-/velocirepo

@@ -71,7 +71,7 @@ func projectValidateCmd() *cobra.Command {
 				len(projects), totalSources, passed, failed)
 
 			if failed > 0 {
-				os.Exit(1)
+				return fmt.Errorf("%d source(s) failed validation", failed)
 			}
 			return nil
 		},

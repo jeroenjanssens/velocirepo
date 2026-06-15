@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 	"text/tabwriter"
 
@@ -27,7 +28,7 @@ func queryRunCmd() *cobra.Command {
 	var outputFormat string
 
 	cmd := &cobra.Command{
-		Use:   "run [sql]",
+		Use:   "run <sql>",
 		Short: "Run an arbitrary SQL query",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -110,19 +111,18 @@ func sortColumns(cols []string) {
 		"value":   4,
 		"tags":    5,
 	}
-	for i := 0; i < len(cols); i++ {
-		for j := i + 1; j < len(cols); j++ {
-			oi, oki := order[cols[i]]
-			oj, okj := order[cols[j]]
-			if !oki {
-				oi = 100
-			}
-			if !okj {
-				oj = 100
-			}
-			if oi > oj || (oi == oj && cols[i] > cols[j]) {
-				cols[i], cols[j] = cols[j], cols[i]
-			}
+	sort.Slice(cols, func(i, j int) bool {
+		oi, oki := order[cols[i]]
+		oj, okj := order[cols[j]]
+		if !oki {
+			oi = 100
 		}
-	}
+		if !okj {
+			oj = 100
+		}
+		if oi != oj {
+			return oi < oj
+		}
+		return cols[i] < cols[j]
+	})
 }

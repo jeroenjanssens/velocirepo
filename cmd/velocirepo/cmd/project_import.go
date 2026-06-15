@@ -264,6 +264,9 @@ func loadFromJSON(path string) ([]importEntry, error) {
 		if item.ID == "" {
 			return nil, fmt.Errorf("JSON entry missing 'id' field")
 		}
+		if !validIDRe.MatchString(item.ID) {
+			return nil, fmt.Errorf("invalid project ID %q: must be lowercase alphanumeric with hyphens", item.ID)
+		}
 		name := item.Name
 		if name == "" {
 			name = item.ID
@@ -321,6 +324,9 @@ func loadFromCSV(path string) ([]importEntry, error) {
 		id := row[idIdx]
 		if id == "" {
 			continue
+		}
+		if !validIDRe.MatchString(id) {
+			return nil, fmt.Errorf("invalid project ID %q: must be lowercase alphanumeric with hyphens", id)
 		}
 
 		p := config.Project{}
