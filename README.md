@@ -2,7 +2,8 @@
 
 velocirepo fetches and aggregates metrics for your open-source projects, building a historical record you can query and commit to git. It currently supports the following sources:
 
-- **GitHub** — stars, forks, issues, pull requests, comments
+- **GitHub** — cumulative totals (stars, forks, open issues, open PRs, comments)
+- **GitHub Events** — daily activity counts (stars, forks, issues, PRs, pushes, releases, comments, reviews)
 - **GitHub Traffic** — daily page views and git clones (requires admin access)
 - **PyPI** — daily download counts
 - **CRAN** — daily download counts
@@ -19,6 +20,7 @@ Create a `velocirepo.toml` in your project root:
 name = "My Project"
 github = "owner/repo"
 github-traffic = "owner/repo"
+github-events = "owner/repo"
 pypi = "my-package"
 
 [projects.other-project]
@@ -154,6 +156,7 @@ Pre-built binaries for Linux, macOS, and Windows are available on the [Releases]
 ```
 velocirepo fetch github          Fetch GitHub metrics (stars, forks, issues, PRs, comments)
 velocirepo fetch github-traffic  Fetch GitHub traffic (views and clones)
+velocirepo fetch github-events   Fetch GitHub event activity
 velocirepo fetch pypi            Fetch PyPI download counts
 velocirepo fetch cran            Fetch CRAN download counts
 velocirepo fetch homebrew        Fetch Homebrew install counts
@@ -179,6 +182,99 @@ velocirepo project validate  Validate source URLs
 velocirepo ci install        Generate a GitHub Actions workflow
 
 velocirepo version           Print version information
+```
+
+## Querying the data
+
+velocirepo stores all fetched data as JSONL files. You can query them directly using SQL (powered by DuckDB). Three views are available: `metrics`, `github_events`, and `projects`.
+
+### Total stars per project from event history
+
+```bash
+velocirepo query run "
+  SELECT p.name, COUNT(*) AS stars
+  FROM github_events e
+  JOIN projects p ON e.project = p.id
+  WHERE e.event_type = 'star'
+  GROUP BY p.name
+  ORDER BY stars DESC
+  LIMIT 5
+"
+```
+
+```
+┌─────────────┬───────┐
+│    name     │ stars │
+├─────────────┼───────┤
+│ ggplot2     │ 6877  │
+│ Shiny for R │ 5600  │
+│ Quarto      │ 5274  │
+│ dplyr       │ 4995  │
+│ plotnine    │ 4500  │
+└─────────────┴───────┘
+```
+
+### Monthly star activity for a project
+
+```bash
+velocirepo query run "
+  SELECT date_trunc('month', datetime)::DATE AS month, COUNT(*) AS stars
+  FROM github_events
+  WHERE project = 'quarto' AND event_type = 'star'
+  GROUP BY month
+  ORDER BY month DESC
+  LIMIT 5
+"
+```
+
+```
+┌────────────┬───────┐
+│   month    │ stars │
+├────────────┼───────┤
+│ 2026-02-01 │ 40    │
+│ 2026-01-01 │ 107   │
+│ 2025-12-01 │ 91    │
+│ 2025-11-01 │ 97    │
+│ 2025-10-01 │ 85    │
+└────────────┴───────┘
+```
+
+### Latest cumulative metrics
+
+```bash
+velocirepo query run "
+  SELECT project, metric, date, value
+  FROM metrics
+  ORDER BY date DESC
+  LIMIT 5
+"
+```
+
+```
+┌───────────┬─────────────────┬────────────┬─────────┐
+│  project  │     metric      │    date    │  value  │
+├───────────┼─────────────────┼────────────┼─────────┤
+│ databot   │ total_downloads │ 2026-06-16 │ 49504   │
+│ databot   │ rating          │ 2026-06-16 │ 5       │
+│ databot   │ reviews         │ 2026-06-16 │ 1       │
+│ publisher │ total_downloads │ 2026-06-16 │ 1562247 │
+│ publisher │ reviews         │ 2026-06-16 │ 0       │
+└───────────┴─────────────────┴────────────┴─────────┘
+```
+
+### Output formats
+
+By default, results are printed as a table. Use `--json` or `--csv` for machine-readable output:
+
+```bash
+velocirepo query run --csv "SELECT project, metric, value FROM metrics LIMIT 3"
+velocirepo query run --json "SELECT project, metric, value FROM metrics LIMIT 3"
+```
+
+The `query schema` command shows all available columns:
+
+```bash
+velocirepo query schema
 ```
 
 ## Data storage
