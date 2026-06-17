@@ -106,10 +106,10 @@ scoop bucket add jeroenjanssens https://github.com/jeroenjanssens/scoop-bucket
 scoop install velocirepo
 ```
 
-#### pip / uvx
+#### uv
 
 ```bash
-pip install velocirepo
+uv tool install velocirepo
 ```
 
 Or run without installing:
