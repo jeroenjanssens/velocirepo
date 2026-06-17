@@ -55,7 +55,13 @@ func (s StringList) String() string {
 }
 
 type Project struct {
-	Name          string     `toml:"name"`
+	Name        string     `toml:"name"`
+	Description string     `toml:"description"`
+	Color       string     `toml:"color"`
+	Tags        StringList `toml:"tags"`
+	Website     string     `toml:"website"`
+	Logo        string     `toml:"logo"`
+
 	GitHub        StringList `toml:"github"`
 	GitHubTraffic StringList `toml:"github-traffic"`
 	GitHubEvents  StringList `toml:"github-events"`

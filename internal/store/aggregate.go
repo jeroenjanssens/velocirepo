@@ -37,7 +37,13 @@ func Aggregate(dataDir string, now time.Time) error {
 				continue
 			}
 			projPath := filepath.Join(sourcePath, projEntry.Name())
-			if err := aggregateProject(projPath, now); err != nil {
+			var err error
+			if sourceEntry.Name() == "github-events" {
+				err = aggregateGitHubEventsProject(projPath, now)
+			} else {
+				err = aggregateProject(projPath, now)
+			}
+			if err != nil {
 				slog.Warn("aggregate failed", "path", projPath, "error", err)
 			}
 		}
@@ -224,6 +230,156 @@ func dedupKey(r source.Record) string {
 		}
 	}
 
+	return b.String()
+}
+
+func aggregateGitHubEventsProject(projDir string, now time.Time) error {
+	if err := aggregateEventsDailyToMonthly(projDir, now); err != nil {
+		return err
+	}
+	return aggregateEventsMonthlyToYearly(projDir, now)
+}
+
+func aggregateEventsDailyToMonthly(projDir string, now time.Time) error {
+	entries, err := os.ReadDir(projDir)
+	if err != nil {
+		return err
+	}
+
+	monthFiles := make(map[string][]string)
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		if m := dailyPattern.FindStringSubmatch(entry.Name()); m != nil {
+			yearMonth := m[1][:7]
+			monthFiles[yearMonth] = append(monthFiles[yearMonth], filepath.Join(projDir, entry.Name()))
+		}
+	}
+
+	for yearMonth, files := range monthFiles {
+		if !isMonthComplete(yearMonth, now) {
+			continue
+		}
+
+		sort.Strings(files)
+
+		events, err := readAllEventFiles(files)
+		if err != nil {
+			return fmt.Errorf("read event files for %s: %w", yearMonth, err)
+		}
+
+		events = dedupEvents(events)
+		sort.Slice(events, func(i, j int) bool {
+			return events[i].Datetime < events[j].Datetime
+		})
+
+		outPath := filepath.Join(projDir, yearMonth+".jsonl")
+		if err := writeEventsFileAtomic(outPath, events); err != nil {
+			return err
+		}
+
+		for _, f := range files {
+			if err := os.Remove(f); err != nil {
+				slog.Warn("remove source file", "path", f, "error", err)
+			}
+		}
+
+		slog.Debug("aggregated events daily to monthly", "month", yearMonth, "files", len(files))
+	}
+
+	return nil
+}
+
+func aggregateEventsMonthlyToYearly(projDir string, now time.Time) error {
+	entries, err := os.ReadDir(projDir)
+	if err != nil {
+		return err
+	}
+
+	yearFiles := make(map[string][]string)
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		if m := monthlyPattern.FindStringSubmatch(entry.Name()); m != nil {
+			year := m[1][:4]
+			yearFiles[year] = append(yearFiles[year], filepath.Join(projDir, entry.Name()))
+		}
+	}
+
+	for year, files := range yearFiles {
+		if !isYearComplete(year, now) {
+			continue
+		}
+
+		sort.Strings(files)
+
+		events, err := readAllEventFiles(files)
+		if err != nil {
+			return fmt.Errorf("read event files for %s: %w", year, err)
+		}
+
+		events = dedupEvents(events)
+		sort.Slice(events, func(i, j int) bool {
+			return events[i].Datetime < events[j].Datetime
+		})
+
+		outPath := filepath.Join(projDir, year+".jsonl")
+		if err := writeEventsFileAtomic(outPath, events); err != nil {
+			return err
+		}
+
+		for _, f := range files {
+			if err := os.Remove(f); err != nil {
+				slog.Warn("remove source file", "path", f, "error", err)
+			}
+		}
+
+		slog.Debug("aggregated events monthly to yearly", "year", year, "files", len(files))
+	}
+
+	return nil
+}
+
+func readAllEventFiles(paths []string) ([]source.GitHubEvent, error) {
+	var all []source.GitHubEvent
+	for _, p := range paths {
+		events, err := ReadGitHubEvents(p)
+		if err != nil {
+			return nil, err
+		}
+		all = append(all, events...)
+	}
+	return all, nil
+}
+
+func dedupEvents(events []source.GitHubEvent) []source.GitHubEvent {
+	seen := make(map[string]struct{})
+	var result []source.GitHubEvent
+
+	for _, e := range events {
+		key := dedupEventKey(e)
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		result = append(result, e)
+	}
+	return result
+}
+
+func dedupEventKey(e source.GitHubEvent) string {
+	var b strings.Builder
+	b.WriteString(e.Source)
+	b.WriteByte('|')
+	b.WriteString(e.ProjectID)
+	b.WriteByte('|')
+	b.WriteString(e.EventType)
+	b.WriteByte('|')
+	b.WriteString(e.Datetime)
+	b.WriteByte('|')
+	b.WriteString(e.User)
 	return b.String()
 }
 

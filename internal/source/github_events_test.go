@@ -8,19 +8,17 @@ import (
 	"time"
 )
 
-func TestGitHubEventsFetch(t *testing.T) {
+func TestGitHubEventsFetchEvents(t *testing.T) {
 	eventsResp := `[
-		{"type": "WatchEvent", "created_at": "2025-06-10T10:00:00Z", "payload": {}},
-		{"type": "WatchEvent", "created_at": "2025-06-10T11:00:00Z", "payload": {}},
-		{"type": "ForkEvent", "created_at": "2025-06-10T12:00:00Z", "payload": {}},
-		{"type": "IssuesEvent", "created_at": "2025-06-10T13:00:00Z", "payload": {"action": "opened"}},
-		{"type": "IssuesEvent", "created_at": "2025-06-10T14:00:00Z", "payload": {"action": "closed"}},
-		{"type": "PullRequestEvent", "created_at": "2025-06-10T15:00:00Z", "payload": {"action": "opened", "pull_request": {"merged": false}}},
-		{"type": "PullRequestEvent", "created_at": "2025-06-10T16:00:00Z", "payload": {"action": "closed", "pull_request": {"merged": true}}},
-		{"type": "PushEvent", "created_at": "2025-06-10T17:00:00Z", "payload": {}},
-		{"type": "ReleaseEvent", "created_at": "2025-06-10T18:00:00Z", "payload": {}},
-		{"type": "IssueCommentEvent", "created_at": "2025-06-10T19:00:00Z", "payload": {}},
-		{"type": "PullRequestReviewEvent", "created_at": "2025-06-10T20:00:00Z", "payload": {}}
+		{"type": "WatchEvent", "created_at": "2025-06-10T10:00:00Z", "payload": {}, "actor": {"login": "alice"}},
+		{"type": "WatchEvent", "created_at": "2025-06-10T11:00:00Z", "payload": {}, "actor": {"login": "bob"}},
+		{"type": "ForkEvent", "created_at": "2025-06-10T12:00:00Z", "payload": {}, "actor": {"login": "carol"}},
+		{"type": "IssuesEvent", "created_at": "2025-06-10T13:00:00Z", "payload": {"action": "opened"}, "actor": {"login": "dave"}},
+		{"type": "IssuesEvent", "created_at": "2025-06-10T14:00:00Z", "payload": {"action": "closed"}, "actor": {"login": "eve"}},
+		{"type": "IssueCommentEvent", "created_at": "2025-06-10T15:00:00Z", "payload": {}, "actor": {"login": "frank"}},
+		{"type": "PullRequestEvent", "created_at": "2025-06-10T16:00:00Z", "payload": {"action": "opened", "pull_request": {"merged": false}}, "actor": {"login": "grace"}},
+		{"type": "PullRequestEvent", "created_at": "2025-06-10T17:00:00Z", "payload": {"action": "closed", "pull_request": {"merged": true}}, "actor": {"login": "heidi"}},
+		{"type": "PullRequestReviewCommentEvent", "created_at": "2025-06-10T18:00:00Z", "payload": {}, "actor": {"login": "ivan"}}
 	]`
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -43,55 +41,55 @@ func TestGitHubEventsFetch(t *testing.T) {
 		BaseURL: srv.URL,
 	}
 
-	records, err := g.Fetch(context.Background(), FetchOptions{
+	events, err := g.FetchEvents(context.Background(), FetchOptions{
 		ProjectID: "my-project",
 		StartDate: time.Date(2025, 6, 10, 0, 0, 0, 0, time.UTC),
 		EndDate:   time.Date(2025, 6, 10, 0, 0, 0, 0, time.UTC),
 	})
 	if err != nil {
-		t.Fatalf("Fetch failed: %v", err)
+		t.Fatalf("FetchEvents failed: %v", err)
 	}
 
-	expected := map[string]int64{
-		"stars":          2,
-		"forks":          1,
-		"issues_opened":  1,
-		"issues_closed":  1,
-		"prs_opened":     1,
-		"prs_merged":     1,
-		"pushes":         1,
-		"releases":       1,
-		"comments":       1,
-		"reviews":        1,
+	if len(events) != 9 {
+		t.Fatalf("got %d events, want 9", len(events))
 	}
 
-	if len(records) != len(expected) {
-		t.Fatalf("got %d records, want %d", len(records), len(expected))
+	expected := []struct {
+		eventType string
+		user      string
+	}{
+		{"star", "alice"},
+		{"star", "bob"},
+		{"fork", "carol"},
+		{"issue_open", "dave"},
+		{"issue_close", "eve"},
+		{"issue_comment", "frank"},
+		{"pr_open", "grace"},
+		{"pr_merge", "heidi"},
+		{"pr_comment", "ivan"},
 	}
 
-	got := make(map[string]int64)
-	for _, r := range records {
-		got[r.Metric] = r.Value
-		if r.ProjectID != "my-project" {
-			t.Errorf("ProjectID = %q, want %q", r.ProjectID, "my-project")
+	for i, want := range expected {
+		if events[i].EventType != want.eventType {
+			t.Errorf("events[%d].EventType = %q, want %q", i, events[i].EventType, want.eventType)
 		}
-		if r.Date != "2025-06-10" {
-			t.Errorf("Date = %q, want %q", r.Date, "2025-06-10")
+		if events[i].User != want.user {
+			t.Errorf("events[%d].User = %q, want %q", i, events[i].User, want.user)
 		}
-	}
-
-	for metric, want := range expected {
-		if got[metric] != want {
-			t.Errorf("%s = %d, want %d", metric, got[metric], want)
+		if events[i].ProjectID != "my-project" {
+			t.Errorf("events[%d].ProjectID = %q, want %q", i, events[i].ProjectID, "my-project")
+		}
+		if events[i].GitHubRepo != "owner/repo" {
+			t.Errorf("events[%d].GitHubRepo = %q, want %q", i, events[i].GitHubRepo, "owner/repo")
 		}
 	}
 }
 
 func TestGitHubEventsDateFiltering(t *testing.T) {
 	eventsResp := `[
-		{"type": "WatchEvent", "created_at": "2025-06-12T10:00:00Z", "payload": {}},
-		{"type": "WatchEvent", "created_at": "2025-06-10T10:00:00Z", "payload": {}},
-		{"type": "WatchEvent", "created_at": "2025-06-08T10:00:00Z", "payload": {}}
+		{"type": "WatchEvent", "created_at": "2025-06-12T10:00:00Z", "payload": {}, "actor": {"login": "alice"}},
+		{"type": "WatchEvent", "created_at": "2025-06-10T10:00:00Z", "payload": {}, "actor": {"login": "bob"}},
+		{"type": "WatchEvent", "created_at": "2025-06-08T10:00:00Z", "payload": {}, "actor": {"login": "carol"}}
 	]`
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -109,28 +107,28 @@ func TestGitHubEventsDateFiltering(t *testing.T) {
 		BaseURL: srv.URL,
 	}
 
-	records, err := g.Fetch(context.Background(), FetchOptions{
+	events, err := g.FetchEvents(context.Background(), FetchOptions{
 		ProjectID: "test",
 		StartDate: time.Date(2025, 6, 9, 0, 0, 0, 0, time.UTC),
 		EndDate:   time.Date(2025, 6, 11, 0, 0, 0, 0, time.UTC),
 	})
 	if err != nil {
-		t.Fatalf("Fetch failed: %v", err)
+		t.Fatalf("FetchEvents failed: %v", err)
 	}
 
-	if len(records) != 1 {
-		t.Fatalf("got %d records, want 1 (only 2025-06-10 in range)", len(records))
+	if len(events) != 1 {
+		t.Fatalf("got %d events, want 1 (only 2025-06-10 in range)", len(events))
 	}
-	if records[0].Date != "2025-06-10" {
-		t.Errorf("Date = %q, want 2025-06-10", records[0].Date)
+	if events[0].Datetime != "2025-06-10T10:00:00Z" {
+		t.Errorf("Datetime = %q, want 2025-06-10T10:00:00Z", events[0].Datetime)
 	}
 }
 
 func TestGitHubEventsIgnoresUnknownTypes(t *testing.T) {
 	eventsResp := `[
-		{"type": "CreateEvent", "created_at": "2025-06-10T10:00:00Z", "payload": {}},
-		{"type": "DeleteEvent", "created_at": "2025-06-10T11:00:00Z", "payload": {}},
-		{"type": "WatchEvent", "created_at": "2025-06-10T12:00:00Z", "payload": {}}
+		{"type": "CreateEvent", "created_at": "2025-06-10T10:00:00Z", "payload": {}, "actor": {"login": "a"}},
+		{"type": "DeleteEvent", "created_at": "2025-06-10T11:00:00Z", "payload": {}, "actor": {"login": "b"}},
+		{"type": "WatchEvent", "created_at": "2025-06-10T12:00:00Z", "payload": {}, "actor": {"login": "c"}}
 	]`
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -148,20 +146,20 @@ func TestGitHubEventsIgnoresUnknownTypes(t *testing.T) {
 		BaseURL: srv.URL,
 	}
 
-	records, err := g.Fetch(context.Background(), FetchOptions{
+	events, err := g.FetchEvents(context.Background(), FetchOptions{
 		ProjectID: "test",
 		StartDate: time.Date(2025, 6, 10, 0, 0, 0, 0, time.UTC),
 		EndDate:   time.Date(2025, 6, 10, 0, 0, 0, 0, time.UTC),
 	})
 	if err != nil {
-		t.Fatalf("Fetch failed: %v", err)
+		t.Fatalf("FetchEvents failed: %v", err)
 	}
 
-	if len(records) != 1 {
-		t.Fatalf("got %d records, want 1 (only WatchEvent mapped)", len(records))
+	if len(events) != 1 {
+		t.Fatalf("got %d events, want 1 (only WatchEvent mapped)", len(events))
 	}
-	if records[0].Metric != "stars" {
-		t.Errorf("Metric = %q, want stars", records[0].Metric)
+	if events[0].EventType != "star" {
+		t.Errorf("EventType = %q, want star", events[0].EventType)
 	}
 }
 
@@ -171,7 +169,7 @@ func TestGitHubEventsInvalidRepo(t *testing.T) {
 		Repo:   "invalid",
 	}
 
-	_, err := g.Fetch(context.Background(), FetchOptions{
+	_, err := g.FetchEvents(context.Background(), FetchOptions{
 		ProjectID: "test",
 		StartDate: time.Now(),
 		EndDate:   time.Now(),
@@ -196,7 +194,7 @@ func TestGitHubEventsAuthHeader(t *testing.T) {
 		BaseURL: srv.URL,
 	}
 
-	g.Fetch(context.Background(), FetchOptions{
+	g.FetchEvents(context.Background(), FetchOptions{
 		ProjectID: "test",
 		StartDate: time.Now().AddDate(0, 0, -7),
 		EndDate:   time.Now(),
@@ -209,7 +207,7 @@ func TestGitHubEventsAuthHeader(t *testing.T) {
 
 func TestGitHubEventsPRClosedNotMerged(t *testing.T) {
 	eventsResp := `[
-		{"type": "PullRequestEvent", "created_at": "2025-06-10T10:00:00Z", "payload": {"action": "closed", "pull_request": {"merged": false}}}
+		{"type": "PullRequestEvent", "created_at": "2025-06-10T10:00:00Z", "payload": {"action": "closed", "pull_request": {"merged": false}}, "actor": {"login": "alice"}}
 	]`
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -227,26 +225,26 @@ func TestGitHubEventsPRClosedNotMerged(t *testing.T) {
 		BaseURL: srv.URL,
 	}
 
-	records, err := g.Fetch(context.Background(), FetchOptions{
+	events, err := g.FetchEvents(context.Background(), FetchOptions{
 		ProjectID: "test",
 		StartDate: time.Date(2025, 6, 10, 0, 0, 0, 0, time.UTC),
 		EndDate:   time.Date(2025, 6, 10, 0, 0, 0, 0, time.UTC),
 	})
 	if err != nil {
-		t.Fatalf("Fetch failed: %v", err)
+		t.Fatalf("FetchEvents failed: %v", err)
 	}
 
-	if len(records) != 0 {
-		t.Fatalf("got %d records, want 0 (closed but not merged should be skipped)", len(records))
+	if len(events) != 0 {
+		t.Fatalf("got %d events, want 0 (closed but not merged should be skipped)", len(events))
 	}
 }
 
 func TestGitHubEventsMultipleDays(t *testing.T) {
 	eventsResp := `[
-		{"type": "WatchEvent", "created_at": "2025-06-11T10:00:00Z", "payload": {}},
-		{"type": "WatchEvent", "created_at": "2025-06-11T11:00:00Z", "payload": {}},
-		{"type": "WatchEvent", "created_at": "2025-06-10T10:00:00Z", "payload": {}},
-		{"type": "ForkEvent", "created_at": "2025-06-10T12:00:00Z", "payload": {}}
+		{"type": "WatchEvent", "created_at": "2025-06-11T10:00:00Z", "payload": {}, "actor": {"login": "alice"}},
+		{"type": "WatchEvent", "created_at": "2025-06-11T11:00:00Z", "payload": {}, "actor": {"login": "bob"}},
+		{"type": "WatchEvent", "created_at": "2025-06-10T10:00:00Z", "payload": {}, "actor": {"login": "carol"}},
+		{"type": "ForkEvent", "created_at": "2025-06-10T12:00:00Z", "payload": {}, "actor": {"login": "dave"}}
 	]`
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -264,27 +262,33 @@ func TestGitHubEventsMultipleDays(t *testing.T) {
 		BaseURL: srv.URL,
 	}
 
-	records, err := g.Fetch(context.Background(), FetchOptions{
+	events, err := g.FetchEvents(context.Background(), FetchOptions{
 		ProjectID: "test",
 		StartDate: time.Date(2025, 6, 10, 0, 0, 0, 0, time.UTC),
 		EndDate:   time.Date(2025, 6, 11, 0, 0, 0, 0, time.UTC),
 	})
 	if err != nil {
-		t.Fatalf("Fetch failed: %v", err)
+		t.Fatalf("FetchEvents failed: %v", err)
 	}
 
-	got := make(map[string]int64)
-	for _, r := range records {
-		got[r.Date+":"+r.Metric] = r.Value
+	if len(events) != 4 {
+		t.Fatalf("got %d events, want 4", len(events))
 	}
 
-	if got["2025-06-11:stars"] != 2 {
-		t.Errorf("2025-06-11 stars = %d, want 2", got["2025-06-11:stars"])
+	day10 := 0
+	day11 := 0
+	for _, e := range events {
+		if e.Datetime[:10] == "2025-06-10" {
+			day10++
+		} else if e.Datetime[:10] == "2025-06-11" {
+			day11++
+		}
 	}
-	if got["2025-06-10:stars"] != 1 {
-		t.Errorf("2025-06-10 stars = %d, want 1", got["2025-06-10:stars"])
+
+	if day10 != 2 {
+		t.Errorf("day 10 events = %d, want 2", day10)
 	}
-	if got["2025-06-10:forks"] != 1 {
-		t.Errorf("2025-06-10 forks = %d, want 1", got["2025-06-10:forks"])
+	if day11 != 2 {
+		t.Errorf("day 11 events = %d, want 2", day11)
 	}
 }

@@ -25,7 +25,7 @@ func (g *GitHubEvents) baseURL() string {
 	return "https://api.github.com"
 }
 
-func (g *GitHubEvents) Fetch(ctx context.Context, opts FetchOptions) ([]Record, error) {
+func (g *GitHubEvents) FetchEvents(ctx context.Context, opts FetchOptions) ([]GitHubEvent, error) {
 	owner, repo := splitOwnerRepo(g.Repo)
 	if owner == "" || repo == "" {
 		return nil, fmt.Errorf("invalid github repo: %q", g.Repo)
@@ -33,18 +33,10 @@ func (g *GitHubEvents) Fetch(ctx context.Context, opts FetchOptions) ([]Record, 
 
 	url := fmt.Sprintf("%s/repos/%s/%s/events", g.baseURL(), owner, repo)
 
-	// date -> metric -> count
-	counts := make(map[string]map[string]int64)
-
-	addCount := func(date, metric string) {
-		if counts[date] == nil {
-			counts[date] = make(map[string]int64)
-		}
-		counts[date][metric]++
-	}
+	var events []GitHubEvent
 
 	page := 1
-	maxPages := 10 // GitHub Events API hard limit is 10 pages
+	maxPages := 10
 	hitCeiling := false
 
 	for page <= maxPages {
@@ -79,17 +71,17 @@ func (g *GitHubEvents) Fetch(ctx context.Context, opts FetchOptions) ([]Record, 
 			return nil, fmt.Errorf("read response body: %w", err)
 		}
 
-		var events []githubEvent
-		if err := json.Unmarshal(body, &events); err != nil {
+		var apiEvents []githubEvent
+		if err := json.Unmarshal(body, &apiEvents); err != nil {
 			return nil, fmt.Errorf("unmarshal events: %w", err)
 		}
 
-		if len(events) == 0 {
+		if len(apiEvents) == 0 {
 			break
 		}
 
 		allBeforeRange := true
-		for _, evt := range events {
+		for _, evt := range apiEvents {
 			t, err := parseGitHubTime(evt.CreatedAt)
 			if err != nil {
 				continue
@@ -104,11 +96,18 @@ func (g *GitHubEvents) Fetch(ctx context.Context, opts FetchOptions) ([]Record, 
 				continue
 			}
 
-			date := t.Format("2006-01-02")
-			metric := mapEventType(evt.Type, evt.Payload)
-			if metric != "" {
-				addCount(date, metric)
+			eventType := mapToEventType(evt.Type, evt.Payload)
+			if eventType == "" {
+				continue
 			}
+
+			events = append(events, GitHubEvent{
+				EventType:  eventType,
+				ProjectID:  opts.ProjectID,
+				GitHubRepo: g.Repo,
+				Datetime:   evt.CreatedAt,
+				User:       evt.Actor.Login,
+			})
 		}
 
 		if allBeforeRange {
@@ -125,25 +124,16 @@ func (g *GitHubEvents) Fetch(ctx context.Context, opts FetchOptions) ([]Record, 
 		slog.Warn("github events: hit 10-page API limit, some events may be missing", "repo", g.Repo)
 	}
 
-	var records []Record
-	for date, metrics := range counts {
-		for metric, count := range metrics {
-			records = append(records, Record{
-				Metric:    metric,
-				ProjectID: opts.ProjectID,
-				Date:      date,
-				Value:     count,
-			})
-		}
-	}
-
-	return records, nil
+	return events, nil
 }
 
 type githubEvent struct {
 	Type      string          `json:"type"`
 	CreatedAt string          `json:"created_at"`
 	Payload   json.RawMessage `json:"payload"`
+	Actor     struct {
+		Login string `json:"login"`
+	} `json:"actor"`
 }
 
 type issuesPayload struct {
@@ -157,42 +147,38 @@ type pullRequestPayload struct {
 	} `json:"pull_request"`
 }
 
-func mapEventType(eventType string, payload json.RawMessage) string {
+func mapToEventType(eventType string, payload json.RawMessage) string {
 	switch eventType {
 	case "WatchEvent":
-		return "stars"
+		return "star"
 	case "ForkEvent":
-		return "forks"
+		return "fork"
 	case "IssuesEvent":
 		var p issuesPayload
 		if json.Unmarshal(payload, &p) == nil {
 			switch p.Action {
 			case "opened":
-				return "issues_opened"
+				return "issue_open"
 			case "closed":
-				return "issues_closed"
+				return "issue_close"
 			}
 		}
+	case "IssueCommentEvent":
+		return "issue_comment"
 	case "PullRequestEvent":
 		var p pullRequestPayload
 		if json.Unmarshal(payload, &p) == nil {
 			switch p.Action {
 			case "opened":
-				return "prs_opened"
+				return "pr_open"
 			case "closed":
 				if p.PullRequest.Merged {
-					return "prs_merged"
+					return "pr_merge"
 				}
 			}
 		}
-	case "PushEvent":
-		return "pushes"
-	case "ReleaseEvent":
-		return "releases"
-	case "IssueCommentEvent":
-		return "comments"
-	case "PullRequestReviewEvent":
-		return "reviews"
+	case "PullRequestReviewCommentEvent":
+		return "pr_comment"
 	}
 	return ""
 }

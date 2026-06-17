@@ -6,7 +6,7 @@ import (
 )
 
 func ExportParquet(dataDir, outPath string) error {
-	db, err := openLiveDB(dataDir)
+	db, err := openLiveDB(dataDir, nil)
 	if err != nil {
 		return err
 	}
@@ -25,7 +25,7 @@ func ExportParquet(dataDir, outPath string) error {
 }
 
 func ExportCSV(dataDir, outPath string) error {
-	db, err := openLiveDB(dataDir)
+	db, err := openLiveDB(dataDir, nil)
 	if err != nil {
 		return err
 	}

@@ -41,37 +41,38 @@ func fetchAllCmd() *cobra.Command {
 				sourceName string
 				projectID  string
 				src        source.Source
+				eventSrc   source.GitHubEventSource
 			}
 
 			var jobs []fetchJob
 			for id, proj := range projects {
 				for _, repo := range proj.GitHub {
-					jobs = append(jobs, fetchJob{"github", id, &source.GitHub{Client: client, Token: token, Repo: repo}})
+					jobs = append(jobs, fetchJob{sourceName: "github", projectID: id, src: &source.GitHub{Client: client, Token: token, Repo: repo}})
 				}
 				for _, repo := range proj.GitHubTraffic {
-					jobs = append(jobs, fetchJob{"github-traffic", id, &source.GitHubTraffic{Client: client, Token: token, Repo: repo}})
+					jobs = append(jobs, fetchJob{sourceName: "github-traffic", projectID: id, src: &source.GitHubTraffic{Client: client, Token: token, Repo: repo}})
 				}
 				for _, repo := range proj.GitHubEvents {
-					jobs = append(jobs, fetchJob{"github-events", id, &source.GitHubEvents{Client: client, Token: token, Repo: repo}})
+					jobs = append(jobs, fetchJob{sourceName: "github-events", projectID: id, eventSrc: &source.GitHubEvents{Client: client, Token: token, Repo: repo}})
 				}
 				for _, pkg := range proj.PyPI {
-					jobs = append(jobs, fetchJob{"pypi", id, &source.PyPI{Client: client, Package: pkg}})
+					jobs = append(jobs, fetchJob{sourceName: "pypi", projectID: id, src: &source.PyPI{Client: client, Package: pkg}})
 				}
 				for _, pkg := range proj.CRAN {
-					jobs = append(jobs, fetchJob{"cran", id, &source.CRAN{Client: client, Package: pkg}})
+					jobs = append(jobs, fetchJob{sourceName: "cran", projectID: id, src: &source.CRAN{Client: client, Package: pkg}})
 				}
 				for _, formula := range proj.Homebrew {
-					jobs = append(jobs, fetchJob{"homebrew", id, &source.Homebrew{Client: client, Formula: formula}})
+					jobs = append(jobs, fetchJob{sourceName: "homebrew", projectID: id, src: &source.Homebrew{Client: client, Formula: formula}})
 				}
 				if pKey != "" {
 					for _, site := range proj.Plausible {
-						jobs = append(jobs, fetchJob{"plausible", id, &source.Plausible{Client: client, APIKey: pKey, SiteID: site}})
+						jobs = append(jobs, fetchJob{sourceName: "plausible", projectID: id, src: &source.Plausible{Client: client, APIKey: pKey, SiteID: site}})
 					}
 				} else if !proj.Plausible.IsEmpty() {
 					slog.Warn("skipping plausible: PLAUSIBLE_KEY not set", "project", id)
 				}
 				for _, ext := range proj.OpenVSX {
-					jobs = append(jobs, fetchJob{"openvsx", id, &source.OpenVSX{Client: client, ExtensionID: ext}})
+					jobs = append(jobs, fetchJob{sourceName: "openvsx", projectID: id, src: &source.OpenVSX{Client: client, ExtensionID: ext}})
 				}
 			}
 
@@ -96,26 +97,50 @@ func fetchAllCmd() *cobra.Command {
 
 					slog.Info("fetching", "source", job.sourceName, "project", job.projectID)
 
-					records, err := job.src.Fetch(ctx, source.FetchOptions{
-						ProjectID: job.projectID,
-						StartDate: startDate,
-						EndDate:   endDate,
-					})
-					if err != nil {
-						slog.Error("fetch failed", "source", job.sourceName, "project", job.projectID, "error", err)
-						fetchErrors.Add(1)
-						return nil
-					}
+					if job.eventSrc != nil {
+						events, err := job.eventSrc.FetchEvents(ctx, source.FetchOptions{
+							ProjectID: job.projectID,
+							StartDate: startDate,
+							EndDate:   endDate,
+						})
+						if err != nil {
+							slog.Error("fetch failed", "source", job.sourceName, "project", job.projectID, "error", err)
+							fetchErrors.Add(1)
+							return nil
+						}
 
-					if len(records) == 0 {
-						return nil
-					}
+						if len(events) == 0 {
+							return nil
+						}
 
-					if err := store.WriteRecords(dataDir, job.sourceName, job.projectID, records); err != nil {
-						slog.Error("write failed", "source", job.sourceName, "project", job.projectID, "error", err)
-						fetchErrors.Add(1)
+						if err := store.WriteGitHubEvents(dataDir, job.sourceName, job.projectID, events); err != nil {
+							slog.Error("write failed", "source", job.sourceName, "project", job.projectID, "error", err)
+							fetchErrors.Add(1)
+						} else {
+							slog.Info("wrote events", "source", job.sourceName, "project", job.projectID, "count", len(events))
+						}
 					} else {
-						slog.Info("wrote records", "source", job.sourceName, "project", job.projectID, "count", len(records))
+						records, err := job.src.Fetch(ctx, source.FetchOptions{
+							ProjectID: job.projectID,
+							StartDate: startDate,
+							EndDate:   endDate,
+						})
+						if err != nil {
+							slog.Error("fetch failed", "source", job.sourceName, "project", job.projectID, "error", err)
+							fetchErrors.Add(1)
+							return nil
+						}
+
+						if len(records) == 0 {
+							return nil
+						}
+
+						if err := store.WriteRecords(dataDir, job.sourceName, job.projectID, records); err != nil {
+							slog.Error("write failed", "source", job.sourceName, "project", job.projectID, "error", err)
+							fetchErrors.Add(1)
+						} else {
+							slog.Info("wrote records", "source", job.sourceName, "project", job.projectID, "count", len(records))
+						}
 					}
 
 					return nil

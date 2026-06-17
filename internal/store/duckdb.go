@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log/slog"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -17,8 +18,18 @@ type SchemaColumn struct {
 	Nullable string
 }
 
-func QueryLive(dataDir, query string) ([]map[string]interface{}, error) {
-	db, err := openLiveDB(dataDir)
+type ProjectInfo struct {
+	ID          string
+	Name        string
+	Description string
+	Color       string
+	Tags        []string
+	Website     string
+	Logo        string
+}
+
+func QueryLive(dataDir string, projects []ProjectInfo, query string) ([]map[string]interface{}, error) {
+	db, err := openLiveDB(dataDir, projects)
 	if err != nil {
 		return nil, err
 	}
@@ -27,14 +38,14 @@ func QueryLive(dataDir, query string) ([]map[string]interface{}, error) {
 	return queryRows(db, query)
 }
 
-func SchemaLive(dataDir string) ([]SchemaColumn, error) {
-	db, err := openLiveDB(dataDir)
+func SchemaLive(dataDir string, projects []ProjectInfo) ([]SchemaColumn, error) {
+	db, err := openLiveDB(dataDir, projects)
 	if err != nil {
 		return nil, err
 	}
 	defer db.Close()
 
-	rows, err := db.Query("SELECT 'metrics' AS table_name, column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name = 'metrics' ORDER BY ordinal_position")
+	rows, err := db.Query("SELECT table_name, column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name IN ('github_events', 'metrics', 'projects') ORDER BY table_name, ordinal_position")
 	if err != nil {
 		return nil, fmt.Errorf("query schema: %w", err)
 	}
@@ -51,7 +62,7 @@ func SchemaLive(dataDir string) ([]SchemaColumn, error) {
 	return cols, rows.Err()
 }
 
-func openLiveDB(dataDir string) (*sql.DB, error) {
+func openLiveDB(dataDir string, projects []ProjectInfo) (*sql.DB, error) {
 	db, err := sql.Open("duckdb", "")
 	if err != nil {
 		return nil, fmt.Errorf("open in-memory duckdb: %w", err)
@@ -63,32 +74,146 @@ func openLiveDB(dataDir string) (*sql.DB, error) {
 		return nil, fmt.Errorf("resolve data dir: %w", err)
 	}
 
-	glob := filepath.ToSlash(filepath.Join(absDir, "*", "*", "*.jsonl"))
-	query := fmt.Sprintf(`CREATE OR REPLACE VIEW metrics AS
-		SELECT
-			project_id AS project,
-			source,
-			metric,
-			CAST(date AS DATE) AS date,
-			CAST(value AS BIGINT) AS value,
-			tags
-		FROM read_json('%s',
-			format='newline_delimited',
-			columns={source: 'VARCHAR', metric: 'VARCHAR', project_id: 'VARCHAR', date: 'VARCHAR', value: 'BIGINT', tags: 'JSON'})`,
-		escapeSQLString(glob))
+	if err := createMetricsView(db, absDir); err != nil {
+		db.Close()
+		return nil, err
+	}
 
-	if _, err := db.Exec(query); err != nil {
-		slog.Debug("live view creation failed, using empty view", "error", err)
-		_, err2 := db.Exec(`CREATE VIEW metrics (project, source, metric, date, value, tags) AS
-			SELECT NULL::VARCHAR, NULL::VARCHAR, NULL::VARCHAR, NULL::DATE, NULL::BIGINT, NULL::JSON
-			WHERE false`)
-		if err2 != nil {
-			db.Close()
-			return nil, fmt.Errorf("create empty view: %w", err2)
-		}
+	if err := createGitHubEventsView(db, absDir); err != nil {
+		db.Close()
+		return nil, err
+	}
+
+	if err := createProjectsView(db, projects); err != nil {
+		db.Close()
+		return nil, err
 	}
 
 	return db, nil
+}
+
+func createMetricsView(db *sql.DB, absDir string) error {
+	entries, err := os.ReadDir(absDir)
+	if err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("read data dir: %w", err)
+	}
+
+	var globs []string
+	for _, entry := range entries {
+		if !entry.IsDir() || entry.Name() == "github-events" {
+			continue
+		}
+		g := filepath.ToSlash(filepath.Join(absDir, entry.Name(), "*", "*.jsonl"))
+		globs = append(globs, "'"+escapeSQLString(g)+"'")
+	}
+
+	if len(globs) > 0 {
+		globList := strings.Join(globs, ", ")
+		query := fmt.Sprintf(`CREATE OR REPLACE VIEW metrics AS
+			SELECT
+				project_id AS project,
+				source,
+				metric,
+				CAST(date AS DATE) AS date,
+				CAST(value AS BIGINT) AS value,
+				tags
+			FROM read_json([%s],
+				format='newline_delimited',
+				columns={source: 'VARCHAR', metric: 'VARCHAR', project_id: 'VARCHAR', date: 'VARCHAR', value: 'BIGINT', tags: 'JSON'})`,
+			globList)
+
+		if _, err := db.Exec(query); err != nil {
+			slog.Debug("metrics view creation failed, using empty view", "error", err)
+			return createEmptyMetricsView(db)
+		}
+		return nil
+	}
+
+	return createEmptyMetricsView(db)
+}
+
+func createEmptyMetricsView(db *sql.DB) error {
+	_, err := db.Exec(`CREATE VIEW metrics (project, source, metric, date, value, tags) AS
+		SELECT NULL::VARCHAR, NULL::VARCHAR, NULL::VARCHAR, NULL::DATE, NULL::BIGINT, NULL::JSON
+		WHERE false`)
+	if err != nil {
+		return fmt.Errorf("create empty metrics view: %w", err)
+	}
+	return nil
+}
+
+func createGitHubEventsView(db *sql.DB, absDir string) error {
+	glob := filepath.ToSlash(filepath.Join(absDir, "github-events", "*", "*.jsonl"))
+	query := fmt.Sprintf(`CREATE OR REPLACE VIEW github_events AS
+		SELECT
+			project_id AS project,
+			source,
+			event_type,
+			github_repo,
+			CAST(datetime AS TIMESTAMP) AS datetime,
+			"user"
+		FROM read_json('%s',
+			format='newline_delimited',
+			columns={source: 'VARCHAR', event_type: 'VARCHAR', project_id: 'VARCHAR', github_repo: 'VARCHAR', datetime: 'VARCHAR', "user": 'VARCHAR'})`,
+		escapeSQLString(glob))
+
+	if _, err := db.Exec(query); err != nil {
+		slog.Debug("github_events view creation failed, using empty view", "error", err)
+		return createEmptyGitHubEventsView(db)
+	}
+	return nil
+}
+
+func createEmptyGitHubEventsView(db *sql.DB) error {
+	_, err := db.Exec(`CREATE VIEW github_events (project, source, event_type, github_repo, datetime, "user") AS
+		SELECT NULL::VARCHAR, NULL::VARCHAR, NULL::VARCHAR, NULL::VARCHAR, NULL::TIMESTAMP, NULL::VARCHAR
+		WHERE false`)
+	if err != nil {
+		return fmt.Errorf("create empty github_events view: %w", err)
+	}
+	return nil
+}
+
+func createProjectsView(db *sql.DB, projects []ProjectInfo) error {
+	if len(projects) == 0 {
+		_, err := db.Exec(`CREATE VIEW projects (id, name, description, color, tags, website, logo) AS
+			SELECT NULL::VARCHAR, NULL::VARCHAR, NULL::VARCHAR, NULL::VARCHAR, NULL::VARCHAR[], NULL::VARCHAR, NULL::VARCHAR
+			WHERE false`)
+		if err != nil {
+			return fmt.Errorf("create empty projects view: %w", err)
+		}
+		return nil
+	}
+
+	var rows []string
+	for _, p := range projects {
+		tags := "NULL::VARCHAR[]"
+		if len(p.Tags) > 0 {
+			var escaped []string
+			for _, t := range p.Tags {
+				escaped = append(escaped, "'"+escapeSQLString(t)+"'")
+			}
+			tags = "[" + strings.Join(escaped, ", ") + "]"
+		}
+		row := fmt.Sprintf("('%s', '%s', '%s', '%s', %s, '%s', '%s')",
+			escapeSQLString(p.ID),
+			escapeSQLString(p.Name),
+			escapeSQLString(p.Description),
+			escapeSQLString(p.Color),
+			tags,
+			escapeSQLString(p.Website),
+			escapeSQLString(p.Logo),
+		)
+		rows = append(rows, row)
+	}
+
+	query := `CREATE OR REPLACE VIEW projects AS
+		SELECT * FROM (VALUES ` + strings.Join(rows, ", ") + `) AS t(id, name, description, color, tags, website, logo)`
+
+	if _, err := db.Exec(query); err != nil {
+		return fmt.Errorf("create projects view: %w", err)
+	}
+	return nil
 }
 
 func escapeSQLString(s string) string {

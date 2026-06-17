@@ -156,3 +156,93 @@ func groupByDate(records []source.Record) map[string][]source.Record {
 	}
 	return grouped
 }
+
+func WriteGitHubEvents(dataDir, sourceName, projectID string, events []source.GitHubEvent) error {
+	for i := range events {
+		events[i].Source = sourceName
+	}
+
+	grouped := groupEventsByDate(events)
+
+	for date, dateEvents := range grouped {
+		dir := filepath.Join(dataDir, sourceName, projectID)
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			return fmt.Errorf("create directory %s: %w", dir, err)
+		}
+
+		path := filepath.Join(dir, date+".jsonl")
+		if err := writeEventsFileAtomic(path, dateEvents); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func writeEventsFileAtomic(path string, events []source.GitHubEvent) error {
+	dir := filepath.Dir(path)
+	tmp, err := os.CreateTemp(dir, ".tmp-*.jsonl")
+	if err != nil {
+		return fmt.Errorf("create temp file in %s: %w", dir, err)
+	}
+	tmpPath := tmp.Name()
+
+	w := bufio.NewWriter(tmp)
+	for _, e := range events {
+		data, err := json.Marshal(e)
+		if err != nil {
+			tmp.Close()
+			os.Remove(tmpPath)
+			return fmt.Errorf("marshal event: %w", err)
+		}
+		w.Write(data)
+		w.WriteByte('\n')
+	}
+
+	if err := w.Flush(); err != nil {
+		tmp.Close()
+		os.Remove(tmpPath)
+		return fmt.Errorf("flush %s: %w", tmpPath, err)
+	}
+	if err := tmp.Close(); err != nil {
+		os.Remove(tmpPath)
+		return fmt.Errorf("close %s: %w", tmpPath, err)
+	}
+	if err := os.Rename(tmpPath, path); err != nil {
+		os.Remove(tmpPath)
+		return fmt.Errorf("rename %s -> %s: %w", tmpPath, path, err)
+	}
+	return nil
+}
+
+func ReadGitHubEvents(path string) ([]source.GitHubEvent, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, fmt.Errorf("open %s: %w", path, err)
+	}
+	defer f.Close()
+
+	var events []source.GitHubEvent
+	scanner := bufio.NewScanner(f)
+	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
+	for scanner.Scan() {
+		var e source.GitHubEvent
+		if err := json.Unmarshal(scanner.Bytes(), &e); err != nil {
+			return nil, fmt.Errorf("unmarshal line in %s: %w", path, err)
+		}
+		events = append(events, e)
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("scan %s: %w", path, err)
+	}
+	return events, nil
+}
+
+func groupEventsByDate(events []source.GitHubEvent) map[string][]source.GitHubEvent {
+	grouped := make(map[string][]source.GitHubEvent)
+	for _, e := range events {
+		date := e.Datetime[:10]
+		grouped[date] = append(grouped[date], e)
+	}
+	return grouped
+}

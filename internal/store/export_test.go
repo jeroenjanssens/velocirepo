@@ -34,7 +34,7 @@ func TestExportParquet(t *testing.T) {
 	}
 
 	// Verify we can read back the exported data
-	results, err := QueryLive(dataDir, "SELECT COUNT(*) AS cnt FROM '"+outPath+"'")
+	results, err := QueryLive(dataDir, nil, "SELECT COUNT(*) AS cnt FROM '"+outPath+"'")
 	if err != nil {
 		t.Fatal(err)
 	}

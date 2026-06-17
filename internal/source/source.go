@@ -24,3 +24,17 @@ type Source interface {
 	Name() string
 	Fetch(ctx context.Context, opts FetchOptions) ([]Record, error)
 }
+
+type GitHubEvent struct {
+	Source     string `json:"source"`
+	EventType  string `json:"event_type"`
+	ProjectID  string `json:"project_id"`
+	GitHubRepo string `json:"github_repo"`
+	Datetime   string `json:"datetime"`
+	User       string `json:"user"`
+}
+
+type GitHubEventSource interface {
+	Name() string
+	FetchEvents(ctx context.Context, opts FetchOptions) ([]GitHubEvent, error)
+}
