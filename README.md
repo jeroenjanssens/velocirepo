@@ -277,6 +277,30 @@ The `query schema` command shows all available columns:
 velocirepo query schema
 ```
 
+## Exporting data
+
+Export metrics, events, and project metadata to Parquet or CSV for use in other tools:
+
+```bash
+velocirepo export ./out/
+```
+
+This writes one file per table:
+
+```
+  out/metrics.parquet (257 KB)
+  out/github_events.parquet (2.9 MB)
+  out/projects.parquet (2 KB)
+```
+
+Use `--format csv` for CSV output, and `--source` or `--project` to filter:
+
+```bash
+velocirepo export ./out/ --format csv
+velocirepo export ./out/ --source github-events
+velocirepo export ./out/ --project quarto
+```
+
 ## Data storage
 
 Metrics are stored as JSONL files at `velocirepo/data/<source>/<project-id>/<date>.jsonl`. Daily files are automatically aggregated into monthly and yearly files once the period is complete.

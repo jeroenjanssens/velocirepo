@@ -2,43 +2,120 @@ package store
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
+	"strings"
 )
 
-func ExportParquet(dataDir, outPath string) error {
-	db, err := openLiveDB(dataDir, nil)
-	if err != nil {
-		return err
-	}
-	defer db.Close()
-
-	absOut, err := filepath.Abs(outPath)
-	if err != nil {
-		return fmt.Errorf("resolve output path: %w", err)
-	}
-
-	query := fmt.Sprintf(`COPY (SELECT * FROM metrics ORDER BY project, source, metric, date) TO '%s' (FORMAT PARQUET)`, escapeSQLString(absOut))
-	if _, err := db.Exec(query); err != nil {
-		return fmt.Errorf("export parquet: %w", err)
-	}
-	return nil
+type ExportOptions struct {
+	DataDir  string
+	OutDir   string
+	Format   string
+	Source   string
+	Project  string
+	Projects []ProjectInfo
 }
 
-func ExportCSV(dataDir, outPath string) error {
-	db, err := openLiveDB(dataDir, nil)
+func Export(opts ExportOptions) ([]string, error) {
+	db, err := openLiveDB(opts.DataDir, opts.Projects)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer db.Close()
 
-	absOut, err := filepath.Abs(outPath)
+	absOut, err := filepath.Abs(opts.OutDir)
 	if err != nil {
-		return fmt.Errorf("resolve output path: %w", err)
+		return nil, fmt.Errorf("resolve output dir: %w", err)
 	}
 
-	query := fmt.Sprintf(`COPY (SELECT * FROM metrics ORDER BY project, source, metric, date) TO '%s' (FORMAT CSV, HEADER)`, escapeSQLString(absOut))
-	if _, err := db.Exec(query); err != nil {
-		return fmt.Errorf("export csv: %w", err)
+	if err := os.MkdirAll(absOut, 0755); err != nil {
+		return nil, fmt.Errorf("create output dir: %w", err)
 	}
-	return nil
+
+	type table struct {
+		name  string
+		query string
+	}
+
+	tables := []table{
+		{"metrics", buildExportQuery("metrics", opts)},
+		{"github_events", buildExportQuery("github_events", opts)},
+		{"projects", buildExportQuery("projects", opts)},
+	}
+
+	if opts.Source != "" {
+		filtered := tables[:0]
+		for _, t := range tables {
+			if matchesSource(t.name, opts.Source) {
+				filtered = append(filtered, t)
+			}
+		}
+		if len(filtered) == 0 {
+			return nil, fmt.Errorf("no table matches source %q", opts.Source)
+		}
+		tables = filtered
+	}
+
+	var written []string
+	for _, t := range tables {
+		outFile := filepath.Join(absOut, t.name+"."+opts.Format)
+		var copyFmt string
+		switch opts.Format {
+		case "parquet":
+			copyFmt = "PARQUET"
+		case "csv":
+			copyFmt = "CSV, HEADER"
+		default:
+			return nil, fmt.Errorf("unsupported format %q (use parquet or csv)", opts.Format)
+		}
+
+		query := fmt.Sprintf(`COPY (%s) TO '%s' (FORMAT %s)`, t.query, escapeSQLString(outFile), copyFmt)
+		if _, err := db.Exec(query); err != nil {
+			return nil, fmt.Errorf("export %s: %w", t.name, err)
+		}
+		written = append(written, outFile)
+	}
+
+	return written, nil
+}
+
+func buildExportQuery(table string, opts ExportOptions) string {
+	var conditions []string
+	if opts.Project != "" {
+		col := "project"
+		if table == "projects" {
+			col = "id"
+		}
+		conditions = append(conditions, fmt.Sprintf("%s = '%s'", col, escapeSQLString(opts.Project)))
+	}
+	if opts.Source != "" && table == "metrics" {
+		conditions = append(conditions, fmt.Sprintf("source = '%s'", escapeSQLString(opts.Source)))
+	}
+
+	query := "SELECT * FROM " + table
+	if len(conditions) > 0 {
+		query += " WHERE " + strings.Join(conditions, " AND ")
+	}
+
+	switch table {
+	case "metrics":
+		query += " ORDER BY project, source, metric, date"
+	case "github_events":
+		query += " ORDER BY project, event_type, datetime"
+	case "projects":
+		query += " ORDER BY id"
+	}
+
+	return query
+}
+
+func matchesSource(table, source string) bool {
+	switch source {
+	case "github-events":
+		return table == "github_events"
+	case "projects":
+		return table == "projects"
+	default:
+		return table == "metrics"
+	}
 }

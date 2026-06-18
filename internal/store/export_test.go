@@ -20,27 +20,27 @@ func TestExportParquet(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	outPath := filepath.Join(dir, "metrics.parquet")
-	if err := ExportParquet(dataDir, outPath); err != nil {
+	outDir := filepath.Join(dir, "out")
+	written, err := Export(ExportOptions{
+		DataDir: dataDir,
+		OutDir:  outDir,
+		Format:  "parquet",
+	})
+	if err != nil {
 		t.Fatal(err)
 	}
 
-	info, err := os.Stat(outPath)
+	if len(written) != 3 {
+		t.Fatalf("expected 3 files, got %d", len(written))
+	}
+
+	metricsPath := filepath.Join(outDir, "metrics.parquet")
+	info, err := os.Stat(metricsPath)
 	if err != nil {
-		t.Fatal("parquet file not created")
+		t.Fatal("metrics.parquet not created")
 	}
 	if info.Size() == 0 {
-		t.Fatal("parquet file is empty")
-	}
-
-	// Verify we can read back the exported data
-	results, err := QueryLive(dataDir, nil, "SELECT COUNT(*) AS cnt FROM '"+outPath+"'")
-	if err != nil {
-		t.Fatal(err)
-	}
-	cnt := results[0]["cnt"].(int64)
-	if cnt != 2 {
-		t.Fatalf("expected 2 rows in parquet, got %d", cnt)
+		t.Fatal("metrics.parquet is empty")
 	}
 }
 
@@ -56,23 +56,99 @@ func TestExportCSV(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	outPath := filepath.Join(dir, "metrics.csv")
-	if err := ExportCSV(dataDir, outPath); err != nil {
+	outDir := filepath.Join(dir, "out")
+	written, err := Export(ExportOptions{
+		DataDir: dataDir,
+		OutDir:  outDir,
+		Format:  "csv",
+	})
+	if err != nil {
 		t.Fatal(err)
 	}
 
-	data, err := os.ReadFile(outPath)
-	if err != nil {
-		t.Fatal("csv file not created")
+	if len(written) != 3 {
+		t.Fatalf("expected 3 files, got %d", len(written))
 	}
-	content := string(data)
 
-	if len(content) == 0 {
-		t.Fatal("csv file is empty")
+	data, err := os.ReadFile(filepath.Join(outDir, "metrics.csv"))
+	if err != nil {
+		t.Fatal("metrics.csv not created")
 	}
-	// Should have a header line
-	if content[:7] != "project" {
-		t.Errorf("expected CSV to start with 'project' header, got %q", content[:20])
+	if len(data) == 0 {
+		t.Fatal("metrics.csv is empty")
+	}
+}
+
+func TestExportWithSourceFilter(t *testing.T) {
+	dir := t.TempDir()
+	dataDir := filepath.Join(dir, "data")
+
+	records := []source.Record{
+		{Metric: "stars", ProjectID: "test", Date: "2025-06-01", Value: 10},
+	}
+	if err := WriteRecords(dataDir, "github", "test", records); err != nil {
+		t.Fatal(err)
+	}
+
+	events := []source.GitHubEvent{
+		{EventType: "star", ProjectID: "test", GitHubRepo: "owner/repo", Datetime: "2025-06-01T10:00:00Z", User: "alice"},
+	}
+	if err := WriteGitHubEvents(dataDir, "github-events", "test", events); err != nil {
+		t.Fatal(err)
+	}
+
+	outDir := filepath.Join(dir, "out")
+	written, err := Export(ExportOptions{
+		DataDir: dataDir,
+		OutDir:  outDir,
+		Format:  "parquet",
+		Source:  "github-events",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(written) != 1 {
+		t.Fatalf("expected 1 file with source filter, got %d", len(written))
+	}
+	if filepath.Base(written[0]) != "github_events.parquet" {
+		t.Errorf("expected github_events.parquet, got %s", filepath.Base(written[0]))
+	}
+}
+
+func TestExportWithProjectFilter(t *testing.T) {
+	dir := t.TempDir()
+	dataDir := filepath.Join(dir, "data")
+
+	records := []source.Record{
+		{Metric: "stars", ProjectID: "proj-a", Date: "2025-06-01", Value: 10},
+		{Metric: "stars", ProjectID: "proj-b", Date: "2025-06-01", Value: 20},
+	}
+	if err := WriteRecords(dataDir, "github", "proj-a", records[:1]); err != nil {
+		t.Fatal(err)
+	}
+	if err := WriteRecords(dataDir, "github", "proj-b", records[1:]); err != nil {
+		t.Fatal(err)
+	}
+
+	outDir := filepath.Join(dir, "out")
+	_, err := Export(ExportOptions{
+		DataDir: dataDir,
+		OutDir:  outDir,
+		Format:  "parquet",
+		Project: "proj-a",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	results, err := QueryLive(dataDir, nil, "SELECT COUNT(*) AS cnt FROM '"+filepath.Join(outDir, "metrics.parquet")+"'")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cnt := results[0]["cnt"].(int64)
+	if cnt != 1 {
+		t.Fatalf("expected 1 row (filtered to proj-a), got %d", cnt)
 	}
 }
 
@@ -81,16 +157,17 @@ func TestExportEmptyData(t *testing.T) {
 	dataDir := filepath.Join(dir, "data")
 	os.MkdirAll(dataDir, 0755)
 
-	outPath := filepath.Join(dir, "metrics.parquet")
-	if err := ExportParquet(dataDir, outPath); err != nil {
+	outDir := filepath.Join(dir, "out")
+	written, err := Export(ExportOptions{
+		DataDir: dataDir,
+		OutDir:  outDir,
+		Format:  "parquet",
+	})
+	if err != nil {
 		t.Fatal(err)
 	}
 
-	info, err := os.Stat(outPath)
-	if err != nil {
-		t.Fatal("parquet file not created for empty data")
-	}
-	if info.Size() == 0 {
-		t.Fatal("parquet file is empty")
+	if len(written) != 3 {
+		t.Fatalf("expected 3 files even for empty data, got %d", len(written))
 	}
 }

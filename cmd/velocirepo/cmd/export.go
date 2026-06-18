@@ -4,50 +4,49 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
+
 
 	"github.com/jeroenjanssens/velocirepo/internal/store"
 	"github.com/spf13/cobra"
 )
 
 func exportCmd() *cobra.Command {
-	var output string
+	var format, source, project string
 
 	cmd := &cobra.Command{
-		Use:   "export",
-		Short: "Export metrics data to a file",
-		Long:  "Export all metrics data to Parquet or CSV format. The format is determined by the file extension.",
-		Args:  cobra.NoArgs,
+		Use:   "export <directory>",
+		Short: "Export data to Parquet or CSV files",
+		Long:  "Export metrics, events, and projects to separate files in the given directory.",
+		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ext := strings.ToLower(filepath.Ext(output))
-			dataDir := cfg.DataDir()
-
-			switch ext {
-			case ".parquet":
-				if err := store.ExportParquet(dataDir, output); err != nil {
-					return err
-				}
-			case ".csv":
-				if err := store.ExportCSV(dataDir, output); err != nil {
-					return err
-				}
-			default:
-				return fmt.Errorf("unsupported format %q (use .parquet or .csv)", ext)
-			}
-
-			abs, _ := filepath.Abs(output)
-			info, err := os.Stat(abs)
+			outDir := args[0]
+			written, err := store.Export(store.ExportOptions{
+				DataDir:  cfg.DataDir(),
+				OutDir:   outDir,
+				Format:   format,
+				Source:   source,
+				Project:  project,
+				Projects: projectInfos(),
+			})
 			if err != nil {
-				return nil
+				return err
 			}
-			fmt.Fprintf(os.Stdout, "Exported metrics to %s (%s)\n", output, formatSize(info.Size()))
+
+			for _, path := range written {
+				info, err := os.Stat(path)
+				if err != nil {
+					continue
+				}
+				name := filepath.Join(outDir, filepath.Base(path))
+				fmt.Fprintf(os.Stdout, "  %s (%s)\n", name, formatSize(info.Size()))
+			}
 			return nil
 		},
 	}
 
-	cmd.Flags().StringVarP(&output, "output", "o", "", "output file path (.parquet or .csv)")
-	cmd.MarkFlagRequired("output")
+	cmd.Flags().StringVar(&format, "format", "parquet", "output format: parquet, csv")
+	cmd.Flags().StringVar(&source, "source", "", "export only this source")
+	cmd.Flags().StringVar(&project, "project", "", "export only this project")
 
 	return cmd
 }
-
