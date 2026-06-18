@@ -2,11 +2,11 @@ package cmd
 
 import (
 	"fmt"
-	"log/slog"
 	"time"
 
 	"github.com/jeroenjanssens/velocirepo/internal/source"
 	"github.com/jeroenjanssens/velocirepo/internal/store"
+	"github.com/jeroenjanssens/velocirepo/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -38,21 +38,16 @@ func fetchGitHubEventsCmd() *cobra.Command {
 				for _, repo := range proj.GitHubEvents {
 					startDate, err := resolveStartDate(dataDir, "github-events", id)
 					if err != nil {
-						slog.Error("resolve start date", "project", id, "error", err)
+						ui.Errorf("github-events/%s: resolve start date: %v", id, err)
 						continue
 					}
 
 					if !startDate.Before(endDate.AddDate(0, 0, 1)) {
-						slog.Info("up to date", "source", "github-events", "project", id)
+						ui.Skip("github-events", id, "up to date")
 						continue
 					}
 
-					slog.Info("fetching",
-						"source", "github-events",
-						"project", id,
-						"start", startDate.Format("2006-01-02"),
-						"end", endDate.Format("2006-01-02"),
-					)
+					ui.Progress("github-events", id, startDate.Format("2006-01-02")+" → "+endDate.Format("2006-01-02"))
 
 					src := &source.GitHubEvents{Client: client, Token: token, Repo: repo}
 					events, err := src.FetchEvents(cmd.Context(), source.FetchOptions{
@@ -61,7 +56,7 @@ func fetchGitHubEventsCmd() *cobra.Command {
 						EndDate:   endDate,
 					})
 					if err != nil {
-						slog.Error("fetch failed", "project", id, "error", err)
+						ui.Errorf("github-events/%s: %v", id, err)
 						continue
 					}
 
@@ -70,17 +65,17 @@ func fetchGitHubEventsCmd() *cobra.Command {
 					}
 
 					if err := store.WriteGitHubEvents(dataDir, "github-events", id, events); err != nil {
-						slog.Error("write failed", "project", id, "error", err)
+						ui.Errorf("github-events/%s write: %v", id, err)
 						continue
 					}
 
-					slog.Info("wrote events", "source", "github-events", "project", id, "count", len(events))
+					ui.Done("github-events", id, len(events))
 				}
 			}
 
 			if !noAggregate {
 				if err := store.Aggregate(dataDir, time.Now().UTC()); err != nil {
-					slog.Warn("aggregation failed", "error", err)
+					ui.Warnf("aggregation: %v", err)
 				}
 			}
 

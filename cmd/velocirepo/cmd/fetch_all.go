@@ -2,12 +2,12 @@ package cmd
 
 import (
 	"fmt"
-	"log/slog"
 	"sync/atomic"
 	"time"
 
 	"github.com/jeroenjanssens/velocirepo/internal/source"
 	"github.com/jeroenjanssens/velocirepo/internal/store"
+	"github.com/jeroenjanssens/velocirepo/internal/ui"
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
 )
@@ -69,7 +69,7 @@ func fetchAllCmd() *cobra.Command {
 						jobs = append(jobs, fetchJob{sourceName: "plausible", projectID: id, src: &source.Plausible{Client: client, APIKey: pKey, SiteID: site}})
 					}
 				} else if !proj.Plausible.IsEmpty() {
-					slog.Warn("skipping plausible: PLAUSIBLE_KEY not set", "project", id)
+					ui.Warnf("skipping plausible for %s: PLAUSIBLE_KEY not set", id)
 				}
 				for _, ext := range proj.OpenVSX {
 					jobs = append(jobs, fetchJob{sourceName: "openvsx", projectID: id, src: &source.OpenVSX{Client: client, ExtensionID: ext}})
@@ -85,17 +85,17 @@ func fetchAllCmd() *cobra.Command {
 				g.Go(func() error {
 					startDate, err := resolveStartDate(dataDir, job.sourceName, job.projectID)
 					if err != nil {
-						slog.Error("resolve start date", "source", job.sourceName, "project", job.projectID, "error", err)
+						ui.Errorf("%s/%s: resolve start date: %v", job.sourceName, job.projectID, err)
 						fetchErrors.Add(1)
 						return nil
 					}
 
 					if !startDate.Before(endDate.AddDate(0, 0, 1)) {
-						slog.Info("up to date", "source", job.sourceName, "project", job.projectID)
+						ui.Skip(job.sourceName, job.projectID, "up to date")
 						return nil
 					}
 
-					slog.Info("fetching", "source", job.sourceName, "project", job.projectID)
+					ui.Progress(job.sourceName, job.projectID, "")
 
 					if job.eventSrc != nil {
 						events, err := job.eventSrc.FetchEvents(ctx, source.FetchOptions{
@@ -104,7 +104,7 @@ func fetchAllCmd() *cobra.Command {
 							EndDate:   endDate,
 						})
 						if err != nil {
-							slog.Error("fetch failed", "source", job.sourceName, "project", job.projectID, "error", err)
+							ui.Errorf("%s/%s: %v", job.sourceName, job.projectID, err)
 							fetchErrors.Add(1)
 							return nil
 						}
@@ -114,10 +114,10 @@ func fetchAllCmd() *cobra.Command {
 						}
 
 						if err := store.WriteGitHubEvents(dataDir, job.sourceName, job.projectID, events); err != nil {
-							slog.Error("write failed", "source", job.sourceName, "project", job.projectID, "error", err)
+							ui.Errorf("%s/%s write: %v", job.sourceName, job.projectID, err)
 							fetchErrors.Add(1)
 						} else {
-							slog.Info("wrote events", "source", job.sourceName, "project", job.projectID, "count", len(events))
+							ui.Done(job.sourceName, job.projectID, len(events))
 						}
 					} else {
 						records, err := job.src.Fetch(ctx, source.FetchOptions{
@@ -126,7 +126,7 @@ func fetchAllCmd() *cobra.Command {
 							EndDate:   endDate,
 						})
 						if err != nil {
-							slog.Error("fetch failed", "source", job.sourceName, "project", job.projectID, "error", err)
+							ui.Errorf("%s/%s: %v", job.sourceName, job.projectID, err)
 							fetchErrors.Add(1)
 							return nil
 						}
@@ -136,10 +136,10 @@ func fetchAllCmd() *cobra.Command {
 						}
 
 						if err := store.WriteRecords(dataDir, job.sourceName, job.projectID, records); err != nil {
-							slog.Error("write failed", "source", job.sourceName, "project", job.projectID, "error", err)
+							ui.Errorf("%s/%s write: %v", job.sourceName, job.projectID, err)
 							fetchErrors.Add(1)
 						} else {
-							slog.Info("wrote records", "source", job.sourceName, "project", job.projectID, "count", len(records))
+							ui.Done(job.sourceName, job.projectID, len(records))
 						}
 					}
 
@@ -151,7 +151,7 @@ func fetchAllCmd() *cobra.Command {
 
 			if !noAggregate {
 				if err := store.Aggregate(dataDir, time.Now().UTC()); err != nil {
-					slog.Warn("aggregation failed", "error", err)
+					ui.Warnf("aggregation: %v", err)
 				}
 			}
 

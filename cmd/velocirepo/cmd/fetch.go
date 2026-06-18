@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"log/slog"
 	"net/http"
 	"os"
 	"time"
@@ -10,6 +9,7 @@ import (
 	"github.com/jeroenjanssens/velocirepo/internal/config"
 	"github.com/jeroenjanssens/velocirepo/internal/source"
 	"github.com/jeroenjanssens/velocirepo/internal/store"
+	"github.com/jeroenjanssens/velocirepo/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -118,19 +118,17 @@ func runFetchMulti(cmd *cobra.Command, sourceName string, createSources func(pro
 
 		startDate, err := resolveStartDate(dataDir, sourceName, id)
 		if err != nil {
-			slog.Error("resolve start date", "project", id, "error", err)
+			ui.Errorf("resolve start date for %s: %v", id, err)
 			continue
 		}
 
 		if !startDate.Before(endDate.AddDate(0, 0, 1)) {
-			slog.Info("up to date", "project", id, "source", sourceName)
+			ui.Skip(sourceName, id, "up to date")
 			continue
 		}
 
 		for _, src := range sources {
-			slog.Info("fetching", "source", sourceName, "project", id,
-				"start", startDate.Format("2006-01-02"),
-				"end", endDate.Format("2006-01-02"))
+			ui.Progress(sourceName, id, startDate.Format("2006-01-02")+" → "+endDate.Format("2006-01-02"))
 
 			records, err := src.Fetch(cmd.Context(), source.FetchOptions{
 				ProjectID: id,
@@ -138,27 +136,27 @@ func runFetchMulti(cmd *cobra.Command, sourceName string, createSources func(pro
 				EndDate:   endDate,
 			})
 			if err != nil {
-				slog.Error("fetch failed", "source", sourceName, "project", id, "error", err)
+				ui.Errorf("%s/%s: %v", sourceName, id, err)
 				continue
 			}
 
 			if len(records) == 0 {
-				slog.Info("no data", "source", sourceName, "project", id)
+				ui.Skip(sourceName, id, "no data")
 				continue
 			}
 
 			if err := store.WriteRecords(dataDir, sourceName, id, records); err != nil {
-				slog.Error("write failed", "source", sourceName, "project", id, "error", err)
+				ui.Errorf("%s/%s write: %v", sourceName, id, err)
 				continue
 			}
 
-			slog.Info("wrote records", "source", sourceName, "project", id, "count", len(records))
+			ui.Done(sourceName, id, len(records))
 		}
 	}
 
 	if !noAggregate {
 		if err := store.Aggregate(dataDir, time.Now().UTC()); err != nil {
-			slog.Warn("aggregation failed", "error", err)
+			ui.Warnf("aggregation: %v", err)
 		}
 	}
 
