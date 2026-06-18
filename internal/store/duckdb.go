@@ -45,7 +45,7 @@ func SchemaLive(dataDir string, projects []ProjectInfo) ([]SchemaColumn, error) 
 	}
 	defer db.Close()
 
-	rows, err := db.Query("SELECT table_name, column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name IN ('github', 'github_events', 'metrics', 'projects') ORDER BY table_name, ordinal_position")
+	rows, err := db.Query("SELECT table_name, column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name IN ('github_events', 'metrics', 'projects') ORDER BY table_name, ordinal_position")
 	if err != nil {
 		return nil, fmt.Errorf("query schema: %w", err)
 	}
@@ -74,17 +74,12 @@ func openLiveDB(dataDir string, projects []ProjectInfo) (*sql.DB, error) {
 		return nil, fmt.Errorf("resolve data dir: %w", err)
 	}
 
-	if err := createMetricsView(db, absDir); err != nil {
-		db.Close()
-		return nil, err
-	}
-
 	if err := createGitHubEventsView(db, absDir); err != nil {
 		db.Close()
 		return nil, err
 	}
 
-	if err := createGitHubView(db); err != nil {
+	if err := createMetricsView(db, absDir); err != nil {
 		db.Close()
 		return nil, err
 	}
@@ -112,9 +107,21 @@ func createMetricsView(db *sql.DB, absDir string) error {
 		globs = append(globs, "'"+escapeSQLString(g)+"'")
 	}
 
+	githubAgg := `SELECT
+			project,
+			'github' AS source,
+			github_repo AS target,
+			event_type AS metric,
+			CAST(datetime AS DATE) AS date,
+			COUNT(*) AS value,
+			NULL::JSON AS tags
+		FROM github_events
+		GROUP BY project, github_repo, event_type, CAST(datetime AS DATE)`
+
+	var query string
 	if len(globs) > 0 {
 		globList := strings.Join(globs, ", ")
-		query := fmt.Sprintf(`CREATE OR REPLACE VIEW metrics AS
+		query = fmt.Sprintf(`CREATE OR REPLACE VIEW metrics AS
 			SELECT
 				project_id AS project,
 				source,
@@ -125,17 +132,18 @@ func createMetricsView(db *sql.DB, absDir string) error {
 				tags
 			FROM read_json([%s],
 				format='newline_delimited',
-				columns={source: 'VARCHAR', metric: 'VARCHAR', project_id: 'VARCHAR', target: 'VARCHAR', date: 'VARCHAR', value: 'BIGINT', tags: 'JSON'})`,
-			globList)
-
-		if _, err := db.Exec(query); err != nil {
-			slog.Debug("metrics view creation failed, using empty view", "error", err)
-			return createEmptyMetricsView(db)
-		}
-		return nil
+				columns={source: 'VARCHAR', metric: 'VARCHAR', project_id: 'VARCHAR', target: 'VARCHAR', date: 'VARCHAR', value: 'BIGINT', tags: 'JSON'})
+			UNION ALL
+			%s`, globList, githubAgg)
+	} else {
+		query = fmt.Sprintf(`CREATE OR REPLACE VIEW metrics AS %s`, githubAgg)
 	}
 
-	return createEmptyMetricsView(db)
+	if _, err := db.Exec(query); err != nil {
+		slog.Debug("metrics view creation failed, using empty view", "error", err)
+		return createEmptyMetricsView(db)
+	}
+	return nil
 }
 
 func createEmptyMetricsView(db *sql.DB) error {
@@ -180,21 +188,6 @@ func createEmptyGitHubEventsView(db *sql.DB) error {
 	return nil
 }
 
-func createGitHubView(db *sql.DB) error {
-	_, err := db.Exec(`CREATE OR REPLACE VIEW github AS
-		SELECT
-			project,
-			github_repo AS target,
-			event_type,
-			CAST(datetime AS DATE) AS date,
-			COUNT(*) AS count
-		FROM github_events
-		GROUP BY project, github_repo, event_type, CAST(datetime AS DATE)`)
-	if err != nil {
-		return fmt.Errorf("create github view: %w", err)
-	}
-	return nil
-}
 
 func createProjectsView(db *sql.DB, projects []ProjectInfo) error {
 	if len(projects) == 0 {

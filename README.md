@@ -191,21 +191,32 @@ velocirepo version           Print version information
 
 ## Querying the data
 
-velocirepo stores all fetched data as JSONL files. You can query them directly using SQL (powered by DuckDB). Four views are available:
+velocirepo stores all fetched data as JSONL files. You can query them directly using SQL (powered by DuckDB). Three views are available:
 
-- `github_events` — individual GitHub events with user and timestamp
-- `github` — aggregated daily counts per project, repo, and event type (computed from `github_events`)
-- `metrics` — time-series metrics from other sources (PyPI, CRAN, Homebrew, Plausible, OpenVSX, GitHub Traffic)
+- `metrics` — unified time-series metrics from all sources, including aggregated GitHub event counts
+- `github_events` — raw GitHub events with user and timestamp (for per-event analysis)
 - `projects` — project metadata from your config
 
-### Total stars per project from event history
+### Daily star counts
 
 ```bash
 velocirepo query run "
-  SELECT p.name, COUNT(*) AS stars
-  FROM github_events e
-  JOIN projects p ON e.project = p.id
-  WHERE e.event_type = 'star'
+  SELECT project, date, value AS stars
+  FROM metrics
+  WHERE source = 'github' AND metric = 'star'
+  ORDER BY date DESC
+  LIMIT 5
+"
+```
+
+### Total stars per project
+
+```bash
+velocirepo query run "
+  SELECT p.name, SUM(value) AS stars
+  FROM metrics m
+  JOIN projects p ON m.project = p.id
+  WHERE m.source = 'github' AND m.metric = 'star'
   GROUP BY p.name
   ORDER BY stars DESC
   LIMIT 5
@@ -224,7 +235,9 @@ velocirepo query run "
 └─────────────┴───────┘
 ```
 
-### Monthly star activity for a project
+### Monthly star activity using raw events
+
+The `github_events` view gives you access to individual events when you need per-user or per-timestamp detail:
 
 ```bash
 velocirepo query run "
@@ -249,26 +262,13 @@ velocirepo query run "
 └────────────┴───────┘
 ```
 
-### Daily star counts using the aggregated view
-
-The `github` view provides daily counts without needing to write `GROUP BY` yourself:
+### Latest metrics from other sources
 
 ```bash
 velocirepo query run "
-  SELECT project, date, count
-  FROM github
-  WHERE event_type = 'star'
-  ORDER BY date DESC
-  LIMIT 5
-"
-```
-
-### Latest cumulative metrics
-
-```bash
-velocirepo query run "
-  SELECT project, metric, date, value
+  SELECT project, source, metric, date, value
   FROM metrics
+  WHERE source != 'github'
   ORDER BY date DESC
   LIMIT 5
 "
@@ -417,16 +417,15 @@ Fields:
 
 ### DuckDB views
 
-The `query` command reads JSONL files directly using DuckDB and exposes four views:
+The `query` command reads JSONL files directly using DuckDB and exposes three views:
 
 | View | Description |
 |------|-------------|
-| `github_events` | Raw GitHub events with all fields as stored on disk |
-| `github` | Aggregated daily counts per project, target, and event type (computed from `github_events`) |
-| `metrics` | Time-series metrics from all other sources |
+| `metrics` | Unified time-series: daily counts from all sources including aggregated GitHub events |
+| `github_events` | Raw GitHub events with user and timestamp (for per-event analysis) |
 | `projects` | Project metadata from your config |
 
-The `github` view provides a convenient aggregation so you don't need to write `GROUP BY` clauses yourself. It uses `target` (aliased from `github_repo`) for consistency with the `metrics` view.
+GitHub events are stored individually on disk but automatically aggregated into daily counts in the `metrics` view (with `source = 'github'`, `metric` = event type, `target` = repo). Use `github_events` when you need per-user or per-timestamp detail.
 
 ### Repository layout
 

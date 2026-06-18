@@ -147,16 +147,13 @@ func TestSchemaLive(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	githubExpected := []string{"project", "target", "event_type", "date", "count"}
 	eventsExpected := []string{"project", "source", "event_type", "github_repo", "datetime", "user"}
 	metricsExpected := []string{"project", "source", "target", "metric", "date", "value", "tags"}
 	projectsExpected := []string{"id", "name", "description", "color", "tags", "website", "logo"}
 
-	var githubCols, eventsCols, metricsCols, projectsCols []SchemaColumn
+	var eventsCols, metricsCols, projectsCols []SchemaColumn
 	for _, c := range cols {
 		switch c.Table {
-		case "github":
-			githubCols = append(githubCols, c)
 		case "github_events":
 			eventsCols = append(eventsCols, c)
 		case "metrics":
@@ -166,9 +163,6 @@ func TestSchemaLive(t *testing.T) {
 		}
 	}
 
-	if len(githubCols) != 5 {
-		t.Fatalf("expected 5 github columns, got %d", len(githubCols))
-	}
 	if len(eventsCols) != 6 {
 		t.Fatalf("expected 6 github_events columns, got %d", len(eventsCols))
 	}
@@ -177,12 +171,6 @@ func TestSchemaLive(t *testing.T) {
 	}
 	if len(projectsCols) != 7 {
 		t.Fatalf("expected 7 projects columns, got %d", len(projectsCols))
-	}
-
-	for i, exp := range githubExpected {
-		if githubCols[i].Column != exp {
-			t.Errorf("github column %d: expected %s, got %s", i, exp, githubCols[i].Column)
-		}
 	}
 
 	for i, exp := range eventsExpected {
@@ -238,7 +226,7 @@ func TestQueryLiveGitHubEvents(t *testing.T) {
 	}
 }
 
-func TestMetricsViewExcludesGitHubEvents(t *testing.T) {
+func TestMetricsViewIncludesGitHubAggregated(t *testing.T) {
 	dir := t.TempDir()
 	dataDir := filepath.Join(dir, "data")
 
@@ -261,8 +249,8 @@ func TestMetricsViewExcludesGitHubEvents(t *testing.T) {
 		t.Fatal(err)
 	}
 	cnt := results[0]["cnt"].(int64)
-	if cnt != 1 {
-		t.Fatalf("expected 1 metric row (github events should be excluded), got %d", cnt)
+	if cnt != 2 {
+		t.Fatalf("expected 2 metric rows (1 pypi + 1 aggregated github event), got %d", cnt)
 	}
 }
 
@@ -280,17 +268,17 @@ func TestQueryLiveGitHubView(t *testing.T) {
 	}
 
 	results, _, err := QueryLive(dataDir, nil,
-		"SELECT event_type, count FROM github WHERE project = 'my-proj' AND date = '2025-06-01' ORDER BY event_type")
+		"SELECT metric, value FROM metrics WHERE project = 'my-proj' AND source = 'github' AND date = '2025-06-01' ORDER BY metric")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(results) != 2 {
 		t.Fatalf("expected 2 rows, got %d", len(results))
 	}
-	if results[0]["event_type"] != "fork" || results[0]["count"].(int64) != 1 {
+	if results[0]["metric"] != "fork" || results[0]["value"].(int64) != 1 {
 		t.Errorf("unexpected fork row: %v", results[0])
 	}
-	if results[1]["event_type"] != "star" || results[1]["count"].(int64) != 2 {
+	if results[1]["metric"] != "star" || results[1]["value"].(int64) != 2 {
 		t.Errorf("unexpected star row: %v", results[1])
 	}
 }
