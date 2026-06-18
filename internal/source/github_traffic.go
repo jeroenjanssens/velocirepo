@@ -69,12 +69,14 @@ func (g *GitHubTraffic) fetchViews(ctx context.Context, owner, repo string, opts
 		records = append(records, Record{
 			Metric:    "views",
 			ProjectID: opts.ProjectID,
+			Target:    g.Repo,
 			Date:      date,
 			Value:     item.Count,
 		})
 		records = append(records, Record{
 			Metric:    "unique_views",
 			ProjectID: opts.ProjectID,
+			Target:    g.Repo,
 			Date:      date,
 			Value:     item.Uniques,
 		})
@@ -103,12 +105,14 @@ func (g *GitHubTraffic) fetchClones(ctx context.Context, owner, repo string, opt
 		records = append(records, Record{
 			Metric:    "clones",
 			ProjectID: opts.ProjectID,
+			Target:    g.Repo,
 			Date:      date,
 			Value:     item.Count,
 		})
 		records = append(records, Record{
 			Metric:    "unique_clones",
 			ProjectID: opts.ProjectID,
+			Target:    g.Repo,
 			Date:      date,
 			Value:     item.Uniques,
 		})

@@ -7,11 +7,12 @@ import (
 
 type Record struct {
 	Source    string            `json:"source"`
-	Metric    string            `json:"metric"`
-	ProjectID string            `json:"project_id"`
-	Date      string            `json:"date"`
-	Value     int64             `json:"value"`
-	Tags      map[string]string `json:"tags,omitempty"`
+	Metric   string            `json:"metric"`
+	ProjectID string           `json:"project_id"`
+	Target   string            `json:"target"`
+	Date     string            `json:"date"`
+	Value    int64             `json:"value"`
+	Tags     map[string]string `json:"tags,omitempty"`
 }
 
 type FetchOptions struct {

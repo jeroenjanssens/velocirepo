@@ -82,6 +82,7 @@ func (p *Plausible) Fetch(ctx context.Context, opts FetchOptions) ([]Record, err
 			records = append(records, Record{
 				Metric:    name,
 				ProjectID: opts.ProjectID,
+				Target:    p.SiteID,
 				Date:      date,
 				Value:     row.Metrics[i],
 			})

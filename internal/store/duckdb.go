@@ -118,13 +118,14 @@ func createMetricsView(db *sql.DB, absDir string) error {
 			SELECT
 				project_id AS project,
 				source,
+				target,
 				metric,
 				CAST(date AS DATE) AS date,
 				CAST(value AS BIGINT) AS value,
 				tags
 			FROM read_json([%s],
 				format='newline_delimited',
-				columns={source: 'VARCHAR', metric: 'VARCHAR', project_id: 'VARCHAR', date: 'VARCHAR', value: 'BIGINT', tags: 'JSON'})`,
+				columns={source: 'VARCHAR', metric: 'VARCHAR', project_id: 'VARCHAR', target: 'VARCHAR', date: 'VARCHAR', value: 'BIGINT', tags: 'JSON'})`,
 			globList)
 
 		if _, err := db.Exec(query); err != nil {
@@ -138,8 +139,8 @@ func createMetricsView(db *sql.DB, absDir string) error {
 }
 
 func createEmptyMetricsView(db *sql.DB) error {
-	_, err := db.Exec(`CREATE VIEW metrics (project, source, metric, date, value, tags) AS
-		SELECT NULL::VARCHAR, NULL::VARCHAR, NULL::VARCHAR, NULL::DATE, NULL::BIGINT, NULL::JSON
+	_, err := db.Exec(`CREATE VIEW metrics (project, source, target, metric, date, value, tags) AS
+		SELECT NULL::VARCHAR, NULL::VARCHAR, NULL::VARCHAR, NULL::VARCHAR, NULL::DATE, NULL::BIGINT, NULL::JSON
 		WHERE false`)
 	if err != nil {
 		return fmt.Errorf("create empty metrics view: %w", err)
@@ -183,7 +184,7 @@ func createGitHubView(db *sql.DB) error {
 	_, err := db.Exec(`CREATE OR REPLACE VIEW github AS
 		SELECT
 			project,
-			github_repo,
+			github_repo AS target,
 			event_type,
 			CAST(datetime AS DATE) AS date,
 			COUNT(*) AS count

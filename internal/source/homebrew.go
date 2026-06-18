@@ -68,6 +68,7 @@ func (h *Homebrew) Fetch(ctx context.Context, opts FetchOptions) ([]Record, erro
 		records = append(records, Record{
 			Metric:    metric,
 			ProjectID: opts.ProjectID,
+			Target:    h.Formula,
 			Date:      today,
 			Value:     total,
 		})

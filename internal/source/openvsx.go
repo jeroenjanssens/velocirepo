@@ -61,15 +61,15 @@ func (o *OpenVSX) Fetch(ctx context.Context, opts FetchOptions) ([]Record, error
 	date := opts.EndDate.Format("2006-01-02")
 
 	records := []Record{
-		{Metric: "total_downloads", ProjectID: opts.ProjectID, Date: date, Value: result.DownloadCount},
-		{Metric: "reviews", ProjectID: opts.ProjectID, Date: date, Value: result.ReviewCount},
+		{Metric: "total_downloads", ProjectID: opts.ProjectID, Target: o.ExtensionID, Date: date, Value: result.DownloadCount},
+		{Metric: "reviews", ProjectID: opts.ProjectID, Target: o.ExtensionID, Date: date, Value: result.ReviewCount},
 	}
 
 	if result.AverageRating != nil {
-		// Store rating * 100 to preserve precision as int64
 		records = append(records, Record{
 			Metric:    "rating",
 			ProjectID: opts.ProjectID,
+			Target:    o.ExtensionID,
 			Date:      date,
 			Value:     int64(*result.AverageRating * 100),
 		})
