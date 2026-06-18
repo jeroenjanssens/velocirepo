@@ -1,5 +1,15 @@
 # velocirepo
 
+## Table of contents
+
+- [Configuration](#configuration)
+- [Installation](#installation)
+- [Usage](#usage)
+- [Querying the data](#querying-the-data)
+- [Exporting data](#exporting-data)
+- [Generating badges](#generating-badges)
+- [Data storage](#data-storage)
+
 velocirepo fetches and aggregates metrics for your open-source projects, building a historical record you can query and commit to git. It currently supports the following sources:
 
 - **GitHub** — individual events (stars, forks, issues, PRs) with user and timestamp
