@@ -49,7 +49,7 @@ func projectRemoveCmd() *cobra.Command {
 
 			if deleteData {
 				dataDir := cfg.DataDir()
-				sources := []string{"github", "github-traffic", "github-events", "pypi", "cran", "homebrew", "plausible", "openvsx"}
+				sources := []string{"github", "github-traffic", "pypi", "cran", "homebrew", "plausible", "openvsx"}
 				for _, src := range sources {
 					dir := filepath.Join(dataDir, src, id)
 					if _, err := os.Stat(dir); err == nil {

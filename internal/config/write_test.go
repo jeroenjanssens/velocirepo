@@ -55,9 +55,9 @@ func TestAppendProject(t *testing.T) {
 	os.WriteFile(path, []byte(initial), 0644)
 
 	err := AppendProject(path, "beta", Project{
-		Name:   "Beta",
+		Name:         "Beta",
 		GitHub: StringList{"org/beta"},
-		PyPI:   StringList{"beta-pkg"},
+		PyPI:         StringList{"beta-pkg"},
 	})
 	if err != nil {
 		t.Fatal(err)

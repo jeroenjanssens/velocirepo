@@ -2,8 +2,7 @@
 
 velocirepo fetches and aggregates metrics for your open-source projects, building a historical record you can query and commit to git. It currently supports the following sources:
 
-- **GitHub** — cumulative totals (stars, forks, open issues, open PRs, comments)
-- **GitHub Events** — daily activity counts (stars, forks, issues, PRs, pushes, releases, comments, reviews)
+- **GitHub** — individual events (stars, forks, issues, PRs) with user and timestamp
 - **GitHub Traffic** — daily page views and git clones (requires admin access)
 - **PyPI** — daily download counts
 - **CRAN** — daily download counts
@@ -20,7 +19,6 @@ Create a `velocirepo.toml` in your project root:
 name = "My Project"
 github = "owner/repo"
 github-traffic = "owner/repo"
-github-events = "owner/repo"
 pypi = "my-package"
 
 [projects.other-project]
@@ -156,9 +154,8 @@ Pre-built binaries for Linux, macOS, and Windows are available on the [Releases]
 ## Usage
 
 ```
-velocirepo fetch github          Fetch GitHub metrics (stars, forks, issues, PRs, comments)
+velocirepo fetch github          Fetch GitHub events (stars, forks, issues, PRs)
 velocirepo fetch github-traffic  Fetch GitHub traffic (views and clones)
-velocirepo fetch github-events   Fetch GitHub event activity
 velocirepo fetch pypi            Fetch PyPI download counts
 velocirepo fetch cran            Fetch CRAN download counts
 velocirepo fetch homebrew        Fetch Homebrew install counts
@@ -194,7 +191,12 @@ velocirepo version           Print version information
 
 ## Querying the data
 
-velocirepo stores all fetched data as JSONL files. You can query them directly using SQL (powered by DuckDB). Three views are available: `metrics`, `github_events`, and `projects`.
+velocirepo stores all fetched data as JSONL files. You can query them directly using SQL (powered by DuckDB). Four views are available:
+
+- `github_events` — individual GitHub events with user and timestamp
+- `github` — aggregated daily counts per project, repo, and event type (computed from `github_events`)
+- `metrics` — time-series metrics from other sources (PyPI, CRAN, Homebrew, Plausible, OpenVSX, GitHub Traffic)
+- `projects` — project metadata from your config
 
 ### Total stars per project from event history
 
@@ -245,6 +247,20 @@ velocirepo query run "
 │ 2025-11-01 │ 97    │
 │ 2025-10-01 │ 85    │
 └────────────┴───────┘
+```
+
+### Daily star counts using the aggregated view
+
+The `github` view provides daily counts without needing to write `GROUP BY` yourself:
+
+```bash
+velocirepo query run "
+  SELECT project, date, count
+  FROM github
+  WHERE event_type = 'star'
+  ORDER BY date DESC
+  LIMIT 5
+"
 ```
 
 ### Latest cumulative metrics
@@ -305,7 +321,7 @@ Use `--format csv` for CSV output, and `--source` or `--project` to filter:
 
 ```bash
 velocirepo export ./out/ --format csv
-velocirepo export ./out/ --source github-events
+velocirepo export ./out/ --source github
 velocirepo export ./out/ --project quarto
 ```
 

@@ -300,7 +300,7 @@ github = "org/alpha"
 	dataDir := filepath.Join(dir, "data", "github", "alpha")
 	os.MkdirAll(dataDir, 0755)
 	os.WriteFile(filepath.Join(dataDir, "2025-01-01.jsonl"),
-		[]byte(`{"source":"github","metric":"stars","project_id":"alpha","date":"2025-01-01","value":100}`+"\n"), 0644)
+		[]byte(`{"source":"github","event_type":"star","project_id":"alpha","github_repo":"org/alpha","datetime":"2025-01-01T10:00:00Z","user":"alice"}`+"\n"), 0644)
 
 	_, buf, err := execCmd(cfgPath, "project", "show", "alpha")
 	if err != nil {

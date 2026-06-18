@@ -130,8 +130,8 @@ func TestValidateProject(t *testing.T) {
 
 	results := ValidateProject(context.Background(), ValidationOptions{Client: client}, "test", Project{
 		GitHub: StringList{"org/repo"},
-		PyPI:   StringList{"mypkg"},
-		CRAN:   StringList{"nonexistent"},
+		PyPI:         StringList{"mypkg"},
+		CRAN:         StringList{"nonexistent"},
 	})
 
 	if len(results) != 3 {

@@ -15,7 +15,7 @@ dir = "metrics"
 
 [projects.my-project]
 name = "My Project"
-github = "owner/repo"
+github ="owner/repo"
 pypi = "my-project"
 `
 	if err := os.WriteFile(cfgPath, []byte(content), 0644); err != nil {
@@ -48,7 +48,7 @@ pypi = "my-project"
 		t.Errorf("Name = %q, want %q", p.Name, "My Project")
 	}
 	if p.GitHub.First() != "owner/repo" {
-		t.Errorf("GitHub = %q, want %q", p.GitHub.First(), "owner/repo")
+		t.Errorf("GitHubEvents = %q, want %q", p.GitHub.First(), "owner/repo")
 	}
 	if p.PyPI.First() != "my-project" {
 		t.Errorf("PyPI = %q, want %q", p.PyPI.First(), "my-project")
@@ -61,12 +61,12 @@ func TestLoadMultiProject(t *testing.T) {
 	content := `
 [projects.alpha]
 name = "Alpha"
-github = "org/alpha"
+github ="org/alpha"
 pypi = "alpha"
 
 [projects.beta]
 name = "Beta"
-github = "org/beta"
+github ="org/beta"
 cran = "beta"
 `
 	if err := os.WriteFile(cfgPath, []byte(content), 0644); err != nil {
@@ -97,7 +97,7 @@ func TestLoadMultiValueSources(t *testing.T) {
 	content := `
 [projects.my-org]
 name = "My Org"
-github = ["org/repo-a", "org/repo-b"]
+github =["org/repo-a", "org/repo-b"]
 pypi = ["pkg-one", "pkg-two"]
 cran = "single-pkg"
 `
@@ -112,10 +112,10 @@ cran = "single-pkg"
 
 	proj := cfg.ResolveProjects()["my-org"]
 	if len(proj.GitHub) != 2 {
-		t.Fatalf("GitHub has %d entries, want 2", len(proj.GitHub))
+		t.Fatalf("GitHubEvents has %d entries, want 2", len(proj.GitHub))
 	}
 	if proj.GitHub[0] != "org/repo-a" || proj.GitHub[1] != "org/repo-b" {
-		t.Errorf("GitHub = %v, want [org/repo-a, org/repo-b]", proj.GitHub)
+		t.Errorf("GitHubEvents = %v, want [org/repo-a, org/repo-b]", proj.GitHub)
 	}
 	if len(proj.PyPI) != 2 {
 		t.Fatalf("PyPI has %d entries, want 2", len(proj.PyPI))

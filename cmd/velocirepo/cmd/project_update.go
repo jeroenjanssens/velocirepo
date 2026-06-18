@@ -11,7 +11,7 @@ import (
 )
 
 func projectUpdateCmd() *cobra.Command {
-	var name, github, githubTraffic, githubEvents, pypi, cran, homebrew, plausible, openvsx string
+	var name, github, githubTraffic, pypi, cran, homebrew, plausible, openvsx string
 	var unset []string
 
 	cmd := &cobra.Command{
@@ -29,8 +29,8 @@ func projectUpdateCmd() *cobra.Command {
 
 			cfgPath := cfgFilePath()
 
-			flagsProvided := cmd.Flags().Changed("name") || cmd.Flags().Changed("github") ||
-				cmd.Flags().Changed("github-traffic") || cmd.Flags().Changed("github-events") ||
+			flagsProvided := cmd.Flags().Changed("name") ||
+				cmd.Flags().Changed("github") || cmd.Flags().Changed("github-traffic") ||
 				cmd.Flags().Changed("pypi") || cmd.Flags().Changed("cran") || cmd.Flags().Changed("homebrew") ||
 				cmd.Flags().Changed("plausible") || cmd.Flags().Changed("openvsx") || len(unset) > 0
 
@@ -57,12 +57,6 @@ func projectUpdateCmd() *cobra.Command {
 					return fmt.Errorf("invalid GitHub repo %q: must be owner/repo", githubTraffic)
 				}
 				updates["github-traffic"] = githubTraffic
-			}
-			if cmd.Flags().Changed("github-events") {
-				if githubEvents != "" && !validGitHubRe.MatchString(githubEvents) {
-					return fmt.Errorf("invalid GitHub repo %q: must be owner/repo", githubEvents)
-				}
-				updates["github-events"] = githubEvents
 			}
 			if cmd.Flags().Changed("pypi") {
 				updates["pypi"] = pypi
@@ -99,7 +93,6 @@ func projectUpdateCmd() *cobra.Command {
 	cmd.Flags().StringVar(&name, "name", "", "display name")
 	cmd.Flags().StringVar(&github, "github", "", "GitHub owner/repo")
 	cmd.Flags().StringVar(&githubTraffic, "github-traffic", "", "GitHub owner/repo for traffic data")
-	cmd.Flags().StringVar(&githubEvents, "github-events", "", "GitHub owner/repo for event tracking")
 	cmd.Flags().StringVar(&pypi, "pypi", "", "PyPI package name")
 	cmd.Flags().StringVar(&cran, "cran", "", "CRAN package name")
 	cmd.Flags().StringVar(&homebrew, "homebrew", "", "Homebrew formula")
@@ -125,10 +118,6 @@ func projectUpdateInteractive(cfgPath string, id string, proj config.Project) er
 		return err
 	}
 	githubTraffic, err := prompt(os.Stdout, reader, "GitHub traffic (owner/repo)", proj.GitHubTraffic.String(), "")
-	if err != nil {
-		return err
-	}
-	githubEvents, err := prompt(os.Stdout, reader, "GitHub events (owner/repo)", proj.GitHubEvents.String(), "")
 	if err != nil {
 		return err
 	}
@@ -163,11 +152,6 @@ func projectUpdateInteractive(cfgPath string, id string, proj config.Project) er
 			return fmt.Errorf("invalid GitHub repo %q: must be owner/repo", repo)
 		}
 	}
-	for _, repo := range parseCommaSeparated(githubEvents) {
-		if !validGitHubRe.MatchString(repo) {
-			return fmt.Errorf("invalid GitHub repo %q: must be owner/repo", repo)
-		}
-	}
 
 	updates := make(map[string]string)
 	var unsets []string
@@ -185,7 +169,6 @@ func projectUpdateInteractive(cfgPath string, id string, proj config.Project) er
 	updateOrUnset("name", name, proj.Name)
 	updateOrUnset("github", github, proj.GitHub.String())
 	updateOrUnset("github-traffic", githubTraffic, proj.GitHubTraffic.String())
-	updateOrUnset("github-events", githubEvents, proj.GitHubEvents.String())
 	updateOrUnset("pypi", pypi, proj.PyPI.String())
 	updateOrUnset("cran", cran, proj.CRAN.String())
 	updateOrUnset("homebrew", homebrew, proj.Homebrew.String())

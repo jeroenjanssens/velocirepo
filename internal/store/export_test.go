@@ -16,7 +16,7 @@ func TestExportParquet(t *testing.T) {
 		{Metric: "stars", ProjectID: "my-proj", Date: "2025-06-01", Value: 10},
 		{Metric: "forks", ProjectID: "my-proj", Date: "2025-06-01", Value: 3},
 	}
-	if err := WriteRecords(dataDir, "github", "my-proj", records); err != nil {
+	if err := WriteRecords(dataDir, "pypi", "my-proj", records); err != nil {
 		t.Fatal(err)
 	}
 
@@ -86,14 +86,14 @@ func TestExportWithSourceFilter(t *testing.T) {
 	records := []source.Record{
 		{Metric: "stars", ProjectID: "test", Date: "2025-06-01", Value: 10},
 	}
-	if err := WriteRecords(dataDir, "github", "test", records); err != nil {
+	if err := WriteRecords(dataDir, "pypi", "test", records); err != nil {
 		t.Fatal(err)
 	}
 
 	events := []source.GitHubEvent{
 		{EventType: "star", ProjectID: "test", GitHubRepo: "owner/repo", Datetime: "2025-06-01T10:00:00Z", User: "alice"},
 	}
-	if err := WriteGitHubEvents(dataDir, "github-events", "test", events); err != nil {
+	if err := WriteGitHubEvents(dataDir, "github", "test", events); err != nil {
 		t.Fatal(err)
 	}
 
@@ -102,7 +102,7 @@ func TestExportWithSourceFilter(t *testing.T) {
 		DataDir: dataDir,
 		OutDir:  outDir,
 		Format:  "parquet",
-		Source:  "github-events",
+		Source:  "github",
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -124,10 +124,10 @@ func TestExportWithProjectFilter(t *testing.T) {
 		{Metric: "stars", ProjectID: "proj-a", Date: "2025-06-01", Value: 10},
 		{Metric: "stars", ProjectID: "proj-b", Date: "2025-06-01", Value: 20},
 	}
-	if err := WriteRecords(dataDir, "github", "proj-a", records[:1]); err != nil {
+	if err := WriteRecords(dataDir, "pypi", "proj-a", records[:1]); err != nil {
 		t.Fatal(err)
 	}
-	if err := WriteRecords(dataDir, "github", "proj-b", records[1:]); err != nil {
+	if err := WriteRecords(dataDir, "pypi", "proj-b", records[1:]); err != nil {
 		t.Fatal(err)
 	}
 
@@ -142,7 +142,7 @@ func TestExportWithProjectFilter(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	results, err := QueryLive(dataDir, nil, "SELECT COUNT(*) AS cnt FROM '"+filepath.Join(outDir, "metrics.parquet")+"'")
+	results, _, err := QueryLive(dataDir, nil, "SELECT COUNT(*) AS cnt FROM '"+filepath.Join(outDir, "metrics.parquet")+"'")
 	if err != nil {
 		t.Fatal(err)
 	}

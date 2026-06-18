@@ -26,7 +26,7 @@ func ValidateSource(ctx context.Context, opts ValidationOptions, sourceType stri
 
 	var url string
 	switch sourceType {
-	case "github":
+	case "github", "github-traffic":
 		url = "https://api.github.com/repos/" + value
 	case "pypi":
 		url = "https://pypi.org/pypi/" + value + "/json"
@@ -52,7 +52,7 @@ func ValidateSource(ctx context.Context, opts ValidationOptions, sourceType stri
 		return result
 	}
 
-	if sourceType == "github" && opts.Token != "" {
+	if (sourceType == "github" || sourceType == "github-traffic") && opts.Token != "" {
 		req.Header.Set("Authorization", "Bearer "+opts.Token)
 	}
 
@@ -86,7 +86,7 @@ func ValidateProject(ctx context.Context, opts ValidationOptions, id string, pro
 		entries = append(entries, sourceEntry{"github", v})
 	}
 	for _, v := range project.GitHubTraffic {
-		entries = append(entries, sourceEntry{"github", v})
+		entries = append(entries, sourceEntry{"github-traffic", v})
 	}
 	for _, v := range project.PyPI {
 		entries = append(entries, sourceEntry{"pypi", v})

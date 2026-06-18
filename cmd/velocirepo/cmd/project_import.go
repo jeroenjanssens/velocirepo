@@ -218,7 +218,7 @@ func fetchGitHubRepos(cmd *cobra.Command, endpoint string, filter string, includ
 			allRepos = append(allRepos, importEntry{
 				ID: id,
 				Project: config.Project{
-					Name:   r.Name,
+					Name:         r.Name,
 					GitHub: config.StringList{r.FullName},
 				},
 			})

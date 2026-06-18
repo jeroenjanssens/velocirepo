@@ -126,7 +126,7 @@ func addBadgeFlags(cmd *cobra.Command, project, output, style, color, labelColor
 }
 
 func queryBadgeValue(query string) (string, error) {
-	results, err := store.QueryLive(cfg.DataDir(), projectInfos(), query)
+	results, _, err := store.QueryLive(cfg.DataDir(), projectInfos(), query)
 	if err != nil {
 		return "", fmt.Errorf("badge query: %w", err)
 	}

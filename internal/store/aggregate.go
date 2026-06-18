@@ -38,7 +38,7 @@ func Aggregate(dataDir string, now time.Time) error {
 			}
 			projPath := filepath.Join(sourcePath, projEntry.Name())
 			var err error
-			if sourceEntry.Name() == "github-events" {
+			if sourceEntry.Name() == "github" {
 				err = aggregateGitHubEventsProject(projPath, now)
 			} else {
 				err = aggregateProject(projPath, now)

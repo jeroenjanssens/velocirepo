@@ -34,7 +34,6 @@ func fetchCmd() *cobra.Command {
 
 	cmd.AddCommand(fetchGitHubCmd())
 	cmd.AddCommand(fetchGitHubTrafficCmd())
-	cmd.AddCommand(fetchGitHubEventsCmd())
 	cmd.AddCommand(fetchPyPICmd())
 	cmd.AddCommand(fetchCRANCmd())
 	cmd.AddCommand(fetchHomebrewCmd())

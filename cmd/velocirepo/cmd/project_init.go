@@ -64,11 +64,11 @@ func projectInitCmd() *cobra.Command {
 							return err
 						}
 						proj := config.Project{
-							Name:    id,
-							GitHub:  toStringList(detected.GitHub),
-							PyPI:    toStringList(detected.PyPI),
-							CRAN:    toStringList(detected.CRAN),
-							OpenVSX: toStringList(detected.OpenVSX),
+							Name:         id,
+							GitHub:       toStringList(detected.GitHub),
+							PyPI:         toStringList(detected.PyPI),
+							CRAN:         toStringList(detected.CRAN),
+							OpenVSX:      toStringList(detected.OpenVSX),
 						}
 						content += "\n" + formatSection(id, proj)
 						fmt.Fprintf(os.Stdout, "\nAdded project '%s'\n", id)

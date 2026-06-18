@@ -17,7 +17,7 @@ func TestQueryLive(t *testing.T) {
 		{Metric: "forks", ProjectID: "my-proj", Date: "2025-06-01", Value: 3},
 		{Metric: "stars", ProjectID: "my-proj", Date: "2025-06-02", Value: 15},
 	}
-	if err := WriteRecords(dataDir, "github", "my-proj", records); err != nil {
+	if err := WriteRecords(dataDir, "cran", "my-proj", records); err != nil {
 		t.Fatal(err)
 	}
 
@@ -28,7 +28,7 @@ func TestQueryLive(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	results, err := QueryLive(dataDir, nil, "SELECT COUNT(*) AS cnt FROM metrics")
+	results, _, err := QueryLive(dataDir, nil, "SELECT COUNT(*) AS cnt FROM metrics")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -43,21 +43,21 @@ func TestQueryLive(t *testing.T) {
 		t.Fatalf("expected 4 rows, got %d", cnt)
 	}
 
-	results, err = QueryLive(dataDir, nil, "SELECT DISTINCT source FROM metrics ORDER BY source")
+	results, _, err = QueryLive(dataDir, nil, "SELECT DISTINCT source FROM metrics ORDER BY source")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(results) != 2 {
 		t.Fatalf("expected 2 sources, got %d", len(results))
 	}
-	if results[0]["source"] != "github" {
-		t.Errorf("expected first source=github, got %v", results[0]["source"])
+	if results[0]["source"] != "cran" {
+		t.Errorf("expected first source=cran, got %v", results[0]["source"])
 	}
 	if results[1]["source"] != "pypi" {
 		t.Errorf("expected second source=pypi, got %v", results[1]["source"])
 	}
 
-	results, err = QueryLive(dataDir, nil, "SELECT metric, value FROM metrics WHERE source = 'pypi'")
+	results, _, err = QueryLive(dataDir, nil, "SELECT metric, value FROM metrics WHERE source = 'pypi'")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -79,14 +79,14 @@ func TestQueryLiveAggregation(t *testing.T) {
 		{Metric: "forks", ProjectID: "proj-a", Date: "2025-01-01", Value: 20},
 		{Metric: "stars", ProjectID: "proj-b", Date: "2025-01-01", Value: 50},
 	}
-	if err := WriteRecords(dataDir, "github", "proj-a", records[:3]); err != nil {
+	if err := WriteRecords(dataDir, "pypi", "proj-a", records[:3]); err != nil {
 		t.Fatal(err)
 	}
-	if err := WriteRecords(dataDir, "github", "proj-b", records[3:]); err != nil {
+	if err := WriteRecords(dataDir, "pypi", "proj-b", records[3:]); err != nil {
 		t.Fatal(err)
 	}
 
-	results, err := QueryLive(dataDir, nil, "SELECT project, SUM(value) AS total FROM metrics WHERE metric = 'stars' GROUP BY project ORDER BY project")
+	results, _, err := QueryLive(dataDir, nil, "SELECT project, SUM(value) AS total FROM metrics WHERE metric = 'stars' GROUP BY project ORDER BY project")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -103,7 +103,7 @@ func TestQueryLiveEmptyDir(t *testing.T) {
 	dataDir := filepath.Join(dir, "data")
 	os.MkdirAll(dataDir, 0755)
 
-	results, err := QueryLive(dataDir, nil, "SELECT COUNT(*) AS cnt FROM metrics")
+	results, _, err := QueryLive(dataDir, nil, "SELECT COUNT(*) AS cnt FROM metrics")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -118,7 +118,7 @@ func TestQueryLiveInvalidSQL(t *testing.T) {
 	dataDir := filepath.Join(dir, "data")
 	os.MkdirAll(dataDir, 0755)
 
-	_, err := QueryLive(dataDir, nil, "SELECT * FROM nonexistent_table")
+	_, _, err := QueryLive(dataDir, nil, "SELECT * FROM nonexistent_table")
 	if err == nil {
 		t.Fatal("expected error for invalid query")
 	}
@@ -131,14 +131,14 @@ func TestSchemaLive(t *testing.T) {
 	records := []source.Record{
 		{Metric: "stars", ProjectID: "test", Date: "2025-01-01", Value: 1},
 	}
-	if err := WriteRecords(dataDir, "github", "test", records); err != nil {
+	if err := WriteRecords(dataDir, "pypi", "test", records); err != nil {
 		t.Fatal(err)
 	}
 
 	events := []source.GitHubEvent{
 		{EventType: "star", ProjectID: "test", GitHubRepo: "owner/repo", Datetime: "2025-01-01T10:00:00Z", User: "alice"},
 	}
-	if err := WriteGitHubEvents(dataDir, "github-events", "test", events); err != nil {
+	if err := WriteGitHubEvents(dataDir, "github", "test", events); err != nil {
 		t.Fatal(err)
 	}
 
@@ -147,41 +147,53 @@ func TestSchemaLive(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	metricsExpected := []string{"project", "source", "metric", "date", "value", "tags"}
+	githubExpected := []string{"project", "github_repo", "event_type", "date", "count"}
 	eventsExpected := []string{"project", "source", "event_type", "github_repo", "datetime", "user"}
+	metricsExpected := []string{"project", "source", "metric", "date", "value", "tags"}
 	projectsExpected := []string{"id", "name", "description", "color", "tags", "website", "logo"}
 
-	var metricsCols, eventsCols, projectsCols []SchemaColumn
+	var githubCols, eventsCols, metricsCols, projectsCols []SchemaColumn
 	for _, c := range cols {
 		switch c.Table {
-		case "metrics":
-			metricsCols = append(metricsCols, c)
+		case "github":
+			githubCols = append(githubCols, c)
 		case "github_events":
 			eventsCols = append(eventsCols, c)
+		case "metrics":
+			metricsCols = append(metricsCols, c)
 		case "projects":
 			projectsCols = append(projectsCols, c)
 		}
 	}
 
-	if len(metricsCols) != 6 {
-		t.Fatalf("expected 6 metrics columns, got %d", len(metricsCols))
+	if len(githubCols) != 5 {
+		t.Fatalf("expected 5 github columns, got %d", len(githubCols))
 	}
 	if len(eventsCols) != 6 {
 		t.Fatalf("expected 6 github_events columns, got %d", len(eventsCols))
+	}
+	if len(metricsCols) != 6 {
+		t.Fatalf("expected 6 metrics columns, got %d", len(metricsCols))
 	}
 	if len(projectsCols) != 7 {
 		t.Fatalf("expected 7 projects columns, got %d", len(projectsCols))
 	}
 
-	for i, exp := range metricsExpected {
-		if metricsCols[i].Column != exp {
-			t.Errorf("metrics column %d: expected %s, got %s", i, exp, metricsCols[i].Column)
+	for i, exp := range githubExpected {
+		if githubCols[i].Column != exp {
+			t.Errorf("github column %d: expected %s, got %s", i, exp, githubCols[i].Column)
 		}
 	}
 
 	for i, exp := range eventsExpected {
 		if eventsCols[i].Column != exp {
 			t.Errorf("github_events column %d: expected %s, got %s", i, exp, eventsCols[i].Column)
+		}
+	}
+
+	for i, exp := range metricsExpected {
+		if metricsCols[i].Column != exp {
+			t.Errorf("metrics column %d: expected %s, got %s", i, exp, metricsCols[i].Column)
 		}
 	}
 
@@ -201,11 +213,11 @@ func TestQueryLiveGitHubEvents(t *testing.T) {
 		{EventType: "fork", ProjectID: "my-proj", GitHubRepo: "owner/repo", Datetime: "2025-06-01T11:00:00Z", User: "bob"},
 		{EventType: "issue_open", ProjectID: "my-proj", GitHubRepo: "owner/repo", Datetime: "2025-06-02T09:00:00Z", User: "carol"},
 	}
-	if err := WriteGitHubEvents(dataDir, "github-events", "my-proj", events); err != nil {
+	if err := WriteGitHubEvents(dataDir, "github", "my-proj", events); err != nil {
 		t.Fatal(err)
 	}
 
-	results, err := QueryLive(dataDir, nil, "SELECT COUNT(*) AS cnt FROM github_events")
+	results, _, err := QueryLive(dataDir, nil, "SELECT COUNT(*) AS cnt FROM github_events")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -214,7 +226,7 @@ func TestQueryLiveGitHubEvents(t *testing.T) {
 		t.Fatalf("expected 3 events, got %d", cnt)
 	}
 
-	results, err = QueryLive(dataDir, nil, "SELECT event_type, \"user\" FROM github_events WHERE event_type = 'star'")
+	results, _, err = QueryLive(dataDir, nil, "SELECT event_type, \"user\" FROM github_events WHERE event_type = 'star'")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -231,25 +243,54 @@ func TestMetricsViewExcludesGitHubEvents(t *testing.T) {
 	dataDir := filepath.Join(dir, "data")
 
 	records := []source.Record{
-		{Metric: "stars", ProjectID: "test", Date: "2025-06-01", Value: 10},
+		{Metric: "downloads", ProjectID: "test", Date: "2025-06-01", Value: 10},
 	}
-	if err := WriteRecords(dataDir, "github", "test", records); err != nil {
+	if err := WriteRecords(dataDir, "pypi", "test", records); err != nil {
 		t.Fatal(err)
 	}
 
 	events := []source.GitHubEvent{
 		{EventType: "star", ProjectID: "test", GitHubRepo: "owner/repo", Datetime: "2025-06-01T10:00:00Z", User: "alice"},
 	}
-	if err := WriteGitHubEvents(dataDir, "github-events", "test", events); err != nil {
+	if err := WriteGitHubEvents(dataDir, "github", "test", events); err != nil {
 		t.Fatal(err)
 	}
 
-	results, err := QueryLive(dataDir, nil, "SELECT COUNT(*) AS cnt FROM metrics")
+	results, _, err := QueryLive(dataDir, nil, "SELECT COUNT(*) AS cnt FROM metrics")
 	if err != nil {
 		t.Fatal(err)
 	}
 	cnt := results[0]["cnt"].(int64)
 	if cnt != 1 {
-		t.Fatalf("expected 1 metric row (github-events should be excluded), got %d", cnt)
+		t.Fatalf("expected 1 metric row (github events should be excluded), got %d", cnt)
+	}
+}
+
+func TestQueryLiveGitHubView(t *testing.T) {
+	dir := t.TempDir()
+	dataDir := filepath.Join(dir, "data")
+
+	events := []source.GitHubEvent{
+		{EventType: "star", ProjectID: "my-proj", GitHubRepo: "owner/repo", Datetime: "2025-06-01T10:00:00Z", User: "alice"},
+		{EventType: "star", ProjectID: "my-proj", GitHubRepo: "owner/repo", Datetime: "2025-06-01T12:00:00Z", User: "bob"},
+		{EventType: "fork", ProjectID: "my-proj", GitHubRepo: "owner/repo", Datetime: "2025-06-01T11:00:00Z", User: "carol"},
+	}
+	if err := WriteGitHubEvents(dataDir, "github", "my-proj", events); err != nil {
+		t.Fatal(err)
+	}
+
+	results, _, err := QueryLive(dataDir, nil,
+		"SELECT event_type, count FROM github WHERE project = 'my-proj' AND date = '2025-06-01' ORDER BY event_type")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(results) != 2 {
+		t.Fatalf("expected 2 rows, got %d", len(results))
+	}
+	if results[0]["event_type"] != "fork" || results[0]["count"].(int64) != 1 {
+		t.Errorf("unexpected fork row: %v", results[0])
+	}
+	if results[1]["event_type"] != "star" || results[1]["count"].(int64) != 2 {
+		t.Errorf("unexpected star row: %v", results[1])
 	}
 }

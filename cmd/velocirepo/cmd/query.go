@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"sort"
 	"time"
 
 	"github.com/jeroenjanssens/velocirepo/internal/store"
@@ -34,7 +33,7 @@ func queryRunCmd() *cobra.Command {
 		Short: "Run an arbitrary SQL query",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			results, err := store.QueryLive(cfg.DataDir(), projectInfos(), args[0])
+			results, cols, err := store.QueryLive(cfg.DataDir(), projectInfos(), args[0])
 			if err != nil {
 				return err
 			}
@@ -43,9 +42,9 @@ func queryRunCmd() *cobra.Command {
 			case jsonFlag:
 				return printJSON(results)
 			case csvFlag:
-				return printCSV(results)
+				return printCSV(results, cols)
 			default:
-				return printTable(results)
+				return printTable(results, cols)
 			}
 		},
 	}
@@ -112,17 +111,11 @@ func querySchemaCmd() *cobra.Command {
 	return cmd
 }
 
-func printTable(results []map[string]interface{}) error {
+func printTable(results []map[string]interface{}, cols []string) error {
 	if len(results) == 0 {
 		fmt.Println("(0 rows)")
 		return nil
 	}
-
-	var cols []string
-	for k := range results[0] {
-		cols = append(cols, k)
-	}
-	sortColumns(cols)
 
 	table := tablewriter.NewTable(os.Stdout,
 		tablewriter.WithHeaderAutoFormat(tw.Off),
@@ -150,16 +143,10 @@ func printJSON(results []map[string]interface{}) error {
 	return enc.Encode(results)
 }
 
-func printCSV(results []map[string]interface{}) error {
+func printCSV(results []map[string]interface{}, cols []string) error {
 	if len(results) == 0 {
 		return nil
 	}
-
-	var cols []string
-	for k := range results[0] {
-		cols = append(cols, k)
-	}
-	sortColumns(cols)
 
 	w := csv.NewWriter(os.Stdout)
 	w.Write(cols)
@@ -208,31 +195,3 @@ func projectInfos() []store.ProjectInfo {
 	return infos
 }
 
-func sortColumns(cols []string) {
-	order := map[string]int{
-		"project":     0,
-		"source":      1,
-		"metric":      2,
-		"date":        3,
-		"value":       4,
-		"tags":        5,
-		"event_type":  6,
-		"github_repo": 7,
-		"datetime":    8,
-		"user":        9,
-	}
-	sort.Slice(cols, func(i, j int) bool {
-		oi, oki := order[cols[i]]
-		oj, okj := order[cols[j]]
-		if !oki {
-			oi = 100
-		}
-		if !okj {
-			oj = 100
-		}
-		if oi != oj {
-			return oi < oj
-		}
-		return cols[i] < cols[j]
-	})
-}

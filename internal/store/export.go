@@ -111,7 +111,7 @@ func buildExportQuery(table string, opts ExportOptions) string {
 
 func matchesSource(table, source string) bool {
 	switch source {
-	case "github-events":
+	case "github":
 		return table == "github_events"
 	case "projects":
 		return table == "projects"

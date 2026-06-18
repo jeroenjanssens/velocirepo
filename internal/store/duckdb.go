@@ -28,10 +28,10 @@ type ProjectInfo struct {
 	Logo        string
 }
 
-func QueryLive(dataDir string, projects []ProjectInfo, query string) ([]map[string]interface{}, error) {
+func QueryLive(dataDir string, projects []ProjectInfo, query string) ([]map[string]interface{}, []string, error) {
 	db, err := openLiveDB(dataDir, projects)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	defer db.Close()
 
@@ -45,7 +45,7 @@ func SchemaLive(dataDir string, projects []ProjectInfo) ([]SchemaColumn, error) 
 	}
 	defer db.Close()
 
-	rows, err := db.Query("SELECT table_name, column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name IN ('github_events', 'metrics', 'projects') ORDER BY table_name, ordinal_position")
+	rows, err := db.Query("SELECT table_name, column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name IN ('github', 'github_events', 'metrics', 'projects') ORDER BY table_name, ordinal_position")
 	if err != nil {
 		return nil, fmt.Errorf("query schema: %w", err)
 	}
@@ -84,6 +84,11 @@ func openLiveDB(dataDir string, projects []ProjectInfo) (*sql.DB, error) {
 		return nil, err
 	}
 
+	if err := createGitHubView(db); err != nil {
+		db.Close()
+		return nil, err
+	}
+
 	if err := createProjectsView(db, projects); err != nil {
 		db.Close()
 		return nil, err
@@ -100,7 +105,7 @@ func createMetricsView(db *sql.DB, absDir string) error {
 
 	var globs []string
 	for _, entry := range entries {
-		if !entry.IsDir() || entry.Name() == "github-events" {
+		if !entry.IsDir() || entry.Name() == "github" {
 			continue
 		}
 		g := filepath.ToSlash(filepath.Join(absDir, entry.Name(), "*", "*.jsonl"))
@@ -143,7 +148,7 @@ func createEmptyMetricsView(db *sql.DB) error {
 }
 
 func createGitHubEventsView(db *sql.DB, absDir string) error {
-	glob := filepath.ToSlash(filepath.Join(absDir, "github-events", "*", "*.jsonl"))
+	glob := filepath.ToSlash(filepath.Join(absDir, "github", "*", "*.jsonl"))
 	query := fmt.Sprintf(`CREATE OR REPLACE VIEW github_events AS
 		SELECT
 			project_id AS project,
@@ -170,6 +175,22 @@ func createEmptyGitHubEventsView(db *sql.DB) error {
 		WHERE false`)
 	if err != nil {
 		return fmt.Errorf("create empty github_events view: %w", err)
+	}
+	return nil
+}
+
+func createGitHubView(db *sql.DB) error {
+	_, err := db.Exec(`CREATE OR REPLACE VIEW github AS
+		SELECT
+			project,
+			github_repo,
+			event_type,
+			CAST(datetime AS DATE) AS date,
+			COUNT(*) AS count
+		FROM github_events
+		GROUP BY project, github_repo, event_type, CAST(datetime AS DATE)`)
+	if err != nil {
+		return fmt.Errorf("create github view: %w", err)
 	}
 	return nil
 }
@@ -220,16 +241,16 @@ func escapeSQLString(s string) string {
 	return strings.ReplaceAll(s, "'", "''")
 }
 
-func queryRows(db *sql.DB, query string) ([]map[string]interface{}, error) {
+func queryRows(db *sql.DB, query string) ([]map[string]interface{}, []string, error) {
 	rows, err := db.Query(query)
 	if err != nil {
-		return nil, fmt.Errorf("query: %w", err)
+		return nil, nil, fmt.Errorf("query: %w", err)
 	}
 	defer rows.Close()
 
 	cols, err := rows.Columns()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	var results []map[string]interface{}
@@ -240,7 +261,7 @@ func queryRows(db *sql.DB, query string) ([]map[string]interface{}, error) {
 			ptrs[i] = &values[i]
 		}
 		if err := rows.Scan(ptrs...); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		row := make(map[string]interface{})
 		for i, col := range cols {
@@ -248,5 +269,5 @@ func queryRows(db *sql.DB, query string) ([]map[string]interface{}, error) {
 		}
 		results = append(results, row)
 	}
-	return results, rows.Err()
+	return results, cols, rows.Err()
 }

@@ -92,7 +92,7 @@ func projectShowCmd() *cobra.Command {
 			fmt.Fprintf(cmd.OutOrStdout(), "Project: %s\n", id)
 			fmt.Fprintf(cmd.OutOrStdout(), "Name:    %s\n", proj.Name)
 			if !proj.GitHub.IsEmpty() {
-				fmt.Fprintf(cmd.OutOrStdout(), "GitHub:  %s\n", proj.GitHub.String())
+				fmt.Fprintf(cmd.OutOrStdout(), "GitHub: %s\n", proj.GitHub.String())
 			}
 			if !proj.GitHubTraffic.IsEmpty() {
 				fmt.Fprintf(cmd.OutOrStdout(), "GitHub Traffic: %s\n", proj.GitHubTraffic.String())
