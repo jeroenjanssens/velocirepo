@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/jeroenjanssens/velocirepo/internal/config"
+	"github.com/joho/godotenv"
 	"github.com/spf13/cobra"
 )
 
@@ -24,6 +25,7 @@ func newRootCmd() *cobra.Command {
 		Long:  "velocirepo collects metrics from GitHub, PyPI, CRAN, Plausible, and OpenVSX for your open-source projects.",
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
+			godotenv.Load()
 			setupLogging()
 
 			if cmd.Name() == "version" || cmd.CommandPath() == "velocirepo project init" {
@@ -55,11 +57,9 @@ func newRootCmd() *cobra.Command {
 }
 
 func setupLogging() {
-	level := slog.LevelInfo
+	level := slog.LevelError + 1 // suppress all by default
 	if verbose {
 		level = slog.LevelDebug
-	} else if quiet {
-		level = slog.LevelWarn
 	}
 
 	handler := slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: level})

@@ -50,6 +50,8 @@ velocirepo looks for `velocirepo.toml` by walking up from the current directory.
 | `PLAUSIBLE_KEY` | Plausible API key |
 | `VELOCIREPO_CONFIG` | Path to config file |
 
+These can also be set in a `.env` file in the current directory.
+
 ## Installation
 
 velocirepo can be used as a GitHub Action for automated nightly fetching, or installed locally for ad-hoc use.
