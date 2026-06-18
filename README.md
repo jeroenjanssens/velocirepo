@@ -275,15 +275,15 @@ velocirepo query run "
 ```
 
 ```
-┌───────────┬─────────────────┬────────────┬─────────┐
-│  project  │     metric      │    date    │  value  │
-├───────────┼─────────────────┼────────────┼─────────┤
-│ databot   │ total_downloads │ 2026-06-16 │ 49504   │
-│ databot   │ rating          │ 2026-06-16 │ 5       │
-│ databot   │ reviews         │ 2026-06-16 │ 1       │
-│ publisher │ total_downloads │ 2026-06-16 │ 1562247 │
-│ publisher │ reviews         │ 2026-06-16 │ 0       │
-└───────────┴─────────────────┴────────────┴─────────┘
+┌───────────┬─────────┬─────────────────┬────────────┬─────────┐
+│  project  │ source  │     metric      │    date    │  value  │
+├───────────┼─────────┼─────────────────┼────────────┼─────────┤
+│ databot   │ openvsx │ total_downloads │ 2026-06-16 │ 49504   │
+│ databot   │ openvsx │ rating          │ 2026-06-16 │ 5       │
+│ databot   │ openvsx │ reviews         │ 2026-06-16 │ 1       │
+│ publisher │ openvsx │ total_downloads │ 2026-06-16 │ 1562247 │
+│ publisher │ openvsx │ reviews         │ 2026-06-16 │ 0       │
+└───────────┴─────────┴─────────────────┴────────────┴─────────┘
 ```
 
 ### Output formats
