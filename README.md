@@ -5,10 +5,10 @@
 - [Configuration](#configuration)
 - [Installation](#installation)
 - [Usage](#usage)
+- [Data storage](#data-storage)
 - [Querying the data](#querying-the-data)
 - [Exporting data](#exporting-data)
 - [Generating badges](#generating-badges)
-- [Data storage](#data-storage)
 
 velocirepo fetches and aggregates metrics for your open-source projects, building a historical record you can query and commit to git. It currently supports the following sources:
 
@@ -199,6 +199,67 @@ velocirepo ci install        Generate a GitHub Actions workflow
 velocirepo version           Print version information
 ```
 
+## Data storage
+
+All data is stored as JSONL files at `velocirepo/data/<source>/<project-id>/<date>.jsonl`. Daily files are automatically aggregated into monthly and yearly files once the period is complete.
+
+### Metrics sources
+
+Sources like PyPI, CRAN, Homebrew, Plausible, OpenVSX, and GitHub Traffic store one JSON object per metric per day:
+
+```json
+{"source":"pypi","metric":"downloads","project_id":"plotnine","target":"plotnine","date":"2026-06-15","value":1523}
+{"source":"openvsx","metric":"total_downloads","project_id":"quarto","target":"quarto/quarto","date":"2026-06-15","value":1250000}
+```
+
+Fields:
+
+| Field | Description |
+|-------|-------------|
+| `source` | Source name (pypi, cran, homebrew, plausible, openvsx, github-traffic) |
+| `metric` | Metric name (downloads, pageviews, views, clones, etc.) |
+| `project_id` | Project ID from your config |
+| `target` | Specific package, repo, site, or extension being tracked |
+| `date` | Date of the measurement |
+| `value` | Integer value |
+| `tags` | Optional key-value metadata |
+
+### GitHub source
+
+The GitHub source stores individual events rather than aggregated counts, giving you full historical detail including who performed each action and when:
+
+```json
+{"source":"github","event_type":"star","project_id":"quarto","github_repo":"quarto-dev/quarto-cli","datetime":"2026-06-15T14:23:01Z","user":"alice"}
+{"source":"github","event_type":"fork","project_id":"quarto","github_repo":"quarto-dev/quarto-cli","datetime":"2026-06-15T09:11:44Z","user":"bob"}
+```
+
+Fields:
+
+| Field | Description |
+|-------|-------------|
+| `source` | Always `github` |
+| `event_type` | One of: star, fork, issue_open, issue_close, pr_open, pr_merge |
+| `project_id` | Project ID from your config |
+| `github_repo` | The owner/repo being tracked |
+| `datetime` | Full timestamp of the event |
+| `user` | GitHub username who performed the action |
+
+### DuckDB views
+
+The `query` command reads JSONL files directly using DuckDB and exposes three views:
+
+| View | Description |
+|------|-------------|
+| `metrics` | Unified time-series: daily counts from all sources including aggregated GitHub events |
+| `github_events` | Raw GitHub events with user and timestamp (for per-event analysis) |
+| `projects` | Project metadata from your config |
+
+GitHub events are stored individually on disk but automatically aggregated into daily counts in the `metrics` view (with `source = 'github'`, `metric` = event type, `target` = repo). Use `github_events` when you need per-user or per-timestamp detail.
+
+### Repository layout
+
+You can either keep metrics in the same repository as your code, or create a dedicated metrics repository. A separate repo is useful when you want to track multiple projects in one place or keep metric history out of your main codebase.
+
 ## Querying the data
 
 velocirepo stores all fetched data as JSONL files. You can query them directly using SQL (powered by DuckDB). Three views are available:
@@ -379,67 +440,6 @@ Three styles are available via `--style`:
 | `-o` | stdout | Output file path |
 
 Numbers are automatically formatted for readability (e.g., `5274` becomes `5.3k`, `1500000` becomes `1.5M`).
-
-## Data storage
-
-All data is stored as JSONL files at `velocirepo/data/<source>/<project-id>/<date>.jsonl`. Daily files are automatically aggregated into monthly and yearly files once the period is complete.
-
-### Metrics sources
-
-Sources like PyPI, CRAN, Homebrew, Plausible, OpenVSX, and GitHub Traffic store one JSON object per metric per day:
-
-```json
-{"source":"pypi","metric":"downloads","project_id":"plotnine","target":"plotnine","date":"2026-06-15","value":1523}
-{"source":"openvsx","metric":"total_downloads","project_id":"quarto","target":"quarto/quarto","date":"2026-06-15","value":1250000}
-```
-
-Fields:
-
-| Field | Description |
-|-------|-------------|
-| `source` | Source name (pypi, cran, homebrew, plausible, openvsx, github-traffic) |
-| `metric` | Metric name (downloads, pageviews, views, clones, etc.) |
-| `project_id` | Project ID from your config |
-| `target` | Specific package, repo, site, or extension being tracked |
-| `date` | Date of the measurement |
-| `value` | Integer value |
-| `tags` | Optional key-value metadata |
-
-### GitHub source
-
-The GitHub source stores individual events rather than aggregated counts, giving you full historical detail including who performed each action and when:
-
-```json
-{"source":"github","event_type":"star","project_id":"quarto","github_repo":"quarto-dev/quarto-cli","datetime":"2026-06-15T14:23:01Z","user":"alice"}
-{"source":"github","event_type":"fork","project_id":"quarto","github_repo":"quarto-dev/quarto-cli","datetime":"2026-06-15T09:11:44Z","user":"bob"}
-```
-
-Fields:
-
-| Field | Description |
-|-------|-------------|
-| `source` | Always `github` |
-| `event_type` | One of: star, fork, issue_open, issue_close, pr_open, pr_merge |
-| `project_id` | Project ID from your config |
-| `github_repo` | The owner/repo being tracked |
-| `datetime` | Full timestamp of the event |
-| `user` | GitHub username who performed the action |
-
-### DuckDB views
-
-The `query` command reads JSONL files directly using DuckDB and exposes three views:
-
-| View | Description |
-|------|-------------|
-| `metrics` | Unified time-series: daily counts from all sources including aggregated GitHub events |
-| `github_events` | Raw GitHub events with user and timestamp (for per-event analysis) |
-| `projects` | Project metadata from your config |
-
-GitHub events are stored individually on disk but automatically aggregated into daily counts in the `metrics` view (with `source = 'github'`, `metric` = event type, `target` = repo). Use `github_events` when you need per-user or per-timestamp detail.
-
-### Repository layout
-
-You can either keep metrics in the same repository as your code, or create a dedicated metrics repository. A separate repo is useful when you want to track multiple projects in one place or keep metric history out of your main codebase.
 
 ## License
 
