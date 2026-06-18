@@ -164,10 +164,16 @@ velocirepo fetch plausible       Fetch Plausible analytics
 velocirepo fetch openvsx         Fetch Open VSX install counts
 velocirepo fetch all             Fetch from all configured sources
 
-velocirepo export -o FILE    Export all metrics to Parquet or CSV
+velocirepo export <dir>      Export data to Parquet or CSV files
 
 velocirepo query run [sql]   Run a SQL query against the metrics data
-velocirepo query schema      Show the metrics table schema
+velocirepo query schema      Show table schemas
+
+velocirepo badge stars       Generate a stars badge
+velocirepo badge forks       Generate a forks badge
+velocirepo badge downloads   Generate a downloads badge
+velocirepo badge pageviews   Generate a pageviews badge
+velocirepo badge custom      Generate a badge from a custom query
 
 velocirepo project init      Create a new velocirepo.toml
 velocirepo project add       Add a project to the config
@@ -300,6 +306,51 @@ velocirepo export ./out/ --format csv
 velocirepo export ./out/ --source github-events
 velocirepo export ./out/ --project quarto
 ```
+
+## Generating badges
+
+Generate shields.io-style SVG badges from your metrics data:
+
+```bash
+velocirepo badge stars -o stars.svg
+velocirepo badge forks --project quarto -o forks.svg
+velocirepo badge downloads --project ggplot2 -o downloads.svg
+```
+
+For custom metrics, provide a SQL query that returns a single value:
+
+```bash
+velocirepo badge custom \
+  --label "contributors" \
+  --query "SELECT COUNT(DISTINCT \"user\") AS value FROM github_events" \
+  --color "#ea7233" \
+  -o contributors.svg
+```
+
+### Styles
+
+Three styles are available via `--style`:
+
+| Style | Description |
+|-------|-------------|
+| `flat` (default) | Subtle gradient, rounded corners |
+| `flat-square` | No gradient, sharp corners |
+| `plastic` | Heavy gradient, more rounded |
+
+### Options
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--project` | all | Scope to a specific project |
+| `--style` | `flat` | Badge style |
+| `--color` | preset-dependent | Message background color (hex) |
+| `--label-color` | `#555` | Label background color |
+| `--label` | preset-dependent | Override label text |
+| `--height` | style-dependent | Badge height in pixels |
+| `--radius` | style-dependent | Corner radius (0 = square) |
+| `-o` | stdout | Output file path |
+
+Numbers are automatically formatted for readability (e.g., `5274` becomes `5.3k`, `1500000` becomes `1.5M`).
 
 ## Data storage
 

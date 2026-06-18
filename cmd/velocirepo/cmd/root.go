@@ -47,6 +47,7 @@ func newRootCmd() *cobra.Command {
 	rootCmd.AddCommand(fetchCmd())
 	rootCmd.AddCommand(queryCmd())
 	rootCmd.AddCommand(exportCmd())
+	rootCmd.AddCommand(badgeCmd())
 	rootCmd.AddCommand(ciCmd())
 	rootCmd.AddCommand(projectCmd())
 
