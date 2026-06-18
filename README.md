@@ -372,11 +372,65 @@ Numbers are automatically formatted for readability (e.g., `5274` becomes `5.3k`
 
 ## Data storage
 
-Metrics are stored as JSONL files at `velocirepo/data/<source>/<project-id>/<date>.jsonl`. Daily files are automatically aggregated into monthly and yearly files once the period is complete.
+All data is stored as JSONL files at `velocirepo/data/<source>/<project-id>/<date>.jsonl`. Daily files are automatically aggregated into monthly and yearly files once the period is complete.
+
+### Metrics sources
+
+Sources like PyPI, CRAN, Homebrew, Plausible, OpenVSX, and GitHub Traffic store one JSON object per metric per day:
+
+```json
+{"source":"pypi","metric":"downloads","project_id":"plotnine","target":"plotnine","date":"2026-06-15","value":1523}
+{"source":"openvsx","metric":"total_downloads","project_id":"quarto","target":"quarto/quarto","date":"2026-06-15","value":1250000}
+```
+
+Fields:
+
+| Field | Description |
+|-------|-------------|
+| `source` | Source name (pypi, cran, homebrew, plausible, openvsx, github-traffic) |
+| `metric` | Metric name (downloads, pageviews, views, clones, etc.) |
+| `project_id` | Project ID from your config |
+| `target` | Specific package, repo, site, or extension being tracked |
+| `date` | Date of the measurement |
+| `value` | Integer value |
+| `tags` | Optional key-value metadata |
+
+### GitHub source
+
+The GitHub source stores individual events rather than aggregated counts, giving you full historical detail including who performed each action and when:
+
+```json
+{"source":"github","event_type":"star","project_id":"quarto","github_repo":"quarto-dev/quarto-cli","datetime":"2026-06-15T14:23:01Z","user":"alice"}
+{"source":"github","event_type":"fork","project_id":"quarto","github_repo":"quarto-dev/quarto-cli","datetime":"2026-06-15T09:11:44Z","user":"bob"}
+```
+
+Fields:
+
+| Field | Description |
+|-------|-------------|
+| `source` | Always `github` |
+| `event_type` | One of: star, fork, issue_open, issue_close, pr_open, pr_merge |
+| `project_id` | Project ID from your config |
+| `github_repo` | The owner/repo being tracked |
+| `datetime` | Full timestamp of the event |
+| `user` | GitHub username who performed the action |
+
+### DuckDB views
+
+The `query` command reads JSONL files directly using DuckDB and exposes four views:
+
+| View | Description |
+|------|-------------|
+| `github_events` | Raw GitHub events with all fields as stored on disk |
+| `github` | Aggregated daily counts per project, target, and event type (computed from `github_events`) |
+| `metrics` | Time-series metrics from all other sources |
+| `projects` | Project metadata from your config |
+
+The `github` view provides a convenient aggregation so you don't need to write `GROUP BY` clauses yourself. It uses `target` (aliased from `github_repo`) for consistency with the `metrics` view.
+
+### Repository layout
 
 You can either keep metrics in the same repository as your code, or create a dedicated metrics repository. A separate repo is useful when you want to track multiple projects in one place or keep metric history out of your main codebase.
-
-The `query` command reads JSONL files directly using DuckDB.
 
 ## License
 
