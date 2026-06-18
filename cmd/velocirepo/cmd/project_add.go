@@ -103,8 +103,17 @@ func projectAddInteractive(cfgPath string, id string) error {
 	detected := config.DetectAll(dir)
 	reader := bufio.NewReader(os.Stdin)
 
+	suppress := false
 	if id == "" {
-		id = prompt(os.Stdout, reader, "Project ID", detected.ProjectID, detected.IDSource)
+		var overridden bool
+		var err error
+		id, overridden, err = promptWithHint(os.Stdout, reader, "Project ID", detected.ProjectID, detected.IDSource, suppress)
+		if err != nil {
+			return err
+		}
+		if overridden {
+			suppress = true
+		}
 	}
 	if id == "" {
 		return fmt.Errorf("project ID is required")
@@ -121,15 +130,68 @@ func projectAddInteractive(cfgPath string, id string) error {
 	fmt.Fprintln(os.Stdout, "Tip: use commas to specify multiple values (e.g., owner/repo-a, owner/repo-b)")
 	fmt.Fprintln(os.Stdout)
 
-	name := prompt(os.Stdout, reader, "Name", id, "")
-	github := prompt(os.Stdout, reader, "GitHub (owner/repo)", detected.GitHub, detected.GitHubSource)
-	githubTraffic := prompt(os.Stdout, reader, "GitHub traffic (owner/repo)", detected.GitHub, detected.GitHubSource)
-	githubEvents := prompt(os.Stdout, reader, "GitHub events (owner/repo)", detected.GitHub, detected.GitHubSource)
-	pypi := prompt(os.Stdout, reader, "PyPI package", detected.PyPI, detected.PyPISource)
-	cran := prompt(os.Stdout, reader, "CRAN package", detected.CRAN, detected.CRANSource)
-	homebrew := prompt(os.Stdout, reader, "Homebrew formula", "", "")
-	plausible := prompt(os.Stdout, reader, "Plausible site ID", "", "")
-	openvsx := prompt(os.Stdout, reader, "OpenVSX extension", detected.OpenVSX, detected.OpenVSXSource)
+	var overridden bool
+
+	name, overridden, err := promptWithHint(os.Stdout, reader, "Name", id, "", suppress)
+	if err != nil {
+		return err
+	}
+	if overridden {
+		suppress = true
+	}
+	github, overridden, err := promptWithHint(os.Stdout, reader, "GitHub (owner/repo)", detected.GitHub, detected.GitHubSource, suppress)
+	if err != nil {
+		return err
+	}
+	if overridden {
+		suppress = true
+	}
+	githubTraffic, overridden, err := promptWithHint(os.Stdout, reader, "GitHub traffic (owner/repo)", detected.GitHub, detected.GitHubSource, suppress)
+	if err != nil {
+		return err
+	}
+	if overridden {
+		suppress = true
+	}
+	githubEvents, overridden, err := promptWithHint(os.Stdout, reader, "GitHub events (owner/repo)", detected.GitHub, detected.GitHubSource, suppress)
+	if err != nil {
+		return err
+	}
+	if overridden {
+		suppress = true
+	}
+	pypi, overridden, err := promptWithHint(os.Stdout, reader, "PyPI package", detected.PyPI, detected.PyPISource, suppress)
+	if err != nil {
+		return err
+	}
+	if overridden {
+		suppress = true
+	}
+	cran, overridden, err := promptWithHint(os.Stdout, reader, "CRAN package", detected.CRAN, detected.CRANSource, suppress)
+	if err != nil {
+		return err
+	}
+	if overridden {
+		suppress = true
+	}
+	homebrew, overridden, err := promptWithHint(os.Stdout, reader, "Homebrew formula", "", "", suppress)
+	if err != nil {
+		return err
+	}
+	if overridden {
+		suppress = true
+	}
+	plausible, overridden, err := promptWithHint(os.Stdout, reader, "Plausible site ID", "", "", suppress)
+	if err != nil {
+		return err
+	}
+	if overridden {
+		suppress = true
+	}
+	openvsx, _, err := promptWithHint(os.Stdout, reader, "OpenVSX extension", detected.OpenVSX, detected.OpenVSXSource, suppress)
+	if err != nil {
+		return err
+	}
 
 	for _, repo := range parseCommaSeparated(github) {
 		if !validGitHubRe.MatchString(repo) {

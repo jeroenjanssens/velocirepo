@@ -56,22 +56,35 @@ func ciInstallCmd() *cobra.Command {
 			reader := bufio.NewReader(os.Stdin)
 
 			defaultCron := "0 1 * * *"
-			cron := prompt(os.Stdout, reader, "Cron schedule", defaultCron, "daily at 1am UTC")
+			cron, err := prompt(os.Stdout, reader, "Cron schedule", defaultCron, "daily at 1am UTC")
+			if err != nil {
+				return err
+			}
 
 			defaultVersion := "latest"
 			if version.Version != "dev" {
 				defaultVersion = version.Version
 			}
 			versionHint := "use a tag like v0.1.4, or \"latest\""
-			ver := prompt(os.Stdout, reader, "Velocirepo version", defaultVersion, versionHint)
+			ver, err := prompt(os.Stdout, reader, "Velocirepo version", defaultVersion, versionHint)
+			if err != nil {
+				return err
+			}
 
 			defaultFile := ".github/workflows/velocirepo.yml"
-			filename := prompt(os.Stdout, reader, "Workflow file", defaultFile, "")
+			filename, err := prompt(os.Stdout, reader, "Workflow file", defaultFile, "")
+			if err != nil {
+				return err
+			}
 
 			outPath := filepath.Join(cfg.Dir, filename)
 
 			if _, err := os.Stat(outPath); err == nil {
-				if !confirm(os.Stdout, reader, fmt.Sprintf("File %s already exists. Overwrite?", filename)) {
+				ok, err := confirm(os.Stdout, reader, fmt.Sprintf("File %s already exists. Overwrite?", filename))
+				if err != nil {
+					return err
+				}
+				if !ok {
 					fmt.Println("Cancelled.")
 					return nil
 				}

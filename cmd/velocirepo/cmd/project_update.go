@@ -116,15 +116,42 @@ func projectUpdateInteractive(cfgPath string, id string, proj config.Project) er
 	fmt.Fprintln(os.Stdout, "Tip: use commas to specify multiple values (e.g., owner/repo-a, owner/repo-b)")
 	fmt.Fprintln(os.Stdout)
 
-	name := prompt(os.Stdout, reader, "Name", proj.Name, "")
-	github := prompt(os.Stdout, reader, "GitHub (owner/repo)", proj.GitHub.String(), "")
-	githubTraffic := prompt(os.Stdout, reader, "GitHub traffic (owner/repo)", proj.GitHubTraffic.String(), "")
-	githubEvents := prompt(os.Stdout, reader, "GitHub events (owner/repo)", proj.GitHubEvents.String(), "")
-	pypi := prompt(os.Stdout, reader, "PyPI package", proj.PyPI.String(), "")
-	cran := prompt(os.Stdout, reader, "CRAN package", proj.CRAN.String(), "")
-	homebrew := prompt(os.Stdout, reader, "Homebrew formula", proj.Homebrew.String(), "")
-	plausible := prompt(os.Stdout, reader, "Plausible site ID", proj.Plausible.String(), "")
-	openvsx := prompt(os.Stdout, reader, "OpenVSX extension", proj.OpenVSX.String(), "")
+	name, err := prompt(os.Stdout, reader, "Name", proj.Name, "")
+	if err != nil {
+		return err
+	}
+	github, err := prompt(os.Stdout, reader, "GitHub (owner/repo)", proj.GitHub.String(), "")
+	if err != nil {
+		return err
+	}
+	githubTraffic, err := prompt(os.Stdout, reader, "GitHub traffic (owner/repo)", proj.GitHubTraffic.String(), "")
+	if err != nil {
+		return err
+	}
+	githubEvents, err := prompt(os.Stdout, reader, "GitHub events (owner/repo)", proj.GitHubEvents.String(), "")
+	if err != nil {
+		return err
+	}
+	pypi, err := prompt(os.Stdout, reader, "PyPI package", proj.PyPI.String(), "")
+	if err != nil {
+		return err
+	}
+	cran, err := prompt(os.Stdout, reader, "CRAN package", proj.CRAN.String(), "")
+	if err != nil {
+		return err
+	}
+	homebrew, err := prompt(os.Stdout, reader, "Homebrew formula", proj.Homebrew.String(), "")
+	if err != nil {
+		return err
+	}
+	plausible, err := prompt(os.Stdout, reader, "Plausible site ID", proj.Plausible.String(), "")
+	if err != nil {
+		return err
+	}
+	openvsx, err := prompt(os.Stdout, reader, "OpenVSX extension", proj.OpenVSX.String(), "")
+	if err != nil {
+		return err
+	}
 
 	for _, repo := range parseCommaSeparated(github) {
 		if !validGitHubRe.MatchString(repo) {

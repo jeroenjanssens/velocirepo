@@ -57,8 +57,12 @@ func projectInitCmd() *cobra.Command {
 					}
 					fmt.Fprintln(os.Stdout)
 
-					if confirm(os.Stdout, reader, "Add this project to config?") {
-						id := prompt(os.Stdout, reader, "Project ID", detected.ProjectID, detected.IDSource)
+					ok, err := confirm(os.Stdout, reader, "Add this project to config?")
+					if err == nil && ok {
+						id, err := prompt(os.Stdout, reader, "Project ID", detected.ProjectID, detected.IDSource)
+						if err != nil {
+							return err
+						}
 						proj := config.Project{
 							Name:    id,
 							GitHub:  toStringList(detected.GitHub),

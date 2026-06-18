@@ -32,7 +32,11 @@ func projectRemoveCmd() *cobra.Command {
 					return fmt.Errorf("cannot prompt for confirmation (use --force)")
 				}
 				reader := bufio.NewReader(os.Stdin)
-				if !confirm(os.Stdout, reader, fmt.Sprintf("Remove project '%s' from config?", id)) {
+				ok, err := confirm(os.Stdout, reader, fmt.Sprintf("Remove project '%s' from config?", id))
+				if err != nil {
+					return err
+				}
+				if !ok {
 					fmt.Println("Cancelled.")
 					return nil
 				}

@@ -116,7 +116,11 @@ func projectImportCmd() *cobra.Command {
 					return fmt.Errorf("cannot prompt for confirmation (use --yes)")
 				}
 				reader := bufio.NewReader(os.Stdin)
-				if !confirm(os.Stdout, reader, "Add these projects?") {
+				ok, err := confirm(os.Stdout, reader, "Add these projects?")
+				if err != nil {
+					return err
+				}
+				if !ok {
 					fmt.Println("Cancelled.")
 					return nil
 				}
