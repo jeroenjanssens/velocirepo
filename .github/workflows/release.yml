@@ -253,44 +253,49 @@ jobs:
           LINUX_AMD64_SHA: ${{ steps.sha256.outputs.linux_amd64 }}
           LINUX_ARM64_SHA: ${{ steps.sha256.outputs.linux_arm64 }}
         run: |
-          cat > homebrew-tap/Formula/velocirepo.rb <<FORMULA
-class Velocirepo < Formula
-  desc "Fetch and aggregate open-source project metrics"
-  homepage "https://github.com/jeroenjanssens/velocirepo"
-  version "${VERSION}"
-  license "MIT"
+          cat > homebrew-tap/Formula/velocirepo.rb << 'FORMULA'
+          class Velocirepo < Formula
+            desc "Fetch and aggregate open-source project metrics"
+            homepage "https://github.com/jeroenjanssens/velocirepo"
+            version "VERSION_PLACEHOLDER"
+            license "MIT"
 
-  on_macos do
-    if Hardware::CPU.intel?
-      url "https://github.com/jeroenjanssens/velocirepo/releases/download/v#{version}/velocirepo_#{version}_darwin_amd64.tar.gz"
-      sha256 "${DARWIN_AMD64_SHA}"
-    end
-    if Hardware::CPU.arm?
-      url "https://github.com/jeroenjanssens/velocirepo/releases/download/v#{version}/velocirepo_#{version}_darwin_arm64.tar.gz"
-      sha256 "${DARWIN_ARM64_SHA}"
-    end
-  end
+            on_macos do
+              if Hardware::CPU.intel?
+                url "https://github.com/jeroenjanssens/velocirepo/releases/download/v#{version}/velocirepo_#{version}_darwin_amd64.tar.gz"
+                sha256 "DARWIN_AMD64_PLACEHOLDER"
+              end
+              if Hardware::CPU.arm?
+                url "https://github.com/jeroenjanssens/velocirepo/releases/download/v#{version}/velocirepo_#{version}_darwin_arm64.tar.gz"
+                sha256 "DARWIN_ARM64_PLACEHOLDER"
+              end
+            end
 
-  on_linux do
-    if Hardware::CPU.intel?
-      url "https://github.com/jeroenjanssens/velocirepo/releases/download/v#{version}/velocirepo_#{version}_linux_amd64.tar.gz"
-      sha256 "${LINUX_AMD64_SHA}"
-    end
-    if Hardware::CPU.arm?
-      url "https://github.com/jeroenjanssens/velocirepo/releases/download/v#{version}/velocirepo_#{version}_linux_arm64.tar.gz"
-      sha256 "${LINUX_ARM64_SHA}"
-    end
-  end
+            on_linux do
+              if Hardware::CPU.intel?
+                url "https://github.com/jeroenjanssens/velocirepo/releases/download/v#{version}/velocirepo_#{version}_linux_amd64.tar.gz"
+                sha256 "LINUX_AMD64_PLACEHOLDER"
+              end
+              if Hardware::CPU.arm?
+                url "https://github.com/jeroenjanssens/velocirepo/releases/download/v#{version}/velocirepo_#{version}_linux_arm64.tar.gz"
+                sha256 "LINUX_ARM64_PLACEHOLDER"
+              end
+            end
 
-  def install
-    bin.install "velocirepo"
-  end
+            def install
+              bin.install "velocirepo"
+            end
 
-  test do
-    assert_match version.to_s, shell_output("#{bin}/velocirepo version")
-  end
-end
-FORMULA
+            test do
+              assert_match version.to_s, shell_output("#{bin}/velocirepo version")
+            end
+          end
+          FORMULA
+          sed -i 's/VERSION_PLACEHOLDER/'"${VERSION}"'/' homebrew-tap/Formula/velocirepo.rb
+          sed -i 's/DARWIN_AMD64_PLACEHOLDER/'"${DARWIN_AMD64_SHA}"'/' homebrew-tap/Formula/velocirepo.rb
+          sed -i 's/DARWIN_ARM64_PLACEHOLDER/'"${DARWIN_ARM64_SHA}"'/' homebrew-tap/Formula/velocirepo.rb
+          sed -i 's/LINUX_AMD64_PLACEHOLDER/'"${LINUX_AMD64_SHA}"'/' homebrew-tap/Formula/velocirepo.rb
+          sed -i 's/LINUX_ARM64_PLACEHOLDER/'"${LINUX_ARM64_SHA}"'/' homebrew-tap/Formula/velocirepo.rb
 
       - name: Commit and push
         run: |
@@ -341,29 +346,31 @@ FORMULA
         env:
           WINDOWS_AMD64_SHA: ${{ steps.sha256.outputs.windows_amd64 }}
         run: |
-          cat > scoop-bucket/velocirepo.json <<MANIFEST
-{
-  "version": "${VERSION}",
-  "description": "Fetch and aggregate open-source project metrics",
-  "homepage": "https://github.com/jeroenjanssens/velocirepo",
-  "license": "MIT",
-  "architecture": {
-    "64bit": {
-      "url": "https://github.com/jeroenjanssens/velocirepo/releases/download/v${VERSION}/velocirepo_${VERSION}_windows_amd64.zip",
-      "hash": "${WINDOWS_AMD64_SHA}"
-    }
-  },
-  "bin": "velocirepo.exe",
-  "checkver": "github",
-  "autoupdate": {
-    "architecture": {
-      "64bit": {
-        "url": "https://github.com/jeroenjanssens/velocirepo/releases/download/v\$version/velocirepo_\$version_windows_amd64.zip"
-      }
-    }
-  }
-}
-MANIFEST
+          cat > scoop-bucket/velocirepo.json << 'MANIFEST'
+          {
+            "version": "VERSION_PLACEHOLDER",
+            "description": "Fetch and aggregate open-source project metrics",
+            "homepage": "https://github.com/jeroenjanssens/velocirepo",
+            "license": "MIT",
+            "architecture": {
+              "64bit": {
+                "url": "https://github.com/jeroenjanssens/velocirepo/releases/download/vVERSION_PLACEHOLDER/velocirepo_VERSION_PLACEHOLDER_windows_amd64.zip",
+                "hash": "WINDOWS_SHA_PLACEHOLDER"
+              }
+            },
+            "bin": "velocirepo.exe",
+            "checkver": "github",
+            "autoupdate": {
+              "architecture": {
+                "64bit": {
+                  "url": "https://github.com/jeroenjanssens/velocirepo/releases/download/v$version/velocirepo_$version_windows_amd64.zip"
+                }
+              }
+            }
+          }
+          MANIFEST
+          sed -i "s/VERSION_PLACEHOLDER/${VERSION}/g" scoop-bucket/velocirepo.json
+          sed -i "s/WINDOWS_SHA_PLACEHOLDER/${WINDOWS_AMD64_SHA}/" scoop-bucket/velocirepo.json
 
       - name: Commit and push
         run: |
