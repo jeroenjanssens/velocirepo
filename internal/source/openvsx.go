@@ -67,7 +67,7 @@ func (o *OpenVSX) Fetch(ctx context.Context, opts FetchOptions) ([]Record, error
 
 	if result.AverageRating != nil {
 		records = append(records, Record{
-			Metric:    "total_rating",
+			Metric:    "total_ratings",
 			ProjectID: opts.ProjectID,
 			Target:    o.ExtensionID,
 			Date:      date,

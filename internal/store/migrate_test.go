@@ -118,7 +118,7 @@ func TestMigrate0to1(t *testing.T) {
 	// Verify openvsx
 	data, _ = os.ReadFile(filepath.Join(openvsxDir, "2025-06-01.jsonl"))
 	content = string(data)
-	if !contains(content, `"total_downloads"`) || !contains(content, `"total_reviews"`) || !contains(content, `"total_rating"`) {
+	if !contains(content, `"total_downloads"`) || !contains(content, `"total_reviews"`) || !contains(content, `"total_ratings"`) {
 		t.Errorf("openvsx not migrated: %s", content)
 	}
 }

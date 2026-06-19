@@ -143,7 +143,7 @@ func (y *YouTube) fetchChannelStats(ctx context.Context, opts FetchOptions, chan
 		Tags:      map[string]string{"video_id": ""},
 	})
 	records = append(records, Record{
-		Metric:    "total_video_count",
+		Metric:    "total_videos",
 		ProjectID: opts.ProjectID,
 		Target:    y.Target,
 		Date:      date,

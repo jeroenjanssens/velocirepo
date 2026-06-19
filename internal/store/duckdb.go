@@ -128,7 +128,15 @@ func createMetricsView(db *sql.DB, absDir string) error {
 			project,
 			'github' AS source,
 			github_repo AS target,
-			'daily_' || event_type AS metric,
+			CASE event_type
+				WHEN 'star' THEN 'daily_stars'
+				WHEN 'fork' THEN 'daily_forks'
+				WHEN 'issue_open' THEN 'daily_issues_opened'
+				WHEN 'issue_close' THEN 'daily_issues_closed'
+				WHEN 'pr_open' THEN 'daily_prs_opened'
+				WHEN 'pr_merge' THEN 'daily_prs_merged'
+				ELSE 'daily_' || event_type
+			END AS metric,
 			CAST(datetime AS DATE) AS date,
 			COUNT(*) AS value,
 			NULL::JSON AS tags

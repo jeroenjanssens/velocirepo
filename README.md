@@ -263,7 +263,7 @@ Fields:
 | `datetime` | Full timestamp of the event (ISO 8601) |
 | `user` | GitHub username who performed the action |
 
-These events are automatically aggregated into daily counts in the `metrics` DuckDB view (as `daily_star`, `daily_fork`, etc.) so you can query them alongside other sources.
+These events are automatically aggregated into daily counts in the `metrics` DuckDB view (as `daily_stars`, `daily_forks`, etc.) so you can query them alongside other sources.
 
 ### YouTube index
 
@@ -322,7 +322,7 @@ The `query` command reads JSONL files directly using DuckDB and exposes four vie
 velocirepo query run "
   SELECT project, date, value AS stars
   FROM metrics
-  WHERE source = 'github' AND metric = 'daily_star'
+  WHERE source = 'github' AND metric = 'daily_stars'
   ORDER BY date DESC
   LIMIT 5
 "
@@ -335,7 +335,7 @@ velocirepo query run "
   SELECT p.name, SUM(value) AS stars
   FROM metrics m
   JOIN projects p ON m.project = p.id
-  WHERE m.source = 'github' AND m.metric = 'daily_star'
+  WHERE m.source = 'github' AND m.metric = 'daily_stars'
   GROUP BY p.name
   ORDER BY stars DESC
   LIMIT 5
@@ -411,7 +411,7 @@ velocirepo query run "
 │ project  │ source  │     metric      │    date    │  value  │
 ├──────────┼─────────┼─────────────────┼────────────┼─────────┤
 │ quarto   │ openvsx │ total_downloads │ 2026-06-16 │ 3101234 │
-│ quarto   │ openvsx │ total_rating    │ 2026-06-16 │ 500     │
+│ quarto   │ openvsx │ total_ratings   │ 2026-06-16 │ 500     │
 │ quarto   │ openvsx │ total_reviews   │ 2026-06-16 │ 2       │
 │ quarto   │ plausible│ daily_pageviews │ 2026-06-16 │ 14322   │
 │ quarto   │ plausible│ daily_visitors  │ 2026-06-16 │ 3324    │
