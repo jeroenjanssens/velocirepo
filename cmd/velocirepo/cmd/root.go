@@ -23,7 +23,7 @@ var (
 func newRootCmd() *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   "velocirepo",
-		Short: "Fetch and aggregate open-source project metrics",
+		Short: "Fetch and store open-source project metrics",
 		Long:  "velocirepo collects metrics from GitHub, PyPI, CRAN, Plausible, and OpenVSX for your open-source projects.",
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true

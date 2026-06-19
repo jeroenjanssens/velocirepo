@@ -167,12 +167,12 @@ func fetchAllCmd() *cobra.Command {
 			g.Wait()
 
 			if !noAggregate {
-				ui.Infof("Running aggregation...")
-				aggStart := time.Now()
+				ui.Infof("Running concatenation...")
+				concatStart := time.Now()
 				if err := store.Aggregate(dataDir, time.Now().UTC()); err != nil {
-					ui.Warnf("aggregation: %v", err)
+					ui.Warnf("concatenation: %v", err)
 				} else {
-					ui.Infof("Aggregation complete in %s", time.Since(aggStart).Round(time.Millisecond))
+					ui.Infof("Concatenation complete in %s", time.Since(concatStart).Round(time.Millisecond))
 				}
 			}
 

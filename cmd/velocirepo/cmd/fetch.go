@@ -30,7 +30,7 @@ func fetchCmd() *cobra.Command {
 	cmd.PersistentFlags().StringVar(&fetchProject, "project", "", "fetch only this project ID")
 	cmd.PersistentFlags().StringVar(&fetchStartDate, "start-date", "", "start date (YYYY-MM-DD)")
 	cmd.PersistentFlags().StringVar(&fetchEndDate, "end-date", "", "end date (YYYY-MM-DD, default: yesterday)")
-	cmd.PersistentFlags().BoolVar(&noAggregate, "no-aggregate", false, "skip aggregation after fetch")
+	cmd.PersistentFlags().BoolVar(&noAggregate, "no-concatenate", false, "skip concatenation after fetch")
 
 	cmd.AddCommand(fetchGitHubCmd())
 	cmd.AddCommand(fetchGitHubTrafficCmd())
@@ -158,7 +158,7 @@ func runFetchMulti(cmd *cobra.Command, sourceName string, createSources func(pro
 
 	if !noAggregate {
 		if err := store.Aggregate(dataDir, time.Now().UTC()); err != nil {
-			ui.Warnf("aggregation: %v", err)
+			ui.Warnf("concatenation: %v", err)
 		}
 	}
 

@@ -44,7 +44,7 @@ func Aggregate(dataDir string, now time.Time) error {
 				err = aggregateProject(projPath, now)
 			}
 			if err != nil {
-				slog.Warn("aggregate failed", "path", projPath, "error", err)
+				slog.Warn("concatenation failed", "path", projPath, "error", err)
 			}
 		}
 	}
@@ -104,7 +104,7 @@ func aggregateDailyToMonthly(projDir string, now time.Time) error {
 			}
 		}
 
-		slog.Debug("aggregated daily to monthly", "month", yearMonth, "files", len(files))
+		slog.Debug("concatenated daily to monthly", "month", yearMonth, "files", len(files))
 	}
 
 	return nil
@@ -155,7 +155,7 @@ func aggregateMonthlyToYearly(projDir string, now time.Time) error {
 			}
 		}
 
-		slog.Debug("aggregated monthly to yearly", "year", year, "files", len(files))
+		slog.Debug("concatenated monthly to yearly", "year", year, "files", len(files))
 	}
 
 	return nil
@@ -285,7 +285,7 @@ func aggregateEventsDailyToMonthly(projDir string, now time.Time) error {
 			}
 		}
 
-		slog.Debug("aggregated events daily to monthly", "month", yearMonth, "files", len(files))
+		slog.Debug("concatenated events daily to monthly", "month", yearMonth, "files", len(files))
 	}
 
 	return nil
@@ -336,7 +336,7 @@ func aggregateEventsMonthlyToYearly(projDir string, now time.Time) error {
 			}
 		}
 
-		slog.Debug("aggregated events monthly to yearly", "year", year, "files", len(files))
+		slog.Debug("concatenated events monthly to yearly", "year", year, "files", len(files))
 	}
 
 	return nil

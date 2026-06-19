@@ -89,7 +89,7 @@ func fetchYouTubeCmd() *cobra.Command {
 
 			if !noAggregate {
 				if err := store.Aggregate(dataDir, time.Now().UTC()); err != nil {
-					ui.Warnf("aggregation: %v", err)
+					ui.Warnf("concatenation: %v", err)
 				}
 			}
 

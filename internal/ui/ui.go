@@ -27,7 +27,7 @@ func color(c, s string) string {
 }
 
 func prefix(source, project string) string {
-	return fmt.Sprintf("[%s/%s]", source, project)
+	return fmt.Sprintf("[%s/%s]", project, source)
 }
 
 func Info(msg string) {

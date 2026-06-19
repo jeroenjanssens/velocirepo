@@ -1,5 +1,5 @@
 name: velocirepo
-description: Fetch and aggregate open-source project metrics
+description: Fetch and store open-source project metrics
 branding:
   icon: bar-chart-2
   color: blue

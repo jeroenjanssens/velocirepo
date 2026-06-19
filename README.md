@@ -245,7 +245,7 @@ Fields:
 
 ### GitHub Events source
 
-The GitHub Events source stores individual events rather than aggregated counts, giving you full historical detail including who performed each action and when:
+The GitHub Events source stores individual events rather than pre-computed counts, giving you full historical detail including who performed each action and when:
 
 ```json
 {"source":"github","event_type":"star","project_id":"quarto","github_repo":"quarto-dev/quarto-cli","datetime":"2026-06-15T14:23:01Z","user":"alice"}
@@ -263,7 +263,7 @@ Fields:
 | `datetime` | Full timestamp of the event (ISO 8601) |
 | `user` | GitHub username who performed the action |
 
-These events are automatically aggregated into daily counts in the `metrics` DuckDB view (as `daily_stars`, `daily_forks`, etc.) so you can query them alongside other sources.
+These events are automatically counted into daily totals in the `metrics` DuckDB view (as `daily_stars`, `daily_forks`, etc.) so you can query them alongside other sources.
 
 ### YouTube index
 
@@ -275,9 +275,9 @@ The YouTube source also writes an `index.jsonl` file at `velocirepo/data/youtube
 
 This is exposed as the `youtube_index` DuckDB view, allowing you to join video titles and publish dates with metrics data.
 
-### Aggregation
+### Concatenation
 
-Daily JSONL files are automatically rolled up into monthly and yearly files once a period is complete. For example, once all days in January 2026 have been fetched, they're aggregated into `2026-01.jsonl`. This keeps the file count manageable for long-running histories. The original daily files are removed after aggregation.
+Daily JSONL files are automatically concatenated into monthly and yearly files once a period is complete. For example, once all days in January 2026 have been fetched, they're concatenated into `2026-01.jsonl`. This keeps the file count manageable for long-running histories. The original daily files are removed after concatenation.
 
 ### Repository layout
 
@@ -311,7 +311,7 @@ The `query` command reads JSONL files directly using DuckDB and exposes four vie
 
 | View | Description |
 |------|-------------|
-| `metrics` | Unified time-series: all sources including aggregated GitHub events |
+| `metrics` | Unified time-series: all sources including GitHub event counts |
 | `github_events` | Raw GitHub events with user and timestamp |
 | `youtube_index` | Video metadata (title, publish date, channel, duration) |
 | `projects` | Project metadata from your config |
