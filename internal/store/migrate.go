@@ -76,12 +76,16 @@ func Migrate(dataDir string) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	if current >= LatestSchemaVersion {
+	return MigrateFrom(dataDir, current)
+}
+
+func MigrateFrom(dataDir string, fromVersion int) (int, error) {
+	if fromVersion >= LatestSchemaVersion {
 		return 0, nil
 	}
 
 	applied := 0
-	for i := current; i < LatestSchemaVersion; i++ {
+	for i := fromVersion; i < LatestSchemaVersion; i++ {
 		m := migrations[i]
 		if err := m.run(dataDir); err != nil {
 			return applied, fmt.Errorf("migration %d (%s): %w", i+1, m.description, err)
