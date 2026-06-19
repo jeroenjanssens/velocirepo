@@ -263,7 +263,7 @@ Fields:
 | `datetime` | Full timestamp of the event (ISO 8601) |
 | `user` | GitHub username who performed the action |
 
-These events are automatically counted into daily totals in the `metrics` DuckDB view (as `daily_stars`, `daily_forks`, etc.) so you can query them alongside other sources.
+These events are automatically aggregated into daily counts in the `metrics` DuckDB view (as `daily_stars`, `daily_forks`, etc.) so you can query them alongside other sources.
 
 ### YouTube index
 
@@ -311,7 +311,7 @@ The `query` command reads JSONL files directly using DuckDB and exposes four vie
 
 | View | Description |
 |------|-------------|
-| `metrics` | Unified time-series: all sources including GitHub event counts |
+| `metrics` | Unified time-series: all sources including aggregated GitHub events |
 | `github_events` | Raw GitHub events with user and timestamp |
 | `youtube_index` | Video metadata (title, publish date, channel, duration) |
 | `projects` | Project metadata from your config |

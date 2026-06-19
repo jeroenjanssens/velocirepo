@@ -250,7 +250,7 @@ func TestMetricsViewIncludesGitHubAggregated(t *testing.T) {
 	}
 	cnt := results[0]["cnt"].(int64)
 	if cnt != 2 {
-		t.Fatalf("expected 2 metric rows (1 pypi + 1 github event count), got %d", cnt)
+		t.Fatalf("expected 2 metric rows (1 pypi + 1 aggregated github event), got %d", cnt)
 	}
 }
 
