@@ -128,7 +128,7 @@ func createMetricsView(db *sql.DB, absDir string) error {
 			project,
 			'github' AS source,
 			github_repo AS target,
-			event_type AS metric,
+			'daily_' || event_type AS metric,
 			CAST(datetime AS DATE) AS date,
 			COUNT(*) AS value,
 			NULL::JSON AS tags

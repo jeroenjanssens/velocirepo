@@ -48,14 +48,14 @@ func TestOpenVSXFetch(t *testing.T) {
 		t.Errorf("total_downloads = %v, want 15000", downloads)
 	}
 
-	reviews := filterByMetric(records, "reviews")
+	reviews := filterByMetric(records, "total_reviews")
 	if len(reviews) != 1 || reviews[0].Value != 42 {
-		t.Errorf("reviews = %v, want 42", reviews)
+		t.Errorf("total_reviews = %v, want 42", reviews)
 	}
 
-	ratings := filterByMetric(records, "rating")
+	ratings := filterByMetric(records, "total_rating")
 	if len(ratings) != 1 || ratings[0].Value != 450 {
-		t.Errorf("rating = %v, want 450 (4.5 * 100)", ratings)
+		t.Errorf("total_rating = %v, want 450 (4.5 * 100)", ratings)
 	}
 }
 

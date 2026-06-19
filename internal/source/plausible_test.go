@@ -49,12 +49,12 @@ func TestPlausibleFetch(t *testing.T) {
 		t.Fatalf("got %d records, want 6", len(records))
 	}
 
-	pageviews := filterByMetric(records, "pageviews")
+	pageviews := filterByMetric(records, "daily_pageviews")
 	if len(pageviews) != 2 {
 		t.Errorf("got %d pageview records, want 2", len(pageviews))
 	}
 
-	visitors := filterByMetric(records, "visitors")
+	visitors := filterByMetric(records, "daily_visitors")
 	if len(visitors) != 2 {
 		t.Errorf("got %d visitor records, want 2", len(visitors))
 	}

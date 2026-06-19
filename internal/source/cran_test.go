@@ -45,8 +45,8 @@ func TestCRANFetch(t *testing.T) {
 	if records[0].Value != 5000 {
 		t.Errorf("records[0].Value = %d, want 5000", records[0].Value)
 	}
-	if records[1].Metric != "downloads" {
-		t.Errorf("records[1].Metric = %q, want %q", records[1].Metric, "downloads")
+	if records[1].Metric != "daily_downloads" {
+		t.Errorf("records[1].Metric = %q, want %q", records[1].Metric, "daily_downloads")
 	}
 }
 

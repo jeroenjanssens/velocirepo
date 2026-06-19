@@ -173,7 +173,7 @@ func TestYouTubeFetchSingleVideo(t *testing.T) {
 		t.Fatalf("expected 3 records (views, likes, comments), got %d", len(records))
 	}
 
-	if records[0].Metric != "views" || records[0].Value != 1784285014 {
+	if records[0].Metric != "total_views" || records[0].Value != 1784285014 {
 		t.Errorf("unexpected views record: %+v", records[0])
 	}
 	if records[0].Tags["video_id"] != "dQw4w9WgXcQ" {
@@ -345,8 +345,8 @@ func TestYouTubeNullableLikesComments(t *testing.T) {
 	if len(records) != 1 {
 		t.Fatalf("expected 1 record (views only), got %d", len(records))
 	}
-	if records[0].Metric != "views" {
-		t.Errorf("expected views metric, got %s", records[0].Metric)
+	if records[0].Metric != "total_views" {
+		t.Errorf("expected total_views metric, got %s", records[0].Metric)
 	}
 }
 

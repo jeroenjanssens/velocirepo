@@ -74,7 +74,7 @@ func (p *PyPI) Fetch(ctx context.Context, opts FetchOptions) ([]Record, error) {
 			continue
 		}
 		records = append(records, Record{
-			Metric:    "downloads",
+			Metric:    "daily_downloads",
 			ProjectID: opts.ProjectID,
 			Target:    p.Package,
 			Date:      entry.Date,

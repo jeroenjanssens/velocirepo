@@ -126,7 +126,7 @@ func (y *YouTube) fetchChannelStats(ctx context.Context, opts FetchOptions, chan
 
 	if !stats.HiddenSubscriberCount {
 		records = append(records, Record{
-			Metric:    "subscribers",
+			Metric:    "total_subscribers",
 			ProjectID: opts.ProjectID,
 			Target:    y.Target,
 			Date:      date,
@@ -135,7 +135,7 @@ func (y *YouTube) fetchChannelStats(ctx context.Context, opts FetchOptions, chan
 		})
 	}
 	records = append(records, Record{
-		Metric:    "channel_views",
+		Metric:    "total_channel_views",
 		ProjectID: opts.ProjectID,
 		Target:    y.Target,
 		Date:      date,
@@ -143,7 +143,7 @@ func (y *YouTube) fetchChannelStats(ctx context.Context, opts FetchOptions, chan
 		Tags:      map[string]string{"video_id": ""},
 	})
 	records = append(records, Record{
-		Metric:    "video_count",
+		Metric:    "total_video_count",
 		ProjectID: opts.ProjectID,
 		Target:    y.Target,
 		Date:      date,
@@ -206,7 +206,7 @@ func (y *YouTube) fetchVideos(ctx context.Context, opts FetchOptions, videoIDs [
 			tags := map[string]string{"video_id": item.ID}
 
 			records = append(records, Record{
-				Metric:    "views",
+				Metric:    "total_views",
 				ProjectID: opts.ProjectID,
 				Target:    y.Target,
 				Date:      date,
@@ -216,7 +216,7 @@ func (y *YouTube) fetchVideos(ctx context.Context, opts FetchOptions, videoIDs [
 
 			if item.Statistics.LikeCount != nil {
 				records = append(records, Record{
-					Metric:    "likes",
+					Metric:    "total_likes",
 					ProjectID: opts.ProjectID,
 					Target:    y.Target,
 					Date:      date,
@@ -227,7 +227,7 @@ func (y *YouTube) fetchVideos(ctx context.Context, opts FetchOptions, videoIDs [
 
 			if item.Statistics.CommentCount != nil {
 				records = append(records, Record{
-					Metric:    "comments",
+					Metric:    "total_comments",
 					ProjectID: opts.ProjectID,
 					Target:    y.Target,
 					Date:      date,

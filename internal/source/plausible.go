@@ -71,7 +71,7 @@ func (p *Plausible) Fetch(ctx context.Context, opts FetchOptions) ([]Record, err
 		return nil, fmt.Errorf("parse response: %w", err)
 	}
 
-	metricNames := []string{"pageviews", "visitors", "visits"}
+	metricNames := []string{"daily_pageviews", "daily_visitors", "daily_visits"}
 	var records []Record
 	for _, row := range result.Results {
 		if len(row.Dimensions) == 0 || len(row.Metrics) < 3 {

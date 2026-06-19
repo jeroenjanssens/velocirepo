@@ -275,10 +275,10 @@ func TestQueryLiveGitHubView(t *testing.T) {
 	if len(results) != 2 {
 		t.Fatalf("expected 2 rows, got %d", len(results))
 	}
-	if results[0]["metric"] != "fork" || results[0]["value"].(int64) != 1 {
+	if results[0]["metric"] != "daily_fork" || results[0]["value"].(int64) != 1 {
 		t.Errorf("unexpected fork row: %v", results[0])
 	}
-	if results[1]["metric"] != "star" || results[1]["value"].(int64) != 2 {
+	if results[1]["metric"] != "daily_star" || results[1]["value"].(int64) != 2 {
 		t.Errorf("unexpected star row: %v", results[1])
 	}
 }

@@ -62,14 +62,14 @@ func TestGitHubTrafficFetch(t *testing.T) {
 	}
 
 	expected := map[string]int64{
-		"views:2025-06-01":         50,
-		"unique_views:2025-06-01":  10,
-		"views:2025-06-02":         100,
-		"unique_views:2025-06-02":  20,
-		"clones:2025-06-01":        10,
-		"unique_clones:2025-06-01": 2,
-		"clones:2025-06-02":        15,
-		"unique_clones:2025-06-02": 3,
+		"daily_views:2025-06-01":         50,
+		"daily_unique_views:2025-06-01":  10,
+		"daily_views:2025-06-02":         100,
+		"daily_unique_views:2025-06-02":  20,
+		"daily_clones:2025-06-01":        10,
+		"daily_unique_clones:2025-06-01": 2,
+		"daily_clones:2025-06-02":        15,
+		"daily_unique_clones:2025-06-02": 3,
 	}
 
 	for _, r := range records {
