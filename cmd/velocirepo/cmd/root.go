@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"path/filepath"
 
 	"github.com/jeroenjanssens/velocirepo/internal/config"
 	"github.com/jeroenjanssens/velocirepo/internal/store"
@@ -26,10 +27,10 @@ func newRootCmd() *cobra.Command {
 		Long:  "velocirepo collects metrics from GitHub, PyPI, CRAN, Plausible, and OpenVSX for your open-source projects.",
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
-			godotenv.Load()
 			setupLogging()
 
 			if cmd.Name() == "version" || cmd.CommandPath() == "velocirepo project init" {
+				godotenv.Load()
 				return nil
 			}
 
@@ -38,6 +39,8 @@ func newRootCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("load config: %w", err)
 			}
+
+			godotenv.Load(filepath.Join(cfg.Dir, ".env"))
 
 			if cmd.Name() != "migrate" {
 				if err := store.CheckSchemaVersion(cfg.DataDir()); err != nil {
