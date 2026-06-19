@@ -15,7 +15,7 @@ var validIDRe = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
 var validGitHubRe = regexp.MustCompile(`^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$`)
 
 func projectAddCmd() *cobra.Command {
-	var name, github, githubTraffic, pypi, cran, homebrew, plausible, openvsx string
+	var name, githubEvents, githubTraffic, pypi, cran, homebrew, plausible, openvsx, youtube string
 
 	cmd := &cobra.Command{
 		Use:   "add [id]",
@@ -29,8 +29,8 @@ func projectAddCmd() *cobra.Command {
 				id = args[0]
 			}
 
-			flagsProvided := github != "" || githubTraffic != "" || pypi != "" || cran != "" ||
-				homebrew != "" || plausible != "" || openvsx != ""
+			flagsProvided := githubEvents != "" || githubTraffic != "" || pypi != "" || cran != "" ||
+				homebrew != "" || plausible != "" || openvsx != "" || youtube != ""
 
 			if !flagsProvided && isInteractive() {
 				return projectAddInteractive(cfgPath, id)
@@ -43,8 +43,8 @@ func projectAddCmd() *cobra.Command {
 			if !validIDRe.MatchString(id) {
 				return fmt.Errorf("invalid project ID %q: must be lowercase alphanumeric with hyphens", id)
 			}
-			if github != "" && !validGitHubRe.MatchString(github) {
-				return fmt.Errorf("invalid GitHub repo %q: must be owner/repo", github)
+			if githubEvents != "" && !validGitHubRe.MatchString(githubEvents) {
+				return fmt.Errorf("invalid GitHub repo %q: must be owner/repo", githubEvents)
 			}
 
 			projects := cfg.ResolveProjects()
@@ -62,13 +62,14 @@ func projectAddCmd() *cobra.Command {
 
 			proj := config.Project{
 				Name:          name,
-				GitHub:        toStringList(github),
+				GitHubEvents:  toStringList(githubEvents),
 				GitHubTraffic: toStringList(githubTraffic),
 				PyPI:          toStringList(pypi),
 				CRAN:          toStringList(cran),
 				Homebrew:      toStringList(homebrew),
 				Plausible:     toStringList(plausible),
 				OpenVSX:       toStringList(openvsx),
+				YouTube:       toStringList(youtube),
 			}
 
 			if err := config.AppendProject(cfgPath, id, proj); err != nil {
@@ -82,13 +83,14 @@ func projectAddCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&name, "name", "", "display name")
-	cmd.Flags().StringVar(&github, "github", "", "GitHub owner/repo")
+	cmd.Flags().StringVar(&githubEvents, "github-events", "", "GitHub owner/repo")
 	cmd.Flags().StringVar(&githubTraffic, "github-traffic", "", "GitHub owner/repo for traffic data")
 	cmd.Flags().StringVar(&pypi, "pypi", "", "PyPI package name")
 	cmd.Flags().StringVar(&cran, "cran", "", "CRAN package name")
 	cmd.Flags().StringVar(&homebrew, "homebrew", "", "Homebrew formula (user/tap/formula)")
 	cmd.Flags().StringVar(&plausible, "plausible", "", "Plausible site ID")
 	cmd.Flags().StringVar(&openvsx, "openvsx", "", "OpenVSX extension (publisher/extension)")
+	cmd.Flags().StringVar(&youtube, "youtube", "", "YouTube channel (@handle), playlist (PLxxx), or video ID")
 
 	return cmd
 }
@@ -134,14 +136,14 @@ func projectAddInteractive(cfgPath string, id string) error {
 	if overridden {
 		suppress = true
 	}
-	githubTraffic, overridden, err := promptWithHint(os.Stdout, reader, "GitHub traffic (owner/repo)", detected.GitHub, detected.GitHubSource, suppress)
+	githubEvents, overridden, err := promptWithHint(os.Stdout, reader, "GitHub events (owner/repo)", detected.GitHub, detected.GitHubSource, suppress)
 	if err != nil {
 		return err
 	}
 	if overridden {
 		suppress = true
 	}
-	github, overridden, err := promptWithHint(os.Stdout, reader, "GitHub (owner/repo)", detected.GitHub, detected.GitHubSource, suppress)
+	githubTraffic, overridden, err := promptWithHint(os.Stdout, reader, "GitHub traffic (owner/repo)", detected.GitHub, detected.GitHubSource, suppress)
 	if err != nil {
 		return err
 	}
@@ -176,17 +178,24 @@ func projectAddInteractive(cfgPath string, id string) error {
 	if overridden {
 		suppress = true
 	}
-	openvsx, _, err := promptWithHint(os.Stdout, reader, "OpenVSX extension", detected.OpenVSX, detected.OpenVSXSource, suppress)
+	openvsx, overridden, err := promptWithHint(os.Stdout, reader, "OpenVSX extension", detected.OpenVSX, detected.OpenVSXSource, suppress)
+	if err != nil {
+		return err
+	}
+	if overridden {
+		suppress = true
+	}
+	youtube, _, err := promptWithHint(os.Stdout, reader, "YouTube (@handle, PLxxx, or video ID)", "", "", suppress)
 	if err != nil {
 		return err
 	}
 
-	for _, repo := range parseCommaSeparated(githubTraffic) {
+	for _, repo := range parseCommaSeparated(githubEvents) {
 		if !validGitHubRe.MatchString(repo) {
 			return fmt.Errorf("invalid GitHub repo %q: must be owner/repo", repo)
 		}
 	}
-	for _, repo := range parseCommaSeparated(github) {
+	for _, repo := range parseCommaSeparated(githubTraffic) {
 		if !validGitHubRe.MatchString(repo) {
 			return fmt.Errorf("invalid GitHub repo %q: must be owner/repo", repo)
 		}
@@ -194,13 +203,14 @@ func projectAddInteractive(cfgPath string, id string) error {
 
 	proj := config.Project{
 		Name:          name,
-		GitHub:        toStringList(github),
+		GitHubEvents:  toStringList(githubEvents),
 		GitHubTraffic: toStringList(githubTraffic),
 		PyPI:          toStringList(pypi),
 		CRAN:          toStringList(cran),
 		Homebrew:      toStringList(homebrew),
 		Plausible:     toStringList(plausible),
 		OpenVSX:       toStringList(openvsx),
+		YouTube:       toStringList(youtube),
 	}
 
 	sources := listSources(proj)
@@ -218,8 +228,8 @@ func projectAddInteractive(cfgPath string, id string) error {
 
 func listSources(p config.Project) []string {
 	var sources []string
-	if !p.GitHub.IsEmpty() {
-		sources = append(sources, "github")
+	if !p.GitHubEvents.IsEmpty() {
+		sources = append(sources, "github-events")
 	}
 	if !p.GitHubTraffic.IsEmpty() {
 		sources = append(sources, "github-traffic")
@@ -239,7 +249,17 @@ func listSources(p config.Project) []string {
 	if !p.OpenVSX.IsEmpty() {
 		sources = append(sources, "openvsx")
 	}
+	if !p.YouTube.IsEmpty() {
+		sources = append(sources, "youtube")
+	}
 	return sources
+}
+
+func sourceDataDir(src string) string {
+	if src == "github-events" {
+		return "github"
+	}
+	return src
 }
 
 func toStringList(s string) config.StringList {

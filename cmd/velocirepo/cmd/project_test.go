@@ -35,7 +35,7 @@ func execCmd(cfgPath string, args ...string) (*cobra.Command, *bytes.Buffer, err
 func TestProjectListTable(t *testing.T) {
 	cfgPath := setupTestConfig(t, `[projects.alpha]
 name = "Alpha"
-github = "org/alpha"
+github-events = "org/alpha"
 
 [projects.beta]
 name = "Beta"
@@ -59,7 +59,7 @@ pypi = "beta-pkg"
 func TestProjectListJSON(t *testing.T) {
 	cfgPath := setupTestConfig(t, `[projects.myproj]
 name = "My Project"
-github = "me/myproj"
+github-events = "me/myproj"
 `)
 
 	_, buf, err := execCmd(cfgPath, "project", "list", "--json")
@@ -82,11 +82,11 @@ github = "me/myproj"
 func TestProjectListQuiet(t *testing.T) {
 	cfgPath := setupTestConfig(t, `[projects.alpha]
 name = "Alpha"
-github = "org/alpha"
+github-events = "org/alpha"
 
 [projects.beta]
 name = "Beta"
-github = "org/beta"
+github-events = "org/beta"
 `)
 
 	_, buf, err := execCmd(cfgPath, "project", "list", "--ids-only")
@@ -120,7 +120,7 @@ func TestProjectAddWithFlags(t *testing.T) {
 dir = "data"
 `)
 
-	_, _, err := execCmd(cfgPath, "project", "add", "myproj", "--github", "org/myproj", "--pypi", "myproj")
+	_, _, err := execCmd(cfgPath, "project", "add", "myproj", "--github-events", "org/myproj", "--pypi", "myproj")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -130,7 +130,7 @@ dir = "data"
 	if !strings.Contains(content, "[projects.myproj]") {
 		t.Error("project section not added")
 	}
-	if !strings.Contains(content, `github = "org/myproj"`) {
+	if !strings.Contains(content, `github-events = "org/myproj"`) {
 		t.Error("github field missing")
 	}
 	if !strings.Contains(content, `pypi = "myproj"`) {
@@ -141,10 +141,10 @@ dir = "data"
 func TestProjectAddDuplicate(t *testing.T) {
 	cfgPath := setupTestConfig(t, `[projects.existing]
 name = "Existing"
-github = "org/existing"
+github-events = "org/existing"
 `)
 
-	_, _, err := execCmd(cfgPath, "project", "add", "existing", "--github", "org/other")
+	_, _, err := execCmd(cfgPath, "project", "add", "existing", "--github-events", "org/other")
 	if err == nil {
 		t.Fatal("expected error for duplicate project")
 	}
@@ -155,7 +155,7 @@ func TestProjectAddInvalidID(t *testing.T) {
 dir = "data"
 `)
 
-	_, _, err := execCmd(cfgPath, "project", "add", "INVALID_ID", "--github", "org/repo")
+	_, _, err := execCmd(cfgPath, "project", "add", "INVALID_ID", "--github-events", "org/repo")
 	if err == nil {
 		t.Fatal("expected error for invalid ID")
 	}
@@ -166,7 +166,7 @@ func TestProjectAddInvalidGitHub(t *testing.T) {
 dir = "data"
 `)
 
-	_, _, err := execCmd(cfgPath, "project", "add", "myproj", "--github", "not-a-valid-format")
+	_, _, err := execCmd(cfgPath, "project", "add", "myproj", "--github-events", "not-a-valid-format")
 	if err == nil {
 		t.Fatal("expected error for invalid GitHub format")
 	}
@@ -175,11 +175,11 @@ dir = "data"
 func TestProjectRemoveForce(t *testing.T) {
 	cfgPath := setupTestConfig(t, `[projects.alpha]
 name = "Alpha"
-github = "org/alpha"
+github-events = "org/alpha"
 
 [projects.beta]
 name = "Beta"
-github = "org/beta"
+github-events = "org/beta"
 `)
 
 	_, _, err := execCmd(cfgPath, "project", "remove", "alpha", "--force")
@@ -200,7 +200,7 @@ github = "org/beta"
 func TestProjectRemoveNotFound(t *testing.T) {
 	cfgPath := setupTestConfig(t, `[projects.alpha]
 name = "Alpha"
-github = "org/alpha"
+github-events = "org/alpha"
 `)
 
 	_, _, err := execCmd(cfgPath, "project", "remove", "nonexistent", "--force")
@@ -217,7 +217,7 @@ dir = "data"
 
 [projects.alpha]
 name = "Alpha"
-github = "org/alpha"
+github-events = "org/alpha"
 `), 0644)
 
 	dataDir := filepath.Join(dir, "data", "github", "alpha")
@@ -237,7 +237,7 @@ github = "org/alpha"
 func TestProjectUpdateFlags(t *testing.T) {
 	cfgPath := setupTestConfig(t, `[projects.alpha]
 name = "Alpha"
-github = "org/alpha"
+github-events = "org/alpha"
 `)
 
 	_, _, err := execCmd(cfgPath, "project", "update", "alpha", "--pypi", "alpha-pkg")
@@ -250,7 +250,7 @@ github = "org/alpha"
 	if !strings.Contains(content, `pypi = "alpha-pkg"`) {
 		t.Errorf("pypi not added:\n%s", content)
 	}
-	if !strings.Contains(content, `github = "org/alpha"`) {
+	if !strings.Contains(content, `github-events = "org/alpha"`) {
 		t.Error("github field lost")
 	}
 }
@@ -258,7 +258,7 @@ github = "org/alpha"
 func TestProjectUpdateUnset(t *testing.T) {
 	cfgPath := setupTestConfig(t, `[projects.alpha]
 name = "Alpha"
-github = "org/alpha"
+github-events = "org/alpha"
 pypi = "alpha"
 `)
 
@@ -277,7 +277,7 @@ pypi = "alpha"
 func TestProjectUpdateNotFound(t *testing.T) {
 	cfgPath := setupTestConfig(t, `[projects.alpha]
 name = "Alpha"
-github = "org/alpha"
+github-events = "org/alpha"
 `)
 
 	_, _, err := execCmd(cfgPath, "project", "update", "nonexistent", "--name", "New")
@@ -294,7 +294,7 @@ dir = "data"
 
 [projects.alpha]
 name = "Alpha"
-github = "org/alpha"
+github-events = "org/alpha"
 `), 0644)
 
 	dataDir := filepath.Join(dir, "data", "github", "alpha")
@@ -319,7 +319,7 @@ github = "org/alpha"
 func TestProjectShowNotFound(t *testing.T) {
 	cfgPath := setupTestConfig(t, `[projects.alpha]
 name = "Alpha"
-github = "org/alpha"
+github-events = "org/alpha"
 `)
 
 	_, _, err := execCmd(cfgPath, "project", "show", "nonexistent")
@@ -336,7 +336,7 @@ dir = "data"
 
 [projects.alpha]
 name = "Alpha"
-github = "org/alpha"
+github-events = "org/alpha"
 `), 0644)
 
 	_, buf, err := execCmd(cfgPath, "project", "show", "alpha", "--json")
@@ -361,7 +361,7 @@ dir = "data"
 
 [projects.old-name]
 name = "Old"
-github = "org/old"
+github-events = "org/old"
 `), 0644)
 
 	dataDir := filepath.Join(dir, "data", "github", "old-name")
@@ -394,7 +394,7 @@ github = "org/old"
 func TestProjectRenameNoMoveData(t *testing.T) {
 	cfgPath := setupTestConfig(t, `[projects.old-name]
 name = "Old"
-github = "org/old"
+github-events = "org/old"
 `)
 
 	_, _, err := execCmd(cfgPath, "project", "rename", "old-name", "new-name", "--no-move-data")
@@ -406,7 +406,7 @@ github = "org/old"
 func TestProjectRenameInvalidNewID(t *testing.T) {
 	cfgPath := setupTestConfig(t, `[projects.alpha]
 name = "Alpha"
-github = "org/alpha"
+github-events = "org/alpha"
 `)
 
 	_, _, err := execCmd(cfgPath, "project", "rename", "alpha", "INVALID")
@@ -418,11 +418,11 @@ github = "org/alpha"
 func TestProjectRenameNewIDExists(t *testing.T) {
 	cfgPath := setupTestConfig(t, `[projects.alpha]
 name = "Alpha"
-github = "org/alpha"
+github-events = "org/alpha"
 
 [projects.beta]
 name = "Beta"
-github = "org/beta"
+github-events = "org/beta"
 `)
 
 	_, _, err := execCmd(cfgPath, "project", "rename", "alpha", "beta")
@@ -514,7 +514,7 @@ dir = "data"
 
 [projects.existing]
 name = "Existing"
-github = "org/existing"
+github-events = "org/existing"
 `), 0644)
 
 	importFile := filepath.Join(dir, "projects.json")

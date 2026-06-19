@@ -62,13 +62,14 @@ type Project struct {
 	Website     string     `toml:"website"`
 	Logo        string     `toml:"logo"`
 
+	GitHubEvents  StringList `toml:"github-events"`
 	GitHubTraffic StringList `toml:"github-traffic"`
-	GitHub        StringList `toml:"github"`
 	PyPI          StringList `toml:"pypi"`
 	CRAN          StringList `toml:"cran"`
 	Homebrew      StringList `toml:"homebrew"`
 	Plausible     StringList `toml:"plausible"`
 	OpenVSX       StringList `toml:"openvsx"`
+	YouTube       StringList `toml:"youtube"`
 }
 
 type DataConfig struct {

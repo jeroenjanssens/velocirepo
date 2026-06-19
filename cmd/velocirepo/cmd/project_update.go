@@ -11,7 +11,7 @@ import (
 )
 
 func projectUpdateCmd() *cobra.Command {
-	var name, github, githubTraffic, pypi, cran, homebrew, plausible, openvsx string
+	var name, githubEvents, githubTraffic, pypi, cran, homebrew, plausible, openvsx, youtube string
 	var unset []string
 
 	cmd := &cobra.Command{
@@ -30,9 +30,10 @@ func projectUpdateCmd() *cobra.Command {
 			cfgPath := cfgFilePath()
 
 			flagsProvided := cmd.Flags().Changed("name") ||
-				cmd.Flags().Changed("github") || cmd.Flags().Changed("github-traffic") ||
+				cmd.Flags().Changed("github-events") || cmd.Flags().Changed("github-traffic") ||
 				cmd.Flags().Changed("pypi") || cmd.Flags().Changed("cran") || cmd.Flags().Changed("homebrew") ||
-				cmd.Flags().Changed("plausible") || cmd.Flags().Changed("openvsx") || len(unset) > 0
+				cmd.Flags().Changed("plausible") || cmd.Flags().Changed("openvsx") ||
+				cmd.Flags().Changed("youtube") || len(unset) > 0
 
 			if !flagsProvided && isInteractive() {
 				return projectUpdateInteractive(cfgPath, id, proj)
@@ -46,11 +47,11 @@ func projectUpdateCmd() *cobra.Command {
 			if cmd.Flags().Changed("name") {
 				updates["name"] = name
 			}
-			if cmd.Flags().Changed("github") {
-				if github != "" && !validGitHubRe.MatchString(github) {
-					return fmt.Errorf("invalid GitHub repo %q: must be owner/repo", github)
+			if cmd.Flags().Changed("github-events") {
+				if githubEvents != "" && !validGitHubRe.MatchString(githubEvents) {
+					return fmt.Errorf("invalid GitHub repo %q: must be owner/repo", githubEvents)
 				}
-				updates["github"] = github
+				updates["github-events"] = githubEvents
 			}
 			if cmd.Flags().Changed("github-traffic") {
 				if githubTraffic != "" && !validGitHubRe.MatchString(githubTraffic) {
@@ -73,6 +74,9 @@ func projectUpdateCmd() *cobra.Command {
 			if cmd.Flags().Changed("openvsx") {
 				updates["openvsx"] = openvsx
 			}
+			if cmd.Flags().Changed("youtube") {
+				updates["youtube"] = youtube
+			}
 
 			if err := config.UpdateProject(cfgPath, id, updates, unset); err != nil {
 				return err
@@ -91,13 +95,14 @@ func projectUpdateCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&name, "name", "", "display name")
-	cmd.Flags().StringVar(&github, "github", "", "GitHub owner/repo")
+	cmd.Flags().StringVar(&githubEvents, "github-events", "", "GitHub owner/repo")
 	cmd.Flags().StringVar(&githubTraffic, "github-traffic", "", "GitHub owner/repo for traffic data")
 	cmd.Flags().StringVar(&pypi, "pypi", "", "PyPI package name")
 	cmd.Flags().StringVar(&cran, "cran", "", "CRAN package name")
 	cmd.Flags().StringVar(&homebrew, "homebrew", "", "Homebrew formula")
 	cmd.Flags().StringVar(&plausible, "plausible", "", "Plausible site ID")
 	cmd.Flags().StringVar(&openvsx, "openvsx", "", "OpenVSX extension")
+	cmd.Flags().StringVar(&youtube, "youtube", "", "YouTube channel, playlist, or video ID")
 	cmd.Flags().StringSliceVar(&unset, "unset", nil, "fields to remove (can be repeated)")
 
 	return cmd
@@ -113,7 +118,7 @@ func projectUpdateInteractive(cfgPath string, id string, proj config.Project) er
 	if err != nil {
 		return err
 	}
-	github, err := prompt(os.Stdout, reader, "GitHub (owner/repo)", proj.GitHub.String(), "")
+	githubEvents, err := prompt(os.Stdout, reader, "GitHub events (owner/repo)", proj.GitHubEvents.String(), "")
 	if err != nil {
 		return err
 	}
@@ -141,8 +146,12 @@ func projectUpdateInteractive(cfgPath string, id string, proj config.Project) er
 	if err != nil {
 		return err
 	}
+	youtube, err := prompt(os.Stdout, reader, "YouTube (@handle, PLxxx, or video ID)", proj.YouTube.String(), "")
+	if err != nil {
+		return err
+	}
 
-	for _, repo := range parseCommaSeparated(github) {
+	for _, repo := range parseCommaSeparated(githubEvents) {
 		if !validGitHubRe.MatchString(repo) {
 			return fmt.Errorf("invalid GitHub repo %q: must be owner/repo", repo)
 		}
@@ -167,13 +176,14 @@ func projectUpdateInteractive(cfgPath string, id string, proj config.Project) er
 	}
 
 	updateOrUnset("name", name, proj.Name)
-	updateOrUnset("github", github, proj.GitHub.String())
+	updateOrUnset("github-events", githubEvents, proj.GitHubEvents.String())
 	updateOrUnset("github-traffic", githubTraffic, proj.GitHubTraffic.String())
 	updateOrUnset("pypi", pypi, proj.PyPI.String())
 	updateOrUnset("cran", cran, proj.CRAN.String())
 	updateOrUnset("homebrew", homebrew, proj.Homebrew.String())
 	updateOrUnset("plausible", plausible, proj.Plausible.String())
 	updateOrUnset("openvsx", openvsx, proj.OpenVSX.String())
+	updateOrUnset("youtube", youtube, proj.YouTube.String())
 
 	if len(updates) == 0 && len(unsets) == 0 {
 		fmt.Println("No changes.")

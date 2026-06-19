@@ -26,7 +26,7 @@ func TestValidateSourceGitHubOK(t *testing.T) {
 	result := ValidateSource(context.Background(), ValidationOptions{
 		Client:  client,
 		Timeout: 5 * time.Second,
-	}, "github", "org/repo")
+	}, "github-events","org/repo")
 
 	if !result.OK {
 		t.Errorf("expected OK, got error: %s", result.Error)
@@ -45,7 +45,7 @@ func TestValidateSourceGitHub404(t *testing.T) {
 	result := ValidateSource(context.Background(), ValidationOptions{
 		Client:  client,
 		Timeout: 5 * time.Second,
-	}, "github", "org/nonexistent")
+	}, "github-events","org/nonexistent")
 
 	if result.OK {
 		t.Error("expected failure for 404")
@@ -107,7 +107,7 @@ func TestValidateSourceCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	result := ValidateSource(ctx, ValidationOptions{Client: client}, "github", "org/repo")
+	result := ValidateSource(ctx, ValidationOptions{Client: client}, "github-events","org/repo")
 	if result.OK {
 		t.Error("expected failure due to cancelled context")
 	}
@@ -129,7 +129,7 @@ func TestValidateProject(t *testing.T) {
 	client.Transport = &rewriteTransport{base: http.DefaultTransport, target: srv.URL}
 
 	results := ValidateProject(context.Background(), ValidationOptions{Client: client}, "test", Project{
-		GitHub: StringList{"org/repo"},
+		GitHubEvents: StringList{"org/repo"},
 		PyPI:         StringList{"mypkg"},
 		CRAN:         StringList{"nonexistent"},
 	})

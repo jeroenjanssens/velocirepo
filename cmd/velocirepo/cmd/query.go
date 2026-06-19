@@ -4,6 +4,7 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"time"
 
@@ -26,13 +27,17 @@ func queryCmd() *cobra.Command {
 }
 
 func queryRunCmd() *cobra.Command {
-	var jsonFlag, csvFlag bool
+	var jsonFlag, csvFlag, parquetFlag bool
 
 	cmd := &cobra.Command{
 		Use:   "run <sql>",
 		Short: "Run an arbitrary SQL query",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if parquetFlag {
+				return writeParquet(args[0])
+			}
+
 			results, cols, err := store.QueryLive(cfg.DataDir(), projectInfos(), args[0])
 			if err != nil {
 				return err
@@ -51,6 +56,7 @@ func queryRunCmd() *cobra.Command {
 
 	cmd.Flags().BoolVar(&jsonFlag, "json", false, "output as JSON")
 	cmd.Flags().BoolVar(&csvFlag, "csv", false, "output as CSV")
+	cmd.Flags().BoolVar(&parquetFlag, "parquet", false, "output as Parquet")
 
 	return cmd
 }
@@ -109,6 +115,29 @@ func querySchemaCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&csvFlag, "csv", false, "output as CSV")
 
 	return cmd
+}
+
+func writeParquet(query string) error {
+	tmp, err := os.CreateTemp("", "velocirepo-*.parquet")
+	if err != nil {
+		return err
+	}
+	tmpPath := tmp.Name()
+	tmp.Close()
+	defer os.Remove(tmpPath)
+
+	if err := store.QueryLiveParquet(cfg.DataDir(), projectInfos(), query, tmpPath); err != nil {
+		return err
+	}
+
+	f, err := os.Open(tmpPath)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	_, err = io.Copy(os.Stdout, f)
+	return err
 }
 
 func printTable(results []map[string]interface{}, cols []string) error {

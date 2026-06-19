@@ -99,7 +99,7 @@ func projectImportCmd() *cobra.Command {
 
 			fmt.Fprintf(os.Stdout, "Projects to add (%d):\n", len(toAdd))
 			for _, p := range toAdd {
-				fmt.Fprintf(os.Stdout, "  %s (%s)\n", p.ID, p.Project.GitHub.String())
+				fmt.Fprintf(os.Stdout, "  %s (%s)\n", p.ID, p.Project.GitHubEvents.String())
 			}
 			if skipped > 0 {
 				fmt.Fprintf(os.Stdout, "  (%d skipped as existing)\n", skipped)
@@ -219,7 +219,7 @@ func fetchGitHubRepos(cmd *cobra.Command, endpoint string, filter string, includ
 				ID: id,
 				Project: config.Project{
 					Name:         r.Name,
-					GitHub: config.StringList{r.FullName},
+					GitHubEvents: config.StringList{r.FullName},
 				},
 			})
 		}
@@ -278,13 +278,13 @@ func loadFromJSON(path string) ([]importEntry, error) {
 		entries = append(entries, importEntry{
 			ID: item.ID,
 			Project: config.Project{
-				Name:      name,
-				GitHub:    toStringList(item.GitHub),
-				PyPI:      toStringList(item.PyPI),
-				CRAN:      toStringList(item.CRAN),
-				Homebrew:  toStringList(item.Homebrew),
-				Plausible: toStringList(item.Plausible),
-				OpenVSX:   toStringList(item.OpenVSX),
+				Name:         name,
+				GitHubEvents: toStringList(item.GitHub),
+				PyPI:         toStringList(item.PyPI),
+				CRAN:         toStringList(item.CRAN),
+				Homebrew:     toStringList(item.Homebrew),
+				Plausible:    toStringList(item.Plausible),
+				OpenVSX:      toStringList(item.OpenVSX),
 			},
 		})
 	}
@@ -341,7 +341,7 @@ func loadFromCSV(path string) ([]importEntry, error) {
 			p.Name = id
 		}
 		if idx, ok := colIndex["github"]; ok && idx < len(row) {
-			p.GitHub = toStringList(row[idx])
+			p.GitHubEvents = toStringList(row[idx])
 		}
 		if idx, ok := colIndex["pypi"]; ok && idx < len(row) {
 			p.PyPI = toStringList(row[idx])

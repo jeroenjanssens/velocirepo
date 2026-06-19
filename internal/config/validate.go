@@ -26,7 +26,7 @@ func ValidateSource(ctx context.Context, opts ValidationOptions, sourceType stri
 
 	var url string
 	switch sourceType {
-	case "github", "github-traffic":
+	case "github-events", "github-traffic":
 		url = "https://api.github.com/repos/" + value
 	case "pypi":
 		url = "https://pypi.org/pypi/" + value + "/json"
@@ -36,6 +36,9 @@ func ValidateSource(ctx context.Context, opts ValidationOptions, sourceType stri
 		url = "https://formulae.brew.sh/api/formula/" + value + ".json"
 	case "openvsx":
 		url = "https://open-vsx.org/api/" + value
+	case "youtube":
+		result.OK = true
+		return result
 	default:
 		result.Error = "unknown source type"
 		return result
@@ -52,7 +55,7 @@ func ValidateSource(ctx context.Context, opts ValidationOptions, sourceType stri
 		return result
 	}
 
-	if (sourceType == "github" || sourceType == "github-traffic") && opts.Token != "" {
+	if (sourceType == "github-events" || sourceType == "github-traffic") && opts.Token != "" {
 		req.Header.Set("Authorization", "Bearer "+opts.Token)
 	}
 
@@ -82,8 +85,8 @@ func ValidateProject(ctx context.Context, opts ValidationOptions, id string, pro
 	}
 
 	var entries []sourceEntry
-	for _, v := range project.GitHub {
-		entries = append(entries, sourceEntry{"github", v})
+	for _, v := range project.GitHubEvents {
+		entries = append(entries, sourceEntry{"github-events", v})
 	}
 	for _, v := range project.GitHubTraffic {
 		entries = append(entries, sourceEntry{"github-traffic", v})
@@ -99,6 +102,9 @@ func ValidateProject(ctx context.Context, opts ValidationOptions, id string, pro
 	}
 	for _, v := range project.OpenVSX {
 		entries = append(entries, sourceEntry{"openvsx", v})
+	}
+	for _, v := range project.YouTube {
+		entries = append(entries, sourceEntry{"youtube", v})
 	}
 
 	for _, e := range entries {

@@ -39,6 +39,7 @@ func fetchCmd() *cobra.Command {
 	cmd.AddCommand(fetchHomebrewCmd())
 	cmd.AddCommand(fetchPlausibleCmd())
 	cmd.AddCommand(fetchOpenVSXCmd())
+	cmd.AddCommand(fetchYouTubeCmd())
 	cmd.AddCommand(fetchAllCmd())
 
 	return cmd

@@ -49,7 +49,7 @@ func fetchAllCmd() *cobra.Command {
 					for _, repo := range proj.GitHubTraffic {
 					jobs = append(jobs, fetchJob{sourceName: "github-traffic", projectID: id, src: &source.GitHubTraffic{Client: client, Token: token, Repo: repo}})
 				}
-				for _, repo := range proj.GitHub {
+				for _, repo := range proj.GitHubEvents {
 					jobs = append(jobs, fetchJob{sourceName: "github", projectID: id, eventSrc: &source.GitHubEvents{Client: client, Token: token, Repo: repo}})
 				}
 				for _, pkg := range proj.PyPI {
@@ -70,6 +70,13 @@ func fetchAllCmd() *cobra.Command {
 				}
 				for _, ext := range proj.OpenVSX {
 					jobs = append(jobs, fetchJob{sourceName: "openvsx", projectID: id, src: &source.OpenVSX{Client: client, ExtensionID: ext}})
+				}
+				if ytKey := youtubeAPIKey(); ytKey != "" {
+					for _, target := range proj.YouTube {
+						jobs = append(jobs, fetchJob{sourceName: "youtube", projectID: id, src: &source.YouTube{Client: client, APIKey: ytKey, Target: target}})
+					}
+				} else if !proj.YouTube.IsEmpty() {
+					ui.Warnf("skipping youtube for %s: YOUTUBE_API_KEY not set", id)
 				}
 			}
 
@@ -136,6 +143,13 @@ func fetchAllCmd() *cobra.Command {
 							ui.Errorf("%s/%s write: %v", job.sourceName, job.projectID, err)
 							fetchErrors.Add(1)
 						} else {
+							if yt, ok := job.src.(*source.YouTube); ok {
+								if entries := yt.IndexEntries(); len(entries) > 0 {
+									if err := store.WriteYouTubeIndex(dataDir, job.projectID, entries); err != nil {
+										ui.Errorf("%s/%s index: %v", job.sourceName, job.projectID, err)
+									}
+								}
+							}
 							ui.Done(job.sourceName, job.projectID, len(records))
 						}
 					}

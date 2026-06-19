@@ -32,7 +32,7 @@ func projectListCmd() *cobra.Command {
 				type projectJSON struct {
 					ID            string   `json:"id"`
 					Name          string   `json:"name"`
-					GitHub        []string `json:"github,omitempty"`
+					GitHubEvents  []string `json:"github-events,omitempty"`
 					GitHubTraffic []string `json:"github-traffic,omitempty"`
 					PyPI          []string `json:"pypi,omitempty"`
 					CRAN          []string `json:"cran,omitempty"`
@@ -45,7 +45,7 @@ func projectListCmd() *cobra.Command {
 					list = append(list, projectJSON{
 						ID:            id,
 						Name:          p.Name,
-						GitHub:        []string(p.GitHub),
+						GitHubEvents:  []string(p.GitHubEvents),
 						GitHubTraffic: []string(p.GitHubTraffic),
 						PyPI:          []string(p.PyPI),
 						CRAN:          []string(p.CRAN),
@@ -65,12 +65,12 @@ func projectListCmd() *cobra.Command {
 			}
 
 			w := tabwriter.NewWriter(out, 0, 0, 2, ' ', 0)
-			fmt.Fprintln(w, "ID\tNAME\tGITHUB\tPYPI\tCRAN\tHOMEBREW\tPLAUSIBLE\tOPENVSX")
+			fmt.Fprintln(w, "ID\tNAME\tGITHUB-EVENTS\tPYPI\tCRAN\tHOMEBREW\tPLAUSIBLE\tOPENVSX")
 			for id, p := range projects {
 				fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
 					id,
 					valOrDash(p.Name),
-					sliceOrDash(p.GitHub),
+					sliceOrDash(p.GitHubEvents),
 					sliceOrDash(p.PyPI),
 					sliceOrDash(p.CRAN),
 					sliceOrDash(p.Homebrew),

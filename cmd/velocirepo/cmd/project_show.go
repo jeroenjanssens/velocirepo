@@ -42,7 +42,7 @@ func projectShowCmd() *cobra.Command {
 			var totalSize int64
 
 			for _, src := range sources {
-				dir := filepath.Join(dataDir, src, id)
+				dir := filepath.Join(dataDir, sourceDataDir(src), id)
 				lastDate, records, size := scanSourceDir(dir)
 				stats = append(stats, sourceStats{
 					Source:    src,
@@ -58,7 +58,7 @@ func projectShowCmd() *cobra.Command {
 				out := struct {
 					ID            string        `json:"id"`
 					Name          string        `json:"name"`
-					GitHub        []string      `json:"github,omitempty"`
+					GitHubEvents  []string      `json:"github-events,omitempty"`
 					GitHubTraffic []string      `json:"github-traffic,omitempty"`
 					PyPI          []string      `json:"pypi,omitempty"`
 					CRAN          []string      `json:"cran,omitempty"`
@@ -73,7 +73,7 @@ func projectShowCmd() *cobra.Command {
 				}{
 					ID:            id,
 					Name:          proj.Name,
-					GitHub:        []string(proj.GitHub),
+					GitHubEvents:  []string(proj.GitHubEvents),
 					GitHubTraffic: []string(proj.GitHubTraffic),
 					PyPI:          []string(proj.PyPI),
 					CRAN:          []string(proj.CRAN),
@@ -91,8 +91,8 @@ func projectShowCmd() *cobra.Command {
 
 			fmt.Fprintf(cmd.OutOrStdout(), "Project: %s\n", id)
 			fmt.Fprintf(cmd.OutOrStdout(), "Name:    %s\n", proj.Name)
-			if !proj.GitHub.IsEmpty() {
-				fmt.Fprintf(cmd.OutOrStdout(), "GitHub: %s\n", proj.GitHub.String())
+			if !proj.GitHubEvents.IsEmpty() {
+				fmt.Fprintf(cmd.OutOrStdout(), "GitHub Events: %s\n", proj.GitHubEvents.String())
 			}
 			if !proj.GitHubTraffic.IsEmpty() {
 				fmt.Fprintf(cmd.OutOrStdout(), "GitHub Traffic: %s\n", proj.GitHubTraffic.String())

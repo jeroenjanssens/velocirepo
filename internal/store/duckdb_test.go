@@ -282,3 +282,4 @@ func TestQueryLiveGitHubView(t *testing.T) {
 		t.Errorf("unexpected star row: %v", results[1])
 	}
 }
+

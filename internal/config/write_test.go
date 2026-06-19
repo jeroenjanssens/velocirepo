@@ -56,7 +56,7 @@ func TestAppendProject(t *testing.T) {
 
 	err := AppendProject(path, "beta", Project{
 		Name:         "Beta",
-		GitHub: StringList{"org/beta"},
+		GitHubEvents: StringList{"org/beta"},
 		PyPI:         StringList{"beta-pkg"},
 	})
 	if err != nil {
@@ -69,7 +69,7 @@ func TestAppendProject(t *testing.T) {
 	if !strings.Contains(content, "[projects.beta]") {
 		t.Error("missing [projects.beta] section")
 	}
-	if !strings.Contains(content, `github = "org/beta"`) {
+	if !strings.Contains(content, `github-events = "org/beta"`) {
 		t.Error("missing github field")
 	}
 	if !strings.Contains(content, `pypi = "beta-pkg"`) {
@@ -87,7 +87,7 @@ func TestAppendProjectPreservesComments(t *testing.T) {
 	initial := "# Main config\n[data]\ndir = \"data\"\n\n# Alpha project\n[projects.alpha]\nname = \"Alpha\"\n"
 	os.WriteFile(path, []byte(initial), 0644)
 
-	err := AppendProject(path, "beta", Project{Name: "Beta", GitHub: StringList{"org/beta"}})
+	err := AppendProject(path, "beta", Project{Name: "Beta", GitHubEvents: StringList{"org/beta"}})
 	if err != nil {
 		t.Fatal(err)
 	}

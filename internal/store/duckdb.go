@@ -38,6 +38,18 @@ func QueryLive(dataDir string, projects []ProjectInfo, query string) ([]map[stri
 	return queryRows(db, query)
 }
 
+func QueryLiveParquet(dataDir string, projects []ProjectInfo, query string, outPath string) error {
+	db, err := openLiveDB(dataDir, projects)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	copySQL := fmt.Sprintf(`COPY (%s) TO '%s' (FORMAT PARQUET)`, query, escapeSQLString(outPath))
+	_, err = db.Exec(copySQL)
+	return err
+}
+
 func SchemaLive(dataDir string, projects []ProjectInfo) ([]SchemaColumn, error) {
 	db, err := openLiveDB(dataDir, projects)
 	if err != nil {
@@ -45,7 +57,7 @@ func SchemaLive(dataDir string, projects []ProjectInfo) ([]SchemaColumn, error) 
 	}
 	defer db.Close()
 
-	rows, err := db.Query("SELECT table_name, column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name IN ('github_events', 'metrics', 'projects') ORDER BY table_name, ordinal_position")
+	rows, err := db.Query("SELECT table_name, column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name IN ('github_events', 'metrics', 'projects', 'youtube_index') ORDER BY table_name, ordinal_position")
 	if err != nil {
 		return nil, fmt.Errorf("query schema: %w", err)
 	}
@@ -80,6 +92,11 @@ func openLiveDB(dataDir string, projects []ProjectInfo) (*sql.DB, error) {
 	}
 
 	if err := createMetricsView(db, absDir); err != nil {
+		db.Close()
+		return nil, err
+	}
+
+	if err := createYouTubeIndexView(db, absDir); err != nil {
 		db.Close()
 		return nil, err
 	}
@@ -188,6 +205,38 @@ func createEmptyGitHubEventsView(db *sql.DB) error {
 	return nil
 }
 
+
+func createYouTubeIndexView(db *sql.DB, absDir string) error {
+	glob := filepath.ToSlash(filepath.Join(absDir, "youtube", "*", "index.jsonl"))
+	query := fmt.Sprintf(`CREATE OR REPLACE VIEW youtube_index AS
+		SELECT
+			video_id,
+			title,
+			CAST(published_at AS TIMESTAMP) AS published_at,
+			channel,
+			duration,
+			tags
+		FROM read_json('%s',
+			format='newline_delimited',
+			columns={video_id: 'VARCHAR', title: 'VARCHAR', published_at: 'VARCHAR', channel: 'VARCHAR', duration: 'BIGINT', tags: 'JSON'})`,
+		escapeSQLString(glob))
+
+	if _, err := db.Exec(query); err != nil {
+		slog.Debug("youtube_index view creation failed, using empty view", "error", err)
+		return createEmptyYouTubeIndexView(db)
+	}
+	return nil
+}
+
+func createEmptyYouTubeIndexView(db *sql.DB) error {
+	_, err := db.Exec(`CREATE VIEW youtube_index (video_id, title, published_at, channel, duration, tags) AS
+		SELECT NULL::VARCHAR, NULL::VARCHAR, NULL::TIMESTAMP, NULL::VARCHAR, NULL::BIGINT, NULL::JSON
+		WHERE false`)
+	if err != nil {
+		return fmt.Errorf("create empty youtube_index view: %w", err)
+	}
+	return nil
+}
 
 func createProjectsView(db *sql.DB, projects []ProjectInfo) error {
 	if len(projects) == 0 {

@@ -65,7 +65,7 @@ func projectInitCmd() *cobra.Command {
 						}
 						proj := config.Project{
 							Name:         id,
-							GitHub:       toStringList(detected.GitHub),
+							GitHubEvents: toStringList(detected.GitHub),
 							PyPI:         toStringList(detected.PyPI),
 							CRAN:         toStringList(detected.CRAN),
 							OpenVSX:      toStringList(detected.OpenVSX),
@@ -99,8 +99,8 @@ func projectInitCmd() *cobra.Command {
 
 func formatSection(id string, p config.Project) string {
 	s := fmt.Sprintf("[projects.%s]\nname = %q\n", id, p.Name)
-	if !p.GitHub.IsEmpty() {
-		s += fmt.Sprintf("github = %q\n", p.GitHub.First())
+	if !p.GitHubEvents.IsEmpty() {
+		s += fmt.Sprintf("github-events = %q\n", p.GitHubEvents.First())
 	}
 	if !p.GitHubTraffic.IsEmpty() {
 		s += fmt.Sprintf("github-traffic = %q\n", p.GitHubTraffic.First())

@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/jeroenjanssens/velocirepo/internal/source"
@@ -10,10 +11,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func fetchGitHubCmd() *cobra.Command {
+func fetchYouTubeCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "github-events",
-		Short: "Fetch GitHub events (stars, forks, issues, PRs)",
+		Use:   "youtube",
+		Short: "Fetch YouTube metrics (views, likes, comments, subscribers)",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			projects := cfg.ResolveProjects()
 			if projects == nil {
@@ -25,6 +26,11 @@ func fetchGitHubCmd() *cobra.Command {
 				return fmt.Errorf("project %q not found in config", fetchProject)
 			}
 
+			apiKey := youtubeAPIKey()
+			if apiKey == "" {
+				return fmt.Errorf("YOUTUBE_API_KEY not set")
+			}
+
 			endDate, err := resolveEndDate()
 			if err != nil {
 				return fmt.Errorf("parse end date: %w", err)
@@ -32,44 +38,49 @@ func fetchGitHubCmd() *cobra.Command {
 
 			dataDir := cfg.DataDir()
 			client := newHTTPClient()
-			token := githubToken()
 
 			for id, proj := range projects {
-				for _, repo := range proj.GitHubEvents {
-					startDate, err := resolveStartDate(dataDir, "github", id)
+				for _, target := range proj.YouTube {
+					startDate, err := resolveStartDate(dataDir, "youtube", id)
 					if err != nil {
-						ui.Errorf("github/%s: resolve start date: %v", id, err)
+						ui.Errorf("youtube/%s: resolve start date: %v", id, err)
 						continue
 					}
 
 					if !startDate.Before(endDate.AddDate(0, 0, 1)) {
-						ui.Skip("github", id, "up to date")
+						ui.Skip("youtube", id, "up to date")
 						continue
 					}
 
-					ui.Progress("github", id, startDate.Format("2006-01-02")+" → "+endDate.Format("2006-01-02"))
+					ui.Progress("youtube", id, startDate.Format("2006-01-02")+" → "+endDate.Format("2006-01-02"))
 
-					src := &source.GitHubEvents{Client: client, Token: token, Repo: repo}
-					events, err := src.FetchEvents(cmd.Context(), source.FetchOptions{
+					src := &source.YouTube{Client: client, APIKey: apiKey, Target: target}
+					records, err := src.Fetch(cmd.Context(), source.FetchOptions{
 						ProjectID: id,
 						StartDate: startDate,
 						EndDate:   endDate,
 					})
 					if err != nil {
-						ui.Errorf("github/%s: %v", id, err)
+						ui.Errorf("youtube/%s: %v", id, err)
 						continue
 					}
 
-					if len(events) == 0 {
+					if len(records) == 0 {
 						continue
 					}
 
-					if err := store.WriteGitHubEvents(dataDir, "github", id, events); err != nil {
-						ui.Errorf("github/%s write: %v", id, err)
+					if err := store.WriteRecords(dataDir, "youtube", id, records); err != nil {
+						ui.Errorf("youtube/%s write: %v", id, err)
 						continue
 					}
 
-					ui.Done("github", id, len(events))
+					if entries := src.IndexEntries(); len(entries) > 0 {
+						if err := store.WriteYouTubeIndex(dataDir, id, entries); err != nil {
+							ui.Errorf("youtube/%s index: %v", id, err)
+						}
+					}
+
+					ui.Done("youtube", id, len(records))
 				}
 			}
 
@@ -82,4 +93,8 @@ func fetchGitHubCmd() *cobra.Command {
 			return nil
 		},
 	}
+}
+
+func youtubeAPIKey() string {
+	return os.Getenv("YOUTUBE_API_KEY")
 }

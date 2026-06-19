@@ -12,13 +12,14 @@
 
 velocirepo fetches and aggregates metrics for your open-source projects, building a historical record you can query and commit to git. It currently supports the following sources:
 
-- **GitHub** — individual events (stars, forks, issues, PRs) with user and timestamp
+- **GitHub Events** — individual events (stars, forks, issues, PRs) with user and timestamp
 - **GitHub Traffic** — daily page views and git clones (requires admin access)
 - **PyPI** — daily download counts
 - **CRAN** — daily download counts
 - **Homebrew** — install counts
 - **Plausible** — pageviews, visitors, visits
 - **OpenVSX** — downloads, reviews, ratings
+- **YouTube** — views, likes, comments, subscribers (channel and per-video)
 
 ## Configuration
 
@@ -27,15 +28,16 @@ Create a `velocirepo.toml` in your project root:
 ```toml
 [projects.my-project]
 name = "My Project"
-github = "owner/repo"
+github-events = "owner/repo"
 github-traffic = "owner/repo"
 pypi = "my-package"
 
 [projects.other-project]
 name = "Other Project"
-github = ["owner/other", "owner/other-utils"]
+github-events = ["owner/other", "owner/other-utils"]
 cran = "other"
 homebrew = "other"
+youtube = "@ChannelHandle"
 ```
 
 Each source field accepts either a single string or an array of strings, so you can track multiple repositories or packages under one project.
@@ -56,6 +58,7 @@ velocirepo looks for `velocirepo.toml` by walking up from the current directory.
 |----------|-------------|
 | `GITHUB_TOKEN` | GitHub personal access token (increases rate limits) |
 | `PLAUSIBLE_KEY` | Plausible API key |
+| `YOUTUBE_API_KEY` | YouTube Data API v3 key |
 | `VELOCIREPO_CONFIG` | Path to config file |
 
 These can also be set in a `.env` file in the current directory.
@@ -164,13 +167,14 @@ Pre-built binaries for Linux, macOS, and Windows are available on the [Releases]
 ## Usage
 
 ```
-velocirepo fetch github          Fetch GitHub events (stars, forks, issues, PRs)
+velocirepo fetch github-events   Fetch GitHub events (stars, forks, issues, PRs)
 velocirepo fetch github-traffic  Fetch GitHub traffic (views and clones)
 velocirepo fetch pypi            Fetch PyPI download counts
 velocirepo fetch cran            Fetch CRAN download counts
 velocirepo fetch homebrew        Fetch Homebrew install counts
 velocirepo fetch plausible       Fetch Plausible analytics
 velocirepo fetch openvsx         Fetch Open VSX install counts
+velocirepo fetch youtube         Fetch YouTube metrics
 velocirepo fetch all             Fetch from all configured sources
 
 velocirepo export <dir>      Export data to Parquet or CSV files
@@ -244,14 +248,25 @@ Fields:
 | `datetime` | Full timestamp of the event |
 | `user` | GitHub username who performed the action |
 
+### YouTube index
+
+The YouTube source also writes an `index.jsonl` file at `velocirepo/data/youtube/<project-id>/index.jsonl` containing video metadata for joins:
+
+```json
+{"video_id":"ML3q7Ok4hJg","title":"God-Tier Developer Roadmap","published_at":"2024-03-15T16:00:00Z","channel":"@Fireship"}
+```
+
+This is exposed as the `youtube_index` DuckDB view, allowing you to join video titles and publish dates with metrics data.
+
 ### DuckDB views
 
-The `query` command reads JSONL files directly using DuckDB and exposes three views:
+The `query` command reads JSONL files directly using DuckDB and exposes four views:
 
 | View | Description |
 |------|-------------|
 | `metrics` | Unified time-series: daily counts from all sources including aggregated GitHub events |
 | `github_events` | Raw GitHub events with user and timestamp (for per-event analysis) |
+| `youtube_index` | Video metadata (title, publish date) for joining with YouTube metrics |
 | `projects` | Project metadata from your config |
 
 GitHub events are stored individually on disk but automatically aggregated into daily counts in the `metrics` view (with `source = 'github'`, `metric` = event type, `target` = repo). Use `github_events` when you need per-user or per-timestamp detail.
@@ -262,10 +277,11 @@ You can either keep metrics in the same repository as your code, or create a ded
 
 ## Querying the data
 
-velocirepo stores all fetched data as JSONL files. You can query them directly using SQL (powered by DuckDB). Three views are available:
+velocirepo stores all fetched data as JSONL files. You can query them directly using SQL (powered by DuckDB). Four views are available:
 
 - `metrics` — unified time-series metrics from all sources, including aggregated GitHub event counts
 - `github_events` — raw GitHub events with user and timestamp (for per-event analysis)
+- `youtube_index` — video metadata (title, publish date, channel) for joining with YouTube metrics
 - `projects` — project metadata from your config
 
 ### Daily star counts
@@ -333,6 +349,21 @@ velocirepo query run "
 └────────────┴───────┘
 ```
 
+### Top YouTube videos by views
+
+The `youtube_index` view lets you join video metadata with metrics:
+
+```bash
+velocirepo query run "
+  SELECT yi.title, m.value AS views
+  FROM metrics m
+  JOIN youtube_index yi ON m.tags->>'video_id' = yi.video_id
+  WHERE m.source = 'youtube' AND m.metric = 'views'
+  ORDER BY m.value DESC
+  LIMIT 5
+"
+```
+
 ### Latest metrics from other sources
 
 ```bash
@@ -359,11 +390,12 @@ velocirepo query run "
 
 ### Output formats
 
-By default, results are printed as a table. Use `--json` or `--csv` for machine-readable output:
+By default, results are printed as a table. Use `--json`, `--csv`, or `--parquet` for machine-readable output:
 
 ```bash
 velocirepo query run --csv "SELECT project, metric, value FROM metrics LIMIT 3"
 velocirepo query run --json "SELECT project, metric, value FROM metrics LIMIT 3"
+velocirepo query run --parquet "SELECT * FROM metrics" > metrics.parquet
 ```
 
 The `query schema` command shows all available columns:
@@ -385,6 +417,7 @@ This writes one file per table:
 ```
   out/metrics.parquet (257 KB)
   out/github_events.parquet (2.9 MB)
+  out/youtube_index.parquet (15 KB)
   out/projects.parquet (2 KB)
 ```
 

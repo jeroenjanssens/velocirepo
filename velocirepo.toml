@@ -11,7 +11,7 @@ description = "R formatter and language server"
 color = "#276DC3"
 tags = ["r"]
 website = "https://posit-dev.github.io/air/"
-github ="posit-dev/air"
+github-events ="posit-dev/air"
 openvsx = "posit/air-vscode"
 
 [projects.chatlas]
@@ -20,7 +20,7 @@ description = "Chat with large language models in Python"
 color = "#4FC5AE"
 tags = ["python"]
 website = "https://posit-dev.github.io/chatlas"
-github ="posit-dev/chatlas"
+github-events ="posit-dev/chatlas"
 plausible = "posit-dev.github.io/chatlas"
 pypi = "chatlas"
 
@@ -29,7 +29,7 @@ name = "Databot"
 description = "Databot extension for Positron"
 color = "#E15759"
 tags = ["typescript"]
-github ="posit-dev/databot"
+github-events ="posit-dev/databot"
 openvsx = "posit/databot"
 
 [projects.dplyr]
@@ -38,7 +38,7 @@ description = "A grammar of data manipulation for R"
 color = "#1C8C58"
 tags = ["r"]
 website = "https://dplyr.tidyverse.org"
-github ="tidyverse/dplyr"
+github-events ="tidyverse/dplyr"
 cran = "dplyr"
 plausible = "dplyr.tidyverse.org"
 
@@ -47,7 +47,7 @@ name = "Ellmer"
 color = "#06BC97"
 tags = ["r"]
 website = "https://ellmer.tidyverse.org"
-github ="tidyverse/ellmer"
+github-events ="tidyverse/ellmer"
 cran = "ellmer"
 plausible = "ellmer.tidyverse.org"
 
@@ -57,7 +57,7 @@ description = "An implementation of the Grammar of Graphics in R"
 color = "#154F86"
 tags = ["r"]
 website = "https://ggplot2.tidyverse.org"
-github ="tidyverse/ggplot2"
+github-events ="tidyverse/ggplot2"
 cran = "ggplot2"
 plausible = "ggplot2.tidyverse.org"
 
@@ -67,7 +67,7 @@ description = "Create beautiful and feature-rich tables in Python"
 color = "#F901C3"
 tags = ["python"]
 website = "https://posit-dev.github.io/great-tables/"
-github ="posit-dev/great-tables"
+github-events ="posit-dev/great-tables"
 plausible = "posit-dev.github.io/great-tables"
 pypi = "great-tables"
 
@@ -77,7 +77,7 @@ description = "Easily generate information-rich, publication-quality tables from
 color = "#ECE142"
 tags = ["r"]
 website = "https://gt.rstudio.com"
-github ="rstudio/gt"
+github-events ="rstudio/gt"
 cran = "gt"
 plausible = "gt.rstudio.com"
 
@@ -87,7 +87,7 @@ description = "Posit Open Source Website"
 color = "#404041"
 tags = ["html"]
 website = "https://opensource.posit.co"
-github ="posit-dev/open-source-website"
+github-events ="posit-dev/open-source-website"
 plausible = "opensource.posit.co"
 
 [projects.orbital-python]
@@ -96,7 +96,7 @@ description = "Orbital data processing and analysis in Python"
 color = "#FF6B35"
 tags = ["python"]
 website = "https://posit-dev.github.io/orbital/"
-github ="posit-dev/orbital"
+github-events ="posit-dev/orbital"
 plausible = "posit-dev.github.io/orbital"
 pypi = "orbital"
 
@@ -106,7 +106,7 @@ description = "Orbital data processing and analysis in R"
 color = "#FF8C42"
 tags = ["r"]
 website = "https://posit-dev.github.io/orbital/"
-github ="posit-dev/orbital"
+github-events ="posit-dev/orbital"
 cran = "orbital"
 plausible = "posit-dev.github.io/orbital"
 
@@ -116,7 +116,7 @@ description = "A grammar of graphics for Python based on ggplot2"
 color = "#9E2F68"
 tags = ["python"]
 website = "https://plotnine.org"
-github ="has2k1/plotnine"
+github-events ="has2k1/plotnine"
 plausible = "plotnine.org"
 pypi = "plotnine"
 
@@ -126,7 +126,7 @@ description = "Data validation toolkit for assessing and monitoring data quality
 color = "#E20000"
 tags = ["python"]
 website = "https://posit-dev.github.io/pointblank/"
-github ="posit-dev/pointblank"
+github-events ="posit-dev/pointblank"
 plausible = "posit-dev.github.io/pointblank"
 pypi = "pointblank"
 
@@ -136,7 +136,7 @@ description = "Data validation and quality assessment for R"
 color = "#59A14F"
 tags = ["r"]
 website = "https://rstudio.github.io/pointblank/"
-github ="rstudio/pointblank"
+github-events ="rstudio/pointblank"
 cran = "pointblank"
 plausible = "rstudio.github.io/pointblank"
 
@@ -146,7 +146,7 @@ description = "Positron, a next-generation data science IDE"
 color = "#3976B3"
 tags = ["typescript"]
 website = "https://positron.posit.co/"
-github ="posit-dev/positron"
+github-events ="posit-dev/positron"
 plausible = "positron.posit.co"
 
 [projects.publisher]
@@ -154,7 +154,7 @@ name = "Posit Publisher"
 description = "Publish and share your Python and R content on Posit Connect"
 color = "#447099"
 tags = ["typescript"]
-github ="posit-dev/publisher"
+github-events ="posit-dev/publisher"
 openvsx = "posit/publisher"
 
 [projects.quarto]
@@ -163,7 +163,7 @@ description = "Open-source scientific and technical publishing system"
 color = "#75AADB"
 tags = ["javascript"]
 website = "https://quarto.org"
-github ="quarto-dev/quarto-cli"
+github-events ="quarto-dev/quarto-cli"
 openvsx = "quarto/quarto"
 plausible = "quarto.org"
 
@@ -173,7 +173,7 @@ description = "Build interactive web applications in Python"
 color = "#027BC2"
 tags = ["python"]
 website = "https://shiny.posit.co/py/"
-github ="posit-dev/py-shiny"
+github-events ="posit-dev/py-shiny"
 openvsx = "posit/shiny"
 plausible = "shiny.posit.co/py"
 pypi = "shiny"
@@ -184,7 +184,7 @@ description = "Build interactive web applications in R"
 color = "#000000"
 tags = ["r"]
 website = "https://shiny.posit.co"
-github ="rstudio/shiny"
+github-events ="rstudio/shiny"
 cran = "shiny"
 openvsx = "posit/shiny"
 plausible = "shiny.posit.co"
@@ -195,7 +195,7 @@ description = "A GUI for laying out a Shiny application that generates clean and
 color = "#4E79A7"
 tags = ["r"]
 website = "https://rstudio.github.io/shinyuieditor/"
-github ="rstudio/shinyuieditor"
+github-events ="rstudio/shinyuieditor"
 openvsx = "posit/shinyuieditor"
 
 [projects.supported-by-posit]
@@ -204,7 +204,7 @@ description = "Add a 'Supported by Posit' badge to a package website"
 color = "#414140"
 tags = ["javascript"]
 website = "https://posit-dev.github.io/supported-by-posit"
-github ="posit-dev/supported-by-posit"
+github-events ="posit-dev/supported-by-posit"
 plausible = "posit-dev.github.io/supported-by-posit"
 
 [projects.tidyverse]
@@ -213,6 +213,6 @@ description = "Collection of R packages for data science"
 color = "#1A162D"
 tags = ["r"]
 website = "https://www.tidyverse.org"
-github ="tidyverse/tidyverse"
+github-events ="tidyverse/tidyverse"
 cran = "tidyverse"
 plausible = "tidyverse.tidyverse.org"
