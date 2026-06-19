@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "velocirepo"
 dynamic = ["version"]
-description = "Fetch and aggregate open-source project metrics"
+description = "All your open-source and social-media metrics in one place"
 readme = "../README.md"
 license = "MIT"
 requires-python = ">=3.9"

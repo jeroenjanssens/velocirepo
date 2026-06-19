@@ -56,6 +56,11 @@ def build_wheel(binary_path: str, version: str, platform: str, output_dir: str):
         # _version.py
         (pkg_dir / "_version.py").write_text(f'__version__ = "{version}"\n')
 
+        # Copy README for PyPI long description
+        readme_src = Path(__file__).parent.parent / "README.md"
+        if readme_src.exists():
+            shutil.copy(readme_src, tmpdir / "README.md")
+
         # Write pyproject.toml for hatchling
         pyproject = tmpdir / "pyproject.toml"
         pyproject.write_text(f"""\
@@ -66,10 +71,28 @@ build-backend = "hatchling.build"
 [project]
 name = "velocirepo"
 version = "{version}"
-description = "Fetch and aggregate open-source project metrics"
+description = "All your open-source and social-media metrics in one place"
+readme = "README.md"
 license = "MIT"
 requires-python = ">=3.9"
 authors = [{{ name = "Jeroen Janssens", email = "jeroen@jeroenjanssens.com" }}]
+keywords = ["metrics", "github", "pypi", "analytics", "open-source"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: MacOS :: MacOS X",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Other",
+    "Topic :: Software Development :: Libraries",
+]
+
+[project.urls]
+Homepage = "https://github.com/jeroenjanssens/velocirepo"
+Repository = "https://github.com/jeroenjanssens/velocirepo"
+Issues = "https://github.com/jeroenjanssens/velocirepo/issues"
 
 [project.scripts]
 velocirepo = "velocirepo.__main__:main"
