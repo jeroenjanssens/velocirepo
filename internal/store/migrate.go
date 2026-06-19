@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-const LatestSchemaVersion = 2
+const LatestSchemaVersion = 3
 
 const schemaVersionFile = ".schema-version"
 
@@ -73,6 +73,10 @@ var migrations = []migration{
 		description: "pluralize metric names",
 		run:         migrate1to2,
 	},
+	{
+		description: "rename site-level plausible metrics to daily_site_*",
+		run:         migrate2to3,
+	},
 }
 
 func Migrate(dataDir string) (int, error) {
@@ -132,6 +136,12 @@ var metricPluralRenames = map[string]string{
 	"total_video_count": "total_videos",
 }
 
+var metricSiteRenames = map[string]string{
+	"daily_pageviews": "daily_site_pageviews",
+	"daily_visitors":  "daily_site_visitors",
+	"daily_visits":    "daily_site_visits",
+}
+
 func migrate0to1(dataDir string) error {
 	sourceDirs := []string{"pypi", "cran", "github-traffic", "plausible", "openvsx", "youtube"}
 	for _, src := range sourceDirs {
@@ -158,6 +168,14 @@ func migrate1to2(dataDir string) error {
 		}
 	}
 	return nil
+}
+
+func migrate2to3(dataDir string) error {
+	dir := filepath.Join(dataDir, "plausible")
+	if _, err := os.Stat(dir); os.IsNotExist(err) {
+		return nil
+	}
+	return renameMetricsInDir(dir, metricSiteRenames)
 }
 
 func renameMetricsInDir(dir string, renames map[string]string) error {

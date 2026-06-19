@@ -93,13 +93,13 @@ func TestMigrate0to1(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if applied != 2 {
-		t.Errorf("expected 2 migrations applied, got %d", applied)
+	if applied != 3 {
+		t.Errorf("expected 3 migrations applied, got %d", applied)
 	}
 
 	v, _ := SchemaVersion(dir)
-	if v != 2 {
-		t.Errorf("expected schema version 2, got %d", v)
+	if v != 3 {
+		t.Errorf("expected schema version 3, got %d", v)
 	}
 
 	// Verify pypi
@@ -111,7 +111,7 @@ func TestMigrate0to1(t *testing.T) {
 	// Verify plausible
 	data, _ = os.ReadFile(filepath.Join(plausibleDir, "2025-06-01.jsonl"))
 	content := string(data)
-	if !contains(content, `"daily_pageviews"`) || !contains(content, `"daily_visitors"`) {
+	if !contains(content, `"daily_site_pageviews"`) || !contains(content, `"daily_site_visitors"`) {
 		t.Errorf("plausible not migrated: %s", content)
 	}
 
