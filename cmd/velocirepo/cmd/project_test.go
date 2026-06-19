@@ -223,7 +223,7 @@ github-events = "org/alpha"
 	dataDir := filepath.Join(dir, "data", "github", "alpha")
 	os.MkdirAll(dataDir, 0755)
 	os.WriteFile(filepath.Join(dataDir, "2025-01-01.jsonl"), []byte(`{}`), 0644)
-	os.WriteFile(filepath.Join(dir, "data", ".schema-version"), []byte("1\n"), 0644)
+	os.WriteFile(filepath.Join(dir, "data", ".schema-version"), []byte("2\n"), 0644)
 
 	_, _, err := execCmd(cfgPath, "project", "remove", "alpha", "--force", "--delete-data")
 	if err != nil {
@@ -302,7 +302,7 @@ github-events = "org/alpha"
 	os.MkdirAll(dataDir, 0755)
 	os.WriteFile(filepath.Join(dataDir, "2025-01-01.jsonl"),
 		[]byte(`{"source":"github","event_type":"star","project_id":"alpha","github_repo":"org/alpha","datetime":"2025-01-01T10:00:00Z","user":"alice"}`+"\n"), 0644)
-	os.WriteFile(filepath.Join(dir, "data", ".schema-version"), []byte("1\n"), 0644)
+	os.WriteFile(filepath.Join(dir, "data", ".schema-version"), []byte("2\n"), 0644)
 
 	_, buf, err := execCmd(cfgPath, "project", "show", "alpha")
 	if err != nil {
@@ -369,7 +369,7 @@ github-events = "org/old"
 	dataDir := filepath.Join(dir, "data", "github", "old-name")
 	os.MkdirAll(dataDir, 0755)
 	os.WriteFile(filepath.Join(dataDir, "2025-01-01.jsonl"), []byte("{}"), 0644)
-	os.WriteFile(filepath.Join(dir, "data", ".schema-version"), []byte("1\n"), 0644)
+	os.WriteFile(filepath.Join(dir, "data", ".schema-version"), []byte("2\n"), 0644)
 
 	_, _, err := execCmd(cfgPath, "project", "rename", "old-name", "new-name")
 	if err != nil {

@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-const LatestSchemaVersion = 1
+const LatestSchemaVersion = 2
 
 const schemaVersionFile = ".schema-version"
 
@@ -69,6 +69,10 @@ var migrations = []migration{
 		description: "prefix metric names with daily_ or total_",
 		run:         migrate0to1,
 	},
+	{
+		description: "pluralize metric names",
+		run:         migrate1to2,
+	},
 }
 
 func Migrate(dataDir string) (int, error) {
@@ -105,25 +109,27 @@ func MigrationDescription(version int) string {
 	return migrations[version-1].description
 }
 
-var metricRenames = map[string]string{
-	"downloads":      "daily_downloads",
-	"views":          "daily_views",
-	"unique_views":   "daily_unique_views",
-	"clones":         "daily_clones",
-	"unique_clones":  "daily_unique_clones",
-	"pageviews":      "daily_pageviews",
-	"visitors":       "daily_visitors",
-	"visits":         "daily_visits",
-	"reviews":        "total_reviews",
-	"rating":         "total_ratings",
-	"total_rating":   "total_ratings",
-	"subscribers":    "total_subscribers",
-	"channel_views":  "total_channel_views",
-	"video_count":    "total_videos",
+var metricPrefixRenames = map[string]string{
+	"downloads":    "daily_downloads",
+	"views":        "daily_views",
+	"unique_views": "daily_unique_views",
+	"clones":       "daily_clones",
+	"unique_clones": "daily_unique_clones",
+	"pageviews":    "daily_pageviews",
+	"visitors":     "daily_visitors",
+	"visits":       "daily_visits",
+	"reviews":      "total_reviews",
+	"rating":       "total_rating",
+	"subscribers":  "total_subscribers",
+	"channel_views": "total_channel_views",
+	"video_count":  "total_video_count",
+	"likes":        "total_likes",
+	"comments":     "total_comments",
+}
+
+var metricPluralRenames = map[string]string{
+	"total_rating":      "total_ratings",
 	"total_video_count": "total_videos",
-	// youtube video-level metrics that used bare names
-	"likes":    "total_likes",
-	"comments": "total_comments",
 }
 
 func migrate0to1(dataDir string) error {
@@ -133,14 +139,28 @@ func migrate0to1(dataDir string) error {
 		if _, err := os.Stat(dir); os.IsNotExist(err) {
 			continue
 		}
-		if err := migrateMetricsInDir(dir); err != nil {
+		if err := renameMetricsInDir(dir, metricPrefixRenames); err != nil {
 			return fmt.Errorf("%s: %w", src, err)
 		}
 	}
 	return nil
 }
 
-func migrateMetricsInDir(dir string) error {
+func migrate1to2(dataDir string) error {
+	sourceDirs := []string{"openvsx", "youtube"}
+	for _, src := range sourceDirs {
+		dir := filepath.Join(dataDir, src)
+		if _, err := os.Stat(dir); os.IsNotExist(err) {
+			continue
+		}
+		if err := renameMetricsInDir(dir, metricPluralRenames); err != nil {
+			return fmt.Errorf("%s: %w", src, err)
+		}
+	}
+	return nil
+}
+
+func renameMetricsInDir(dir string, renames map[string]string) error {
 	return filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -148,11 +168,11 @@ func migrateMetricsInDir(dir string) error {
 		if info.IsDir() || !strings.HasSuffix(info.Name(), ".jsonl") {
 			return nil
 		}
-		return migrateMetricsInFile(path)
+		return renameMetricsInFile(path, renames)
 	})
 }
 
-func migrateMetricsInFile(path string) error {
+func renameMetricsInFile(path string, renames map[string]string) error {
 	f, err := os.Open(path)
 	if err != nil {
 		return err
@@ -173,7 +193,7 @@ func migrateMetricsInFile(path string) error {
 
 		metric, ok := record["metric"].(string)
 		if ok {
-			if newName, found := metricRenames[metric]; found {
+			if newName, found := renames[metric]; found {
 				record["metric"] = newName
 				newLine, err := json.Marshal(record)
 				if err != nil {
