@@ -38,6 +38,7 @@ func WriteRecords(dataDir, sourceName, projectID string, records []source.Record
 		}
 	}
 
+	ensureSchemaVersion(dataDir)
 	return nil
 }
 
@@ -176,6 +177,7 @@ func WriteGitHubEvents(dataDir, sourceName, projectID string, events []source.Gi
 		}
 	}
 
+	ensureSchemaVersion(dataDir)
 	return nil
 }
 

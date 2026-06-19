@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/jeroenjanssens/velocirepo/internal/config"
+	"github.com/jeroenjanssens/velocirepo/internal/store"
 	"github.com/joho/godotenv"
 	"github.com/spf13/cobra"
 )
@@ -37,6 +38,13 @@ func newRootCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("load config: %w", err)
 			}
+
+			if cmd.Name() != "migrate" {
+				if err := store.CheckSchemaVersion(cfg.DataDir()); err != nil {
+					return err
+				}
+			}
+
 			return nil
 		},
 	}
@@ -52,6 +60,7 @@ func newRootCmd() *cobra.Command {
 	rootCmd.AddCommand(badgeCmd())
 	rootCmd.AddCommand(ciCmd())
 	rootCmd.AddCommand(projectCmd())
+	rootCmd.AddCommand(migrateCmd())
 
 	return rootCmd
 }
