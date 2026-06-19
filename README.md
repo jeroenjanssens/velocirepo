@@ -1,9 +1,12 @@
 # velocirepo
 
+Fetch and aggregate open-source project metrics into a queryable, git-friendly history.
+
 ## Table of contents
 
-- [Configuration](#configuration)
+- [Overview](#overview)
 - [Installation](#installation)
+- [Configuration](#configuration)
 - [Usage](#usage)
 - [Data storage](#data-storage)
 - [Migrating data](#migrating-data)
@@ -11,64 +14,28 @@
 - [Exporting data](#exporting-data)
 - [Generating badges](#generating-badges)
 
-velocirepo fetches and aggregates metrics for your open-source projects, building a historical record you can query and commit to git. It currently supports the following sources:
+## Overview
 
-- **GitHub Events** — individual events (stars, forks, issues, PRs) with user and timestamp
-- **GitHub Traffic** — daily page views and git clones (requires admin access)
-- **PyPI** — daily download counts
-- **CRAN** — daily download counts
-- **Homebrew** — install counts
-- **Plausible** — pageviews, visitors, visits
-- **OpenVSX** — downloads, reviews, ratings
-- **YouTube** — views, likes, comments, subscribers (channel and per-video)
+velocirepo collects metrics from multiple sources, stores them as JSONL files, and exposes them via SQL (powered by DuckDB). It's designed to run on a schedule (e.g., nightly via GitHub Actions) and commit the results to git, giving you a permanent record of your project's growth.
 
-## Configuration
+Supported sources:
 
-Create a `velocirepo.toml` in your project root:
-
-```toml
-[projects.my-project]
-name = "My Project"
-github-events = "owner/repo"
-github-traffic = "owner/repo"
-pypi = "my-package"
-
-[projects.other-project]
-name = "Other Project"
-github-events = ["owner/other", "owner/other-utils"]
-cran = "other"
-homebrew = "other"
-youtube = "@ChannelHandle"
-```
-
-Each source field accepts either a single string or an array of strings, so you can track multiple repositories or packages under one project.
-
-The `github-traffic` source fetches daily page views and clone counts. GitHub only retains this data for 14 days, so velocirepo preserves it before it's lost. It requires a token with **Administration:read** permission (or the `repo` scope for classic tokens).
-
-Or initialize one interactively (auto-detects sources from your repository):
-
-```bash
-velocirepo project init
-```
-
-velocirepo looks for `velocirepo.toml` by walking up from the current directory. Override with `--config` or the `VELOCIREPO_CONFIG` environment variable.
-
-### Environment variables
-
-| Variable | Description |
-|----------|-------------|
-| `GITHUB_TOKEN` | GitHub personal access token (increases rate limits) |
-| `PLAUSIBLE_TOKEN` | Plausible API token |
-| `YOUTUBE_TOKEN` | YouTube Data API token |
-| `VELOCIREPO_CONFIG` | Path to config file |
-
-These can also be set in a `.env` file in the current directory.
+| Source | What it tracks |
+|--------|----------------|
+| **GitHub Events** | Individual events (stars, forks, issues, PRs) with user and timestamp |
+| **GitHub Traffic** | Daily page views and git clones (requires admin access) |
+| **PyPI** | Daily download counts |
+| **CRAN** | Daily download counts |
+| **Homebrew** | Install counts (30-day, 90-day, 365-day, lifetime) |
+| **Plausible** | Daily pageviews, visitors, visits |
+| **OpenVSX** | Total downloads, reviews, ratings |
+| **YouTube** | Views, likes, comments, subscribers (channel and per-video) |
 
 ## Installation
 
 velocirepo can be used as a GitHub Action for automated nightly fetching, or installed locally for ad-hoc use.
 
-### GitHub Actions
+### GitHub Actions (recommended)
 
 ```yaml
 name: Fetch Metrics
@@ -166,6 +133,48 @@ curl -sSfL https://raw.githubusercontent.com/jeroenjanssens/velocirepo/main/inst
 
 Pre-built binaries for Linux, macOS, and Windows are available on the [Releases](https://github.com/jeroenjanssens/velocirepo/releases) page.
 
+## Configuration
+
+Create a `velocirepo.toml` in your project root:
+
+```toml
+[projects.my-project]
+name = "My Project"
+github-events = "owner/repo"
+github-traffic = "owner/repo"
+pypi = "my-package"
+
+[projects.other-project]
+name = "Other Project"
+github-events = ["owner/other", "owner/other-utils"]
+cran = "other"
+homebrew = "other"
+youtube = "@ChannelHandle"
+```
+
+Each source field accepts either a single string or an array of strings, so you can track multiple repositories or packages under one project.
+
+The `github-traffic` source fetches daily page views and clone counts. GitHub only retains this data for 14 days, so velocirepo preserves it before it's lost. It requires a token with **Administration:read** permission (or the `repo` scope for classic tokens).
+
+Or initialize one interactively (auto-detects sources from your repository):
+
+```bash
+velocirepo project init
+```
+
+velocirepo looks for `velocirepo.toml` by walking up from the current directory. Override with `--config` or the `VELOCIREPO_CONFIG` environment variable.
+
+### Environment variables
+
+| Variable | Description |
+|----------|-------------|
+| `GITHUB_TOKEN` | GitHub personal access token (increases rate limits) |
+| `PLAUSIBLE_TOKEN` | Plausible API token |
+| `YOUTUBE_TOKEN` | YouTube Data API key |
+| `VELOCIREPO_CONFIG` | Path to config file |
+
+These can also be set in a `.env` file in the current directory.
+
 ## Usage
 
 ```
@@ -175,66 +184,68 @@ velocirepo fetch pypi            Fetch PyPI download counts
 velocirepo fetch cran            Fetch CRAN download counts
 velocirepo fetch homebrew        Fetch Homebrew install counts
 velocirepo fetch plausible       Fetch Plausible analytics
-velocirepo fetch openvsx         Fetch Open VSX install counts
+velocirepo fetch openvsx         Fetch Open VSX extension metrics
 velocirepo fetch youtube         Fetch YouTube metrics
 velocirepo fetch all             Fetch from all configured sources
 
-velocirepo export <dir>      Export data to Parquet or CSV files
+velocirepo query run [sql]       Run a SQL query against the metrics data
+velocirepo query schema          Show table schemas
 
-velocirepo query run [sql]   Run a SQL query against the metrics data
-velocirepo query schema      Show table schemas
+velocirepo export <dir>          Export data to Parquet or CSV files
 
-velocirepo badge stars       Generate a stars badge
-velocirepo badge forks       Generate a forks badge
-velocirepo badge downloads   Generate a downloads badge
-velocirepo badge pageviews   Generate a pageviews badge
-velocirepo badge custom      Generate a badge from a custom query
+velocirepo badge stars           Generate a stars badge
+velocirepo badge forks           Generate a forks badge
+velocirepo badge downloads       Generate a downloads badge
+velocirepo badge pageviews       Generate a pageviews badge
+velocirepo badge custom          Generate a badge from a custom query
 
-velocirepo project init      Create a new velocirepo.toml
-velocirepo project add       Add a project to the config
-velocirepo project update    Update a project's configuration
-velocirepo project remove    Remove a project from the config
-velocirepo project rename    Rename a project's ID
-velocirepo project list      List configured projects
-velocirepo project show      Show project details
-velocirepo project import    Bulk-import from GitHub org/user or file
-velocirepo project validate  Validate source URLs
+velocirepo project init          Create a new velocirepo.toml
+velocirepo project add           Add a project to the config
+velocirepo project update        Update a project's configuration
+velocirepo project remove        Remove a project from the config
+velocirepo project rename        Rename a project's ID
+velocirepo project list          List configured projects
+velocirepo project show          Show project details
+velocirepo project import        Bulk-import from GitHub org/user or file
+velocirepo project validate      Validate source URLs
 
-velocirepo migrate           Migrate data to the latest schema version
+velocirepo migrate               Migrate data to the latest schema version
 
-velocirepo ci install        Generate a GitHub Actions workflow
+velocirepo ci install            Generate a GitHub Actions workflow
 
-velocirepo version           Print version information
+velocirepo version               Print version information
 ```
 
 ## Data storage
 
-All data is stored as JSONL files at `velocirepo/data/<source>/<project-id>/<date>.jsonl`. Daily files are automatically aggregated into monthly and yearly files once the period is complete.
+All data is stored as JSONL files at `velocirepo/data/<source>/<project-id>/<date>.jsonl`. This entire directory is meant to be committed to git — it's your permanent metric history.
 
 ### Metrics sources
 
 Sources like PyPI, CRAN, Homebrew, Plausible, OpenVSX, and GitHub Traffic store one JSON object per metric per day:
 
 ```json
-{"source":"pypi","metric":"downloads","project_id":"plotnine","target":"plotnine","date":"2026-06-15","value":1523}
+{"source":"pypi","metric":"daily_downloads","project_id":"plotnine","target":"plotnine","date":"2026-06-15","value":1523}
 {"source":"openvsx","metric":"total_downloads","project_id":"quarto","target":"quarto/quarto","date":"2026-06-15","value":1250000}
 ```
+
+Metric names are prefixed with `daily_` (for deltas — values that reset each day) or `total_` (for snapshots — cumulative totals at a point in time). Homebrew metrics use their own naming (`downloads_30d`, `downloads_365d`, etc.).
 
 Fields:
 
 | Field | Description |
 |-------|-------------|
 | `source` | Source name (pypi, cran, homebrew, plausible, openvsx, github-traffic) |
-| `metric` | Metric name (downloads, pageviews, views, clones, etc.) |
+| `metric` | Metric name (e.g., `daily_downloads`, `total_views`, `daily_pageviews`) |
 | `project_id` | Project ID from your config |
 | `target` | Specific package, repo, site, or extension being tracked |
-| `date` | Date of the measurement |
+| `date` | Date of the measurement (YYYY-MM-DD) |
 | `value` | Integer value |
-| `tags` | Optional key-value metadata |
+| `tags` | Optional key-value metadata (e.g., `{"video_id": "..."}` for YouTube) |
 
-### GitHub source
+### GitHub Events source
 
-The GitHub source stores individual events rather than aggregated counts, giving you full historical detail including who performed each action and when:
+The GitHub Events source stores individual events rather than aggregated counts, giving you full historical detail including who performed each action and when:
 
 ```json
 {"source":"github","event_type":"star","project_id":"quarto","github_repo":"quarto-dev/quarto-cli","datetime":"2026-06-15T14:23:01Z","user":"alice"}
@@ -249,31 +260,24 @@ Fields:
 | `event_type` | One of: star, fork, issue_open, issue_close, pr_open, pr_merge |
 | `project_id` | Project ID from your config |
 | `github_repo` | The owner/repo being tracked |
-| `datetime` | Full timestamp of the event |
+| `datetime` | Full timestamp of the event (ISO 8601) |
 | `user` | GitHub username who performed the action |
+
+These events are automatically aggregated into daily counts in the `metrics` DuckDB view (as `daily_star`, `daily_fork`, etc.) so you can query them alongside other sources.
 
 ### YouTube index
 
-The YouTube source also writes an `index.jsonl` file at `velocirepo/data/youtube/<project-id>/index.jsonl` containing video metadata for joins:
+The YouTube source also writes an `index.jsonl` file at `velocirepo/data/youtube/<project-id>/index.jsonl` containing video metadata:
 
 ```json
-{"video_id":"ML3q7Ok4hJg","title":"God-Tier Developer Roadmap","published_at":"2024-03-15T16:00:00Z","channel":"@Fireship"}
+{"video_id":"ML3q7Ok4hJg","title":"God-Tier Developer Roadmap","published_at":"2024-03-15T16:00:00Z","channel":"@Fireship","duration":423,"tags":["programming","roadmap"]}
 ```
 
 This is exposed as the `youtube_index` DuckDB view, allowing you to join video titles and publish dates with metrics data.
 
-### DuckDB views
+### Aggregation
 
-The `query` command reads JSONL files directly using DuckDB and exposes four views:
-
-| View | Description |
-|------|-------------|
-| `metrics` | Unified time-series: daily counts from all sources including aggregated GitHub events |
-| `github_events` | Raw GitHub events with user and timestamp (for per-event analysis) |
-| `youtube_index` | Video metadata (title, publish date) for joining with YouTube metrics |
-| `projects` | Project metadata from your config |
-
-GitHub events are stored individually on disk but automatically aggregated into daily counts in the `metrics` view (with `source = 'github'`, `metric` = event type, `target` = repo). Use `github_events` when you need per-user or per-timestamp detail.
+Daily JSONL files are automatically rolled up into monthly and yearly files once a period is complete. For example, once all days in January 2026 have been fetched, they're aggregated into `2026-01.jsonl`. This keeps the file count manageable for long-running histories. The original daily files are removed after aggregation.
 
 ### Repository layout
 
@@ -303,12 +307,14 @@ This is safe to run repeatedly — all migrations are idempotent.
 
 ## Querying the data
 
-velocirepo stores all fetched data as JSONL files. You can query them directly using SQL (powered by DuckDB). Four views are available:
+The `query` command reads JSONL files directly using DuckDB and exposes four views:
 
-- `metrics` — unified time-series metrics from all sources, including aggregated GitHub event counts
-- `github_events` — raw GitHub events with user and timestamp (for per-event analysis)
-- `youtube_index` — video metadata (title, publish date, channel) for joining with YouTube metrics
-- `projects` — project metadata from your config
+| View | Description |
+|------|-------------|
+| `metrics` | Unified time-series: all sources including aggregated GitHub events |
+| `github_events` | Raw GitHub events with user and timestamp |
+| `youtube_index` | Video metadata (title, publish date, channel, duration) |
+| `projects` | Project metadata from your config |
 
 ### Daily star counts
 
@@ -316,7 +322,7 @@ velocirepo stores all fetched data as JSONL files. You can query them directly u
 velocirepo query run "
   SELECT project, date, value AS stars
   FROM metrics
-  WHERE source = 'github' AND metric = 'star'
+  WHERE source = 'github' AND metric = 'daily_star'
   ORDER BY date DESC
   LIMIT 5
 "
@@ -329,7 +335,7 @@ velocirepo query run "
   SELECT p.name, SUM(value) AS stars
   FROM metrics m
   JOIN projects p ON m.project = p.id
-  WHERE m.source = 'github' AND m.metric = 'star'
+  WHERE m.source = 'github' AND m.metric = 'daily_star'
   GROUP BY p.name
   ORDER BY stars DESC
   LIMIT 5
@@ -377,20 +383,18 @@ velocirepo query run "
 
 ### Top YouTube videos by views
 
-The `youtube_index` view lets you join video metadata with metrics:
-
 ```bash
 velocirepo query run "
   SELECT yi.title, m.value AS views
   FROM metrics m
   JOIN youtube_index yi ON m.tags->>'video_id' = yi.video_id
-  WHERE m.source = 'youtube' AND m.metric = 'views'
+  WHERE m.source = 'youtube' AND m.metric = 'total_views'
   ORDER BY m.value DESC
   LIMIT 5
 "
 ```
 
-### Latest metrics from other sources
+### Latest metrics across sources
 
 ```bash
 velocirepo query run "
@@ -403,15 +407,15 @@ velocirepo query run "
 ```
 
 ```
-┌───────────┬─────────┬─────────────────┬────────────┬─────────┐
-│  project  │ source  │     metric      │    date    │  value  │
-├───────────┼─────────┼─────────────────┼────────────┼─────────┤
-│ databot   │ openvsx │ total_downloads │ 2026-06-16 │ 49504   │
-│ databot   │ openvsx │ rating          │ 2026-06-16 │ 5       │
-│ databot   │ openvsx │ reviews         │ 2026-06-16 │ 1       │
-│ publisher │ openvsx │ total_downloads │ 2026-06-16 │ 1562247 │
-│ publisher │ openvsx │ reviews         │ 2026-06-16 │ 0       │
-└───────────┴─────────┴─────────────────┴────────────┴─────────┘
+┌──────────┬─────────┬─────────────────┬────────────┬─────────┐
+│ project  │ source  │     metric      │    date    │  value  │
+├──────────┼─────────┼─────────────────┼────────────┼─────────┤
+│ quarto   │ openvsx │ total_downloads │ 2026-06-16 │ 3101234 │
+│ quarto   │ openvsx │ total_rating    │ 2026-06-16 │ 500     │
+│ quarto   │ openvsx │ total_reviews   │ 2026-06-16 │ 2       │
+│ quarto   │ plausible│ daily_pageviews │ 2026-06-16 │ 14322   │
+│ quarto   │ plausible│ daily_visitors  │ 2026-06-16 │ 3324    │
+└──────────┴─────────┴─────────────────┴────────────┴─────────┘
 ```
 
 ### Output formats
