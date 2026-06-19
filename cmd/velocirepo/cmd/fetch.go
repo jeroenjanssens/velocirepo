@@ -172,5 +172,5 @@ func githubToken() string {
 }
 
 func plausibleKey() string {
-	return os.Getenv("PLAUSIBLE_KEY")
+	return os.Getenv("PLAUSIBLE_TOKEN")
 }

@@ -66,7 +66,7 @@ func fetchAllCmd() *cobra.Command {
 						jobs = append(jobs, fetchJob{sourceName: "plausible", projectID: id, src: &source.Plausible{Client: client, APIKey: pKey, SiteID: site}})
 					}
 				} else if !proj.Plausible.IsEmpty() {
-					ui.Warnf("skipping plausible for %s: PLAUSIBLE_KEY not set", id)
+					ui.Warnf("skipping plausible for %s: PLAUSIBLE_TOKEN not set", id)
 				}
 				for _, ext := range proj.OpenVSX {
 					jobs = append(jobs, fetchJob{sourceName: "openvsx", projectID: id, src: &source.OpenVSX{Client: client, ExtensionID: ext}})
@@ -76,7 +76,7 @@ func fetchAllCmd() *cobra.Command {
 						jobs = append(jobs, fetchJob{sourceName: "youtube", projectID: id, src: &source.YouTube{Client: client, APIKey: ytKey, Target: target}})
 					}
 				} else if !proj.YouTube.IsEmpty() {
-					ui.Warnf("skipping youtube for %s: YOUTUBE_API_KEY not set", id)
+					ui.Warnf("skipping youtube for %s: YOUTUBE_TOKEN not set", id)
 				}
 			}
 

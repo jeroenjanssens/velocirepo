@@ -15,7 +15,7 @@ func fetchPlausibleCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			key := plausibleKey()
 			if key == "" {
-				return fmt.Errorf("PLAUSIBLE_KEY environment variable is required")
+				return fmt.Errorf("PLAUSIBLE_TOKEN environment variable is required")
 			}
 			return runFetchMulti(cmd, "plausible", func(id string, p config.Project) []source.Source {
 				var sources []source.Source

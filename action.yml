@@ -9,8 +9,11 @@ inputs:
     description: GitHub token for API access
     required: false
     default: ${{ github.token }}
-  plausible-key:
-    description: Plausible Analytics API key
+  plausible-token:
+    description: Plausible Analytics API token
+    required: false
+  youtube-token:
+    description: YouTube Data API token
     required: false
   version:
     description: velocirepo version to install (default: latest)
@@ -35,5 +38,6 @@ runs:
       shell: bash
       env:
         GITHUB_TOKEN: ${{ inputs.github-token }}
-        PLAUSIBLE_KEY: ${{ inputs.plausible-key }}
+        PLAUSIBLE_TOKEN: ${{ inputs.plausible-token }}
+        YOUTUBE_TOKEN: ${{ inputs.youtube-token }}
       run: velocirepo fetch all

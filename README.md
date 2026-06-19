@@ -57,8 +57,8 @@ velocirepo looks for `velocirepo.toml` by walking up from the current directory.
 | Variable | Description |
 |----------|-------------|
 | `GITHUB_TOKEN` | GitHub personal access token (increases rate limits) |
-| `PLAUSIBLE_KEY` | Plausible API key |
-| `YOUTUBE_API_KEY` | YouTube Data API v3 key |
+| `PLAUSIBLE_TOKEN` | Plausible API token |
+| `YOUTUBE_TOKEN` | YouTube Data API token |
 | `VELOCIREPO_CONFIG` | Path to config file |
 
 These can also be set in a `.env` file in the current directory.
@@ -89,7 +89,8 @@ jobs:
       - uses: jeroenjanssens/velocirepo@v0
         with:
           github-token: ${{ secrets.GH_TOKEN }}
-          # plausible-key: ${{ secrets.PLAUSIBLE_KEY }}
+          # plausible-token: ${{ secrets.PLAUSIBLE_TOKEN }}
+          # youtube-token: ${{ secrets.YOUTUBE_TOKEN }}
 
       - name: Commit and push
         run: |

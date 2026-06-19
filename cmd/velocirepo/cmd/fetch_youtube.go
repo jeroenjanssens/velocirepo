@@ -28,7 +28,7 @@ func fetchYouTubeCmd() *cobra.Command {
 
 			apiKey := youtubeAPIKey()
 			if apiKey == "" {
-				return fmt.Errorf("YOUTUBE_API_KEY not set")
+				return fmt.Errorf("YOUTUBE_TOKEN not set")
 			}
 
 			endDate, err := resolveEndDate()
@@ -96,5 +96,5 @@ func fetchYouTubeCmd() *cobra.Command {
 }
 
 func youtubeAPIKey() string {
-	return os.Getenv("YOUTUBE_API_KEY")
+	return os.Getenv("YOUTUBE_TOKEN")
 }

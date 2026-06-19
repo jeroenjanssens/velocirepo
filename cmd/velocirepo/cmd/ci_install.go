@@ -32,7 +32,10 @@ jobs:
         with:
           github-token: {{"{{"}} secrets.GH_TOKEN {{"}}"}}
 {{- if .NeedsPlausible}}
-          plausible-key: {{"{{"}} secrets.PLAUSIBLE_KEY {{"}}"}}
+          plausible-token: {{"{{"}} secrets.PLAUSIBLE_TOKEN {{"}}"}}
+{{- end}}
+{{- if .NeedsYouTube}}
+          youtube-token: {{"{{"}} secrets.YOUTUBE_TOKEN {{"}}"}}
 {{- end}}
 
       - name: Commit and push
@@ -91,11 +94,14 @@ func ciInstallCmd() *cobra.Command {
 			}
 
 			needsPlausible := false
+			needsYouTube := false
 			projects := cfg.ResolveProjects()
 			for _, p := range projects {
 				if !p.Plausible.IsEmpty() {
 					needsPlausible = true
-					break
+				}
+				if !p.YouTube.IsEmpty() {
+					needsYouTube = true
 				}
 			}
 
@@ -128,10 +134,12 @@ func ciInstallCmd() *cobra.Command {
 				Cron           string
 				Version        string
 				NeedsPlausible bool
+				NeedsYouTube   bool
 			}{
 				Cron:           cron,
 				Version:        actionRef,
 				NeedsPlausible: needsPlausible,
+				NeedsYouTube:   needsYouTube,
 			})
 			if err != nil {
 				return fmt.Errorf("render template: %w", err)
