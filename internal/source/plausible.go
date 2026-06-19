@@ -33,36 +33,49 @@ func (p *Plausible) Fetch(ctx context.Context, opts FetchOptions) ([]Record, err
 }
 
 func (p *Plausible) fetchSiteMetrics(ctx context.Context, opts FetchOptions) ([]Record, error) {
-	payload := map[string]interface{}{
-		"site_id": p.SiteID,
-		"metrics": []string{"pageviews", "visitors", "visits"},
-		"date_range": []string{
-			opts.StartDate.Format("2006-01-02"),
-			opts.EndDate.Format("2006-01-02"),
-		},
-		"dimensions": []string{"time:day"},
-	}
-
-	var result queryResult
-	if err := p.query(ctx, payload, &result); err != nil {
-		return nil, err
-	}
+	const pageSize = 10000
 
 	metricNames := []string{"daily_site_pageviews", "daily_site_visitors", "daily_site_visits"}
 	var records []Record
-	for _, row := range result.Results {
-		if len(row.Dimensions) == 0 || len(row.Metrics) < 3 {
-			continue
+	offset := 0
+
+	for {
+		payload := map[string]interface{}{
+			"site_id": p.SiteID,
+			"metrics": []string{"pageviews", "visitors", "visits"},
+			"date_range": []string{
+				opts.StartDate.Format("2006-01-02"),
+				opts.EndDate.Format("2006-01-02"),
+			},
+			"dimensions": []string{"time:day"},
+			"pagination": map[string]int{"limit": pageSize, "offset": offset},
+			"include":    map[string]bool{"total_rows": true},
 		}
-		date := row.Dimensions[0]
-		for i, name := range metricNames {
-			records = append(records, Record{
-				Metric:    name,
-				ProjectID: opts.ProjectID,
-				Target:    p.SiteID,
-				Date:      date,
-				Value:     row.Metrics[i],
-			})
+
+		var result queryResult
+		if err := p.query(ctx, payload, &result); err != nil {
+			return nil, err
+		}
+
+		for _, row := range result.Results {
+			if len(row.Dimensions) == 0 || len(row.Metrics) < 3 {
+				continue
+			}
+			date := row.Dimensions[0]
+			for i, name := range metricNames {
+				records = append(records, Record{
+					Metric:    name,
+					ProjectID: opts.ProjectID,
+					Target:    p.SiteID,
+					Date:      date,
+					Value:     row.Metrics[i],
+				})
+			}
+		}
+
+		offset += pageSize
+		if result.Meta.TotalRows == 0 || offset >= result.Meta.TotalRows {
+			break
 		}
 	}
 
@@ -70,38 +83,51 @@ func (p *Plausible) fetchSiteMetrics(ctx context.Context, opts FetchOptions) ([]
 }
 
 func (p *Plausible) fetchPageMetrics(ctx context.Context, opts FetchOptions) ([]Record, error) {
-	payload := map[string]interface{}{
-		"site_id": p.SiteID,
-		"metrics": []string{"pageviews", "visitors", "visits"},
-		"date_range": []string{
-			opts.StartDate.Format("2006-01-02"),
-			opts.EndDate.Format("2006-01-02"),
-		},
-		"dimensions": []string{"time:day", "event:page"},
-	}
-
-	var result queryResult
-	if err := p.query(ctx, payload, &result); err != nil {
-		return nil, err
-	}
+	const pageSize = 10000
 
 	metricNames := []string{"daily_pageviews", "daily_visitors", "daily_visits"}
 	var records []Record
-	for _, row := range result.Results {
-		if len(row.Dimensions) < 2 || len(row.Metrics) < 3 {
-			continue
+	offset := 0
+
+	for {
+		payload := map[string]interface{}{
+			"site_id": p.SiteID,
+			"metrics": []string{"pageviews", "visitors", "visits"},
+			"date_range": []string{
+				opts.StartDate.Format("2006-01-02"),
+				opts.EndDate.Format("2006-01-02"),
+			},
+			"dimensions": []string{"time:day", "event:page"},
+			"pagination": map[string]int{"limit": pageSize, "offset": offset},
+			"include":    map[string]bool{"total_rows": true},
 		}
-		date := row.Dimensions[0]
-		page := row.Dimensions[1]
-		for i, name := range metricNames {
-			records = append(records, Record{
-				Metric:    name,
-				ProjectID: opts.ProjectID,
-				Target:    p.SiteID,
-				Date:      date,
-				Value:     row.Metrics[i],
-				Tags:      map[string]string{"page": page},
-			})
+
+		var result queryResult
+		if err := p.query(ctx, payload, &result); err != nil {
+			return nil, err
+		}
+
+		for _, row := range result.Results {
+			if len(row.Dimensions) < 2 || len(row.Metrics) < 3 {
+				continue
+			}
+			date := row.Dimensions[0]
+			page := row.Dimensions[1]
+			for i, name := range metricNames {
+				records = append(records, Record{
+					Metric:    name,
+					ProjectID: opts.ProjectID,
+					Target:    p.SiteID,
+					Date:      date,
+					Value:     row.Metrics[i],
+					Tags:      map[string]string{"page": page},
+				})
+			}
+		}
+
+		offset += pageSize
+		if result.Meta.TotalRows == 0 || offset >= result.Meta.TotalRows {
+			break
 		}
 	}
 
@@ -113,6 +139,9 @@ type queryResult struct {
 		Dimensions []string `json:"dimensions"`
 		Metrics    []int64  `json:"metrics"`
 	} `json:"results"`
+	Meta struct {
+		TotalRows int `json:"total_rows"`
+	} `json:"meta"`
 }
 
 func (p *Plausible) query(ctx context.Context, payload interface{}, result interface{}) error {

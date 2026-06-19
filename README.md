@@ -1,6 +1,6 @@
 # velocirepo
 
-Fetch and aggregate open-source project metrics into a queryable, git-friendly history.
+All your open-source and social-media metrics in one place.
 
 ## Table of contents
 

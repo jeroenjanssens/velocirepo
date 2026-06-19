@@ -11,5 +11,6 @@ func ciCmd() *cobra.Command {
 	}
 
 	cmd.AddCommand(ciInstallCmd())
+	cmd.AddCommand(ciSyncSecretsCmd())
 	return cmd
 }

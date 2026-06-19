@@ -30,12 +30,12 @@ jobs:
 
       - uses: jeroenjanssens/velocirepo@{{.Version}}
         with:
-          github-token: {{"{{"}} secrets.GH_TOKEN {{"}}"}}
+          github-token: ${{"{{"}} secrets.GH_TOKEN {{"}}"}}
 {{- if .NeedsPlausible}}
-          plausible-token: {{"{{"}} secrets.PLAUSIBLE_TOKEN {{"}}"}}
+          plausible-token: ${{"{{"}} secrets.PLAUSIBLE_TOKEN {{"}}"}}
 {{- end}}
 {{- if .NeedsYouTube}}
-          youtube-token: {{"{{"}} secrets.YOUTUBE_TOKEN {{"}}"}}
+          youtube-token: ${{"{{"}} secrets.YOUTUBE_TOKEN {{"}}"}}
 {{- end}}
 
       - name: Commit and push
