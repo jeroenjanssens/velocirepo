@@ -6,6 +6,7 @@
 - [Installation](#installation)
 - [Usage](#usage)
 - [Data storage](#data-storage)
+- [Migrating data](#migrating-data)
 - [Querying the data](#querying-the-data)
 - [Exporting data](#exporting-data)
 - [Generating badges](#generating-badges)
@@ -199,6 +200,8 @@ velocirepo project show      Show project details
 velocirepo project import    Bulk-import from GitHub org/user or file
 velocirepo project validate  Validate source URLs
 
+velocirepo migrate           Migrate data to the latest schema version
+
 velocirepo ci install        Generate a GitHub Actions workflow
 
 velocirepo version           Print version information
@@ -275,6 +278,28 @@ GitHub events are stored individually on disk but automatically aggregated into 
 ### Repository layout
 
 You can either keep metrics in the same repository as your code, or create a dedicated metrics repository. A separate repo is useful when you want to track multiple projects in one place or keep metric history out of your main codebase.
+
+## Migrating data
+
+When a new version of velocirepo changes the on-disk data format, it tracks this with a schema version number in `velocirepo/data/.schema-version`. Commands like `fetch`, `query`, and `export` will refuse to run against stale data:
+
+```
+Error: data schema is at version 0, but version 1 is required; run `velocirepo migrate` to update
+```
+
+To migrate your data to the latest schema:
+
+```bash
+velocirepo migrate
+```
+
+If you've copied in data from an older schema (e.g., merged data from another repository), some files may be at a different version than what `.schema-version` claims. Use `--force` to re-run all migrations from scratch:
+
+```bash
+velocirepo migrate --force
+```
+
+This is safe to run repeatedly — all migrations are idempotent.
 
 ## Querying the data
 
