@@ -92,10 +92,10 @@ func TestYouTubeFetchChannel(t *testing.T) {
 		t.Fatalf("expected 8 records, got %d", len(records))
 	}
 
-	// Check channel-level records have empty video_id
+	// Check channel-level records have no tags
 	channelRecords := 0
 	for _, r := range records {
-		if r.Tags["video_id"] == "" {
+		if len(r.Tags) == 0 {
 			channelRecords++
 		}
 	}
