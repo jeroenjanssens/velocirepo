@@ -16,7 +16,7 @@ inputs:
     description: YouTube Data API token
     required: false
   version:
-    description: velocirepo version to install (default: latest)
+    description: "velocirepo version to install (default: latest)"
     required: false
     default: latest
 
