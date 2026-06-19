@@ -30,7 +30,6 @@ func newRootCmd() *cobra.Command {
 			setupLogging()
 
 			if cmd.Name() == "version" || cmd.CommandPath() == "velocirepo project init" {
-				godotenv.Load()
 				return nil
 			}
 
