@@ -80,6 +80,8 @@ func fetchAllCmd() *cobra.Command {
 				}
 			}
 
+			ui.Infof("Starting fetch for %d job(s), end date: %s", len(jobs), endDate.Format("2006-01-02"))
+
 			var fetchErrors atomic.Int32
 			g, ctx := errgroup.WithContext(cmd.Context())
 			g.SetLimit(4)
@@ -89,17 +91,19 @@ func fetchAllCmd() *cobra.Command {
 				g.Go(func() error {
 					startDate, err := resolveStartDate(dataDir, job.sourceName, job.projectID)
 					if err != nil {
-						ui.Errorf("%s/%s: resolve start date: %v", job.sourceName, job.projectID, err)
+						ui.FetchError(job.sourceName, job.projectID, fmt.Errorf("resolve start date: %w", err))
 						fetchErrors.Add(1)
 						return nil
 					}
 
 					if !startDate.Before(endDate.AddDate(0, 0, 1)) {
-						ui.Skip(job.sourceName, job.projectID, "up to date")
+						ui.FetchSkip(job.sourceName, job.projectID, "already up to date")
 						return nil
 					}
 
-					ui.Progress(job.sourceName, job.projectID, "")
+					dateRange := fmt.Sprintf("%s to %s", startDate.Format("2006-01-02"), endDate.Format("2006-01-02"))
+					ui.FetchStart(job.sourceName, job.projectID, dateRange)
+					started := time.Now()
 
 					if job.eventSrc != nil {
 						events, err := job.eventSrc.FetchEvents(ctx, source.FetchOptions{
@@ -108,20 +112,21 @@ func fetchAllCmd() *cobra.Command {
 							EndDate:   endDate,
 						})
 						if err != nil {
-							ui.Errorf("%s/%s: %v", job.sourceName, job.projectID, err)
+							ui.FetchError(job.sourceName, job.projectID, err)
 							fetchErrors.Add(1)
 							return nil
 						}
 
 						if len(events) == 0 {
+							ui.FetchSkip(job.sourceName, job.projectID, "no new events")
 							return nil
 						}
 
 						if err := store.WriteGitHubEvents(dataDir, job.sourceName, job.projectID, events); err != nil {
-							ui.Errorf("%s/%s write: %v", job.sourceName, job.projectID, err)
+							ui.FetchError(job.sourceName, job.projectID, fmt.Errorf("write: %w", err))
 							fetchErrors.Add(1)
 						} else {
-							ui.Done(job.sourceName, job.projectID, len(events))
+							ui.FetchDone(job.sourceName, job.projectID, len(events), time.Since(started))
 						}
 					} else {
 						records, err := job.src.Fetch(ctx, source.FetchOptions{
@@ -130,27 +135,28 @@ func fetchAllCmd() *cobra.Command {
 							EndDate:   endDate,
 						})
 						if err != nil {
-							ui.Errorf("%s/%s: %v", job.sourceName, job.projectID, err)
+							ui.FetchError(job.sourceName, job.projectID, err)
 							fetchErrors.Add(1)
 							return nil
 						}
 
 						if len(records) == 0 {
+							ui.FetchSkip(job.sourceName, job.projectID, "no new records")
 							return nil
 						}
 
 						if err := store.WriteRecords(dataDir, job.sourceName, job.projectID, records); err != nil {
-							ui.Errorf("%s/%s write: %v", job.sourceName, job.projectID, err)
+							ui.FetchError(job.sourceName, job.projectID, fmt.Errorf("write: %w", err))
 							fetchErrors.Add(1)
 						} else {
 							if yt, ok := job.src.(*source.YouTube); ok {
 								if entries := yt.IndexEntries(); len(entries) > 0 {
 									if err := store.WriteYouTubeIndex(dataDir, job.projectID, entries); err != nil {
-										ui.Errorf("%s/%s index: %v", job.sourceName, job.projectID, err)
+										ui.FetchWarn(job.sourceName, job.projectID, fmt.Sprintf("index write: %v", err))
 									}
 								}
 							}
-							ui.Done(job.sourceName, job.projectID, len(records))
+							ui.FetchDone(job.sourceName, job.projectID, len(records), time.Since(started))
 						}
 					}
 
@@ -161,8 +167,12 @@ func fetchAllCmd() *cobra.Command {
 			g.Wait()
 
 			if !noAggregate {
+				ui.Infof("Running aggregation...")
+				aggStart := time.Now()
 				if err := store.Aggregate(dataDir, time.Now().UTC()); err != nil {
 					ui.Warnf("aggregation: %v", err)
+				} else {
+					ui.Infof("Aggregation complete in %s", time.Since(aggStart).Round(time.Millisecond))
 				}
 			}
 

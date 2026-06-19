@@ -38,16 +38,18 @@ func fetchGitHubCmd() *cobra.Command {
 				for _, repo := range proj.GitHubEvents {
 					startDate, err := resolveStartDate(dataDir, "github", id)
 					if err != nil {
-						ui.Errorf("github/%s: resolve start date: %v", id, err)
+						ui.FetchError("github", id, fmt.Errorf("resolve start date: %w", err))
 						continue
 					}
 
 					if !startDate.Before(endDate.AddDate(0, 0, 1)) {
-						ui.Skip("github", id, "up to date")
+						ui.FetchSkip("github", id, "already up to date")
 						continue
 					}
 
-					ui.Progress("github", id, startDate.Format("2006-01-02")+" → "+endDate.Format("2006-01-02"))
+					dateRange := fmt.Sprintf("%s to %s", startDate.Format("2006-01-02"), endDate.Format("2006-01-02"))
+					ui.FetchStart("github", id, dateRange)
+					started := time.Now()
 
 					src := &source.GitHubEvents{Client: client, Token: token, Repo: repo}
 					events, err := src.FetchEvents(cmd.Context(), source.FetchOptions{
@@ -56,20 +58,21 @@ func fetchGitHubCmd() *cobra.Command {
 						EndDate:   endDate,
 					})
 					if err != nil {
-						ui.Errorf("github/%s: %v", id, err)
+						ui.FetchError("github", id, err)
 						continue
 					}
 
 					if len(events) == 0 {
+						ui.FetchSkip("github", id, "no new events")
 						continue
 					}
 
 					if err := store.WriteGitHubEvents(dataDir, "github", id, events); err != nil {
-						ui.Errorf("github/%s write: %v", id, err)
+						ui.FetchError("github", id, fmt.Errorf("write: %w", err))
 						continue
 					}
 
-					ui.Done("github", id, len(events))
+					ui.FetchDone("github", id, len(events), time.Since(started))
 				}
 			}
 

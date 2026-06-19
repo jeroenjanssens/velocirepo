@@ -118,17 +118,19 @@ func runFetchMulti(cmd *cobra.Command, sourceName string, createSources func(pro
 
 		startDate, err := resolveStartDate(dataDir, sourceName, id)
 		if err != nil {
-			ui.Errorf("resolve start date for %s: %v", id, err)
+			ui.FetchError(sourceName, id, fmt.Errorf("resolve start date: %w", err))
 			continue
 		}
 
 		if !startDate.Before(endDate.AddDate(0, 0, 1)) {
-			ui.Skip(sourceName, id, "up to date")
+			ui.FetchSkip(sourceName, id, "already up to date")
 			continue
 		}
 
 		for _, src := range sources {
-			ui.Progress(sourceName, id, startDate.Format("2006-01-02")+" → "+endDate.Format("2006-01-02"))
+			dateRange := fmt.Sprintf("%s to %s", startDate.Format("2006-01-02"), endDate.Format("2006-01-02"))
+			ui.FetchStart(sourceName, id, dateRange)
+			started := time.Now()
 
 			records, err := src.Fetch(cmd.Context(), source.FetchOptions{
 				ProjectID: id,
@@ -136,21 +138,21 @@ func runFetchMulti(cmd *cobra.Command, sourceName string, createSources func(pro
 				EndDate:   endDate,
 			})
 			if err != nil {
-				ui.Errorf("%s/%s: %v", sourceName, id, err)
+				ui.FetchError(sourceName, id, err)
 				continue
 			}
 
 			if len(records) == 0 {
-				ui.Skip(sourceName, id, "no data")
+				ui.FetchSkip(sourceName, id, "no new records")
 				continue
 			}
 
 			if err := store.WriteRecords(dataDir, sourceName, id, records); err != nil {
-				ui.Errorf("%s/%s write: %v", sourceName, id, err)
+				ui.FetchError(sourceName, id, fmt.Errorf("write: %w", err))
 				continue
 			}
 
-			ui.Done(sourceName, id, len(records))
+			ui.FetchDone(sourceName, id, len(records), time.Since(started))
 		}
 	}
 

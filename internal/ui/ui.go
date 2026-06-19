@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/mattn/go-isatty"
 )
@@ -23,6 +24,10 @@ func color(c, s string) string {
 		return s
 	}
 	return c + s + reset
+}
+
+func prefix(source, project string) string {
+	return fmt.Sprintf("[%s/%s]", source, project)
 }
 
 func Info(msg string) {
@@ -57,20 +62,34 @@ func Errorf(format string, args ...interface{}) {
 	Error(fmt.Sprintf(format, args...))
 }
 
-func Progress(source, project, detail string) {
-	msg := fmt.Sprintf("Fetching %s for %s", source, project)
-	if detail != "" {
-		msg += " " + color(dim, "("+detail+")")
-	} else if colorEnabled {
-		msg = color(cyan, msg)
+func FetchStart(source, project, dateRange string) {
+	msg := fmt.Sprintf("%s fetching %s", prefix(source, project), dateRange)
+	fmt.Fprintf(os.Stderr, "%s\n", color(cyan, msg))
+}
+
+func FetchDone(source, project string, count int, duration time.Duration) {
+	msg := fmt.Sprintf("%s %d records in %s", prefix(source, project), count, formatDuration(duration))
+	fmt.Fprintf(os.Stderr, "%s\n", color(green, "  ✓ "+msg))
+}
+
+func FetchSkip(source, project, reason string) {
+	msg := fmt.Sprintf("%s skipped: %s", prefix(source, project), reason)
+	fmt.Fprintf(os.Stderr, "%s\n", color(dim, "  · "+msg))
+}
+
+func FetchError(source, project string, err error) {
+	msg := fmt.Sprintf("%s %v", prefix(source, project), err)
+	fmt.Fprintf(os.Stderr, "%s\n", color(red, "  ✗ "+msg))
+}
+
+func FetchWarn(source, project, msg string) {
+	fmt.Fprintf(os.Stderr, "%s\n", color(yellow, fmt.Sprintf("  ! %s %s", prefix(source, project), msg)))
+}
+
+
+func formatDuration(d time.Duration) string {
+	if d < time.Second {
+		return fmt.Sprintf("%dms", d.Milliseconds())
 	}
-	fmt.Fprintf(os.Stderr, "%s\n", msg)
-}
-
-func Done(source, project string, count int) {
-	fmt.Fprintf(os.Stderr, "%s\n", color(green, fmt.Sprintf("  ✓ %s/%s: %d records", source, project, count)))
-}
-
-func Skip(source, project, reason string) {
-	fmt.Fprintf(os.Stderr, "%s\n", color(dim, fmt.Sprintf("  · %s/%s: %s", source, project, reason)))
+	return fmt.Sprintf("%.1fs", d.Seconds())
 }

@@ -43,16 +43,18 @@ func fetchYouTubeCmd() *cobra.Command {
 				for _, target := range proj.YouTube {
 					startDate, err := resolveStartDate(dataDir, "youtube", id)
 					if err != nil {
-						ui.Errorf("youtube/%s: resolve start date: %v", id, err)
+						ui.FetchError("youtube", id, fmt.Errorf("resolve start date: %w", err))
 						continue
 					}
 
 					if !startDate.Before(endDate.AddDate(0, 0, 1)) {
-						ui.Skip("youtube", id, "up to date")
+						ui.FetchSkip("youtube", id, "already up to date")
 						continue
 					}
 
-					ui.Progress("youtube", id, startDate.Format("2006-01-02")+" → "+endDate.Format("2006-01-02"))
+					dateRange := fmt.Sprintf("%s to %s", startDate.Format("2006-01-02"), endDate.Format("2006-01-02"))
+					ui.FetchStart("youtube", id, dateRange)
+					started := time.Now()
 
 					src := &source.YouTube{Client: client, APIKey: apiKey, Target: target}
 					records, err := src.Fetch(cmd.Context(), source.FetchOptions{
@@ -61,26 +63,27 @@ func fetchYouTubeCmd() *cobra.Command {
 						EndDate:   endDate,
 					})
 					if err != nil {
-						ui.Errorf("youtube/%s: %v", id, err)
+						ui.FetchError("youtube", id, err)
 						continue
 					}
 
 					if len(records) == 0 {
+						ui.FetchSkip("youtube", id, "no new records")
 						continue
 					}
 
 					if err := store.WriteRecords(dataDir, "youtube", id, records); err != nil {
-						ui.Errorf("youtube/%s write: %v", id, err)
+						ui.FetchError("youtube", id, fmt.Errorf("write: %w", err))
 						continue
 					}
 
 					if entries := src.IndexEntries(); len(entries) > 0 {
 						if err := store.WriteYouTubeIndex(dataDir, id, entries); err != nil {
-							ui.Errorf("youtube/%s index: %v", id, err)
+							ui.FetchWarn("youtube", id, fmt.Sprintf("index write: %v", err))
 						}
 					}
 
-					ui.Done("youtube", id, len(records))
+					ui.FetchDone("youtube", id, len(records), time.Since(started))
 				}
 			}
 
