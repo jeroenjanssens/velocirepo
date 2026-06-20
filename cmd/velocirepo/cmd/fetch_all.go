@@ -13,8 +13,8 @@ import (
 )
 
 func fetchAllCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "all",
+	cmd := &cobra.Command{
+		Use:   "fetch",
 		Short: "Fetch from all configured sources",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			projects := cfg.ResolveProjects()
@@ -182,4 +182,7 @@ func fetchAllCmd() *cobra.Command {
 			return nil
 		},
 	}
+
+	addFetchFlags(cmd)
+	return cmd
 }

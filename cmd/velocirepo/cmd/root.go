@@ -29,7 +29,7 @@ func newRootCmd() *cobra.Command {
 			cmd.SilenceUsage = true
 			setupLogging()
 
-			if cmd.Name() == "version" || cmd.CommandPath() == "velocirepo project init" {
+			if cmd.Name() == "version" || cmd.Name() == "init" {
 				return nil
 			}
 
@@ -55,14 +55,54 @@ func newRootCmd() *cobra.Command {
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "enable debug logging")
 	rootCmd.PersistentFlags().BoolVarP(&quiet, "quiet", "q", false, "suppress info messages")
 
-	rootCmd.AddCommand(versionCmd())
-	rootCmd.AddCommand(fetchCmd())
+	rootCmd.AddGroup(
+		&cobra.Group{ID: "fetch", Title: "Fetching:"},
+		&cobra.Group{ID: "query", Title: "Querying:"},
+		&cobra.Group{ID: "badge", Title: "Badges:"},
+		&cobra.Group{ID: "project", Title: "Projects:"},
+		&cobra.Group{ID: "ci", Title: "CI/CD:"},
+		&cobra.Group{ID: "data", Title: "Data:"},
+	)
+
+	// Fetching
+	rootCmd.AddCommand(fetchAllCmd())
+	rootCmd.AddCommand(fetchGitHubCmd())
+	rootCmd.AddCommand(fetchGitHubTrafficCmd())
+	rootCmd.AddCommand(fetchPyPICmd())
+	rootCmd.AddCommand(fetchCRANCmd())
+	rootCmd.AddCommand(fetchHomebrewCmd())
+	rootCmd.AddCommand(fetchPlausibleCmd())
+	rootCmd.AddCommand(fetchOpenVSXCmd())
+	rootCmd.AddCommand(fetchYouTubeCmd())
+
+	// Querying
 	rootCmd.AddCommand(queryCmd())
+	rootCmd.AddCommand(schemaCmd())
 	rootCmd.AddCommand(exportCmd())
+
+	// Badges
 	rootCmd.AddCommand(badgeCmd())
-	rootCmd.AddCommand(ciCmd())
-	rootCmd.AddCommand(projectCmd())
+
+	// Projects
+	rootCmd.AddCommand(initCmd())
+	rootCmd.AddCommand(addProjectCmd())
+	rootCmd.AddCommand(removeProjectCmd())
+	rootCmd.AddCommand(renameProjectCmd())
+	rootCmd.AddCommand(updateProjectCmd())
+	rootCmd.AddCommand(showProjectCmd())
+	rootCmd.AddCommand(listProjectsCmd())
+	rootCmd.AddCommand(importProjectsCmd())
+	rootCmd.AddCommand(validateProjectsCmd())
+
+	// CI/CD
+	rootCmd.AddCommand(installCICmd())
+	rootCmd.AddCommand(syncSecretsCmd())
+
+	// Data
 	rootCmd.AddCommand(migrateCmd())
+
+	// Other
+	rootCmd.AddCommand(versionCmd())
 
 	return rootCmd
 }

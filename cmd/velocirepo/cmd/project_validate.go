@@ -10,13 +10,14 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func projectValidateCmd() *cobra.Command {
+func validateProjectsCmd() *cobra.Command {
 	var projectFilter string
 	var timeout time.Duration
 
 	cmd := &cobra.Command{
-		Use:   "validate",
-		Short: "Verify that configured sources are reachable",
+		Use:     "validate-projects",
+		Short:   "Verify that configured sources are reachable",
+		GroupID: "project",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			projects := cfg.ResolveProjects()
 			if projects == nil {

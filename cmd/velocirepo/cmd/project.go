@@ -8,31 +8,9 @@ import (
 	"os"
 	"os/signal"
 	"strings"
-
-	"github.com/spf13/cobra"
 )
 
 var errAborted = errors.New("aborted")
-
-func projectCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:     "project",
-		Aliases: []string{"proj"},
-		Short:   "Manage projects in the config file",
-	}
-
-	cmd.AddCommand(projectInitCmd())
-	cmd.AddCommand(projectListCmd())
-	cmd.AddCommand(projectAddCmd())
-	cmd.AddCommand(projectRemoveCmd())
-	cmd.AddCommand(projectUpdateCmd())
-	cmd.AddCommand(projectShowCmd())
-	cmd.AddCommand(projectRenameCmd())
-	cmd.AddCommand(projectValidateCmd())
-	cmd.AddCommand(projectImportCmd())
-
-	return cmd
-}
 
 func isInteractive() bool {
 	fi, err := os.Stdin.Stat()

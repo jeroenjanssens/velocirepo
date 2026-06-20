@@ -9,14 +9,15 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func projectListCmd() *cobra.Command {
+func listProjectsCmd() *cobra.Command {
 	var jsonOutput bool
 	var quietOutput bool
 
 	cmd := &cobra.Command{
-		Use:     "list",
+		Use:     "list-projects",
 		Short:   "List all configured projects",
-		Aliases: []string{"ls"},
+		Aliases: []string{"ls-projects"},
+		GroupID: "project",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out := cmd.OutOrStdout()
 			projects := cfg.ResolveProjects()

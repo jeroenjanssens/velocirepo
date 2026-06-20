@@ -40,4 +40,4 @@ runs:
         GITHUB_TOKEN: ${{ inputs.github-token }}
         PLAUSIBLE_TOKEN: ${{ inputs.plausible-token }}
         YOUTUBE_TOKEN: ${{ inputs.youtube-token }}
-      run: velocirepo fetch all
+      run: velocirepo fetch

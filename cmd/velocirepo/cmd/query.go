@@ -15,24 +15,13 @@ import (
 )
 
 func queryCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "query",
-		Short: "Query metrics data",
-	}
-
-	cmd.AddCommand(queryRunCmd())
-	cmd.AddCommand(querySchemaCmd())
-
-	return cmd
-}
-
-func queryRunCmd() *cobra.Command {
 	var jsonFlag, csvFlag, parquetFlag bool
 
 	cmd := &cobra.Command{
-		Use:   "run <sql>",
-		Short: "Run an arbitrary SQL query",
+		Use:   "query <sql>",
+		Short: "Run a SQL query against the metrics data",
 		Args:  cobra.ExactArgs(1),
+		GroupID: "query",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if parquetFlag {
 				return writeParquet(args[0])
@@ -61,12 +50,13 @@ func queryRunCmd() *cobra.Command {
 	return cmd
 }
 
-func querySchemaCmd() *cobra.Command {
+func schemaCmd() *cobra.Command {
 	var jsonFlag, csvFlag bool
 
 	cmd := &cobra.Command{
 		Use:   "schema",
 		Short: "Show table schemas",
+		GroupID: "query",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cols, err := store.SchemaLive(cfg.DataDir(), projectInfos())
 			if err != nil {
@@ -223,4 +213,3 @@ func projectInfos() []store.ProjectInfo {
 	}
 	return infos
 }
-

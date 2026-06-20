@@ -16,15 +16,16 @@ import (
 	"golang.org/x/crypto/nacl/box"
 )
 
-func ciSyncSecretsCmd() *cobra.Command {
+func syncSecretsCmd() *cobra.Command {
 	var repo string
 	var dryRun bool
 	var envFile string
 
 	cmd := &cobra.Command{
-		Use:   "sync-secrets",
-		Short: "Sync .env secrets to GitHub Actions repository secrets",
-		Long:  "Reads secrets from the .env file and sets them as GitHub Actions secrets using the GitHub API.",
+		Use:     "sync-secrets",
+		Short:   "Sync .env secrets to GitHub Actions repository secrets",
+		Long:    "Reads secrets from the .env file and sets them as GitHub Actions secrets using the GitHub API.",
+		GroupID: "ci",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if repo == "" {
 				owner, name := config.DetectGitHub()

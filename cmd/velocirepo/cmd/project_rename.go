@@ -10,13 +10,14 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func projectRenameCmd() *cobra.Command {
+func renameProjectCmd() *cobra.Command {
 	var noMoveData bool
 
 	cmd := &cobra.Command{
-		Use:   "rename <old-id> <new-id>",
-		Short: "Rename a project's ID",
-		Args:  cobra.ExactArgs(2),
+		Use:     "rename-project <old-id> <new-id>",
+		Short:   "Rename a project's ID",
+		Args:    cobra.ExactArgs(2),
+		GroupID: "project",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			oldID := args[0]
 			newID := args[1]

@@ -7,8 +7,8 @@ import (
 )
 
 func fetchGitHubTrafficCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "github-traffic",
+	cmd := &cobra.Command{
+		Use:   "fetch-traffic",
 		Short: "Fetch GitHub traffic data (views and clones)",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runFetchMulti(cmd, "github-traffic", func(id string, p config.Project) []source.Source {
@@ -24,4 +24,7 @@ func fetchGitHubTrafficCmd() *cobra.Command {
 			})
 		},
 	}
+
+	addFetchFlags(cmd)
+	return cmd
 }

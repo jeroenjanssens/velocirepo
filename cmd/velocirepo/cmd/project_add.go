@@ -14,13 +14,14 @@ import (
 var validIDRe = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
 var validGitHubRe = regexp.MustCompile(`^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$`)
 
-func projectAddCmd() *cobra.Command {
+func addProjectCmd() *cobra.Command {
 	var name, githubEvents, githubTraffic, pypi, cran, homebrew, plausible, openvsx, youtube string
 
 	cmd := &cobra.Command{
-		Use:   "add [id]",
-		Short: "Add a new project to the config",
-		Args:  cobra.MaximumNArgs(1),
+		Use:     "add-project [id]",
+		Short:   "Add a new project to the config",
+		Args:    cobra.MaximumNArgs(1),
+		GroupID: "project",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfgPath := cfgFilePath()
 
@@ -49,7 +50,7 @@ func projectAddCmd() *cobra.Command {
 
 			projects := cfg.ResolveProjects()
 			if _, exists := projects[id]; exists {
-				return fmt.Errorf("project %q already exists (use 'project update' to modify)", id)
+				return fmt.Errorf("project %q already exists (use 'update-project' to modify)", id)
 			}
 
 			if !flagsProvided {
@@ -121,7 +122,7 @@ func projectAddInteractive(cfgPath string, id string) error {
 
 	projects := cfg.ResolveProjects()
 	if _, exists := projects[id]; exists {
-		return fmt.Errorf("project %q already exists (use 'project update' to modify)", id)
+		return fmt.Errorf("project %q already exists (use 'update-project' to modify)", id)
 	}
 
 	fmt.Fprintln(os.Stdout, "Tip: use commas to specify multiple values (e.g., owner/repo-a, owner/repo-b)")

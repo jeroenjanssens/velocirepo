@@ -11,8 +11,8 @@ import (
 )
 
 func fetchGitHubCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "github-events",
+	cmd := &cobra.Command{
+		Use:   "fetch-github",
 		Short: "Fetch GitHub events (stars, forks, issues, PRs)",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			projects := cfg.ResolveProjects()
@@ -85,4 +85,7 @@ func fetchGitHubCmd() *cobra.Command {
 			return nil
 		},
 	}
+
+	addFetchFlags(cmd)
+	return cmd
 }

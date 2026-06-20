@@ -7,8 +7,8 @@ import (
 )
 
 func fetchHomebrewCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "homebrew",
+	cmd := &cobra.Command{
+		Use:   "fetch-homebrew",
 		Short: "Fetch Homebrew install counts",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runFetchMulti(cmd, "homebrew", func(id string, proj config.Project) []source.Source {
@@ -23,4 +23,7 @@ func fetchHomebrewCmd() *cobra.Command {
 			})
 		},
 	}
+
+	addFetchFlags(cmd)
+	return cmd
 }

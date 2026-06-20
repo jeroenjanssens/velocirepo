@@ -7,8 +7,8 @@ import (
 )
 
 func fetchPyPICmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "pypi",
+	cmd := &cobra.Command{
+		Use:   "fetch-pypi",
 		Short: "Fetch PyPI download statistics",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runFetchMulti(cmd, "pypi", func(id string, p config.Project) []source.Source {
@@ -23,4 +23,7 @@ func fetchPyPICmd() *cobra.Command {
 			})
 		},
 	}
+
+	addFetchFlags(cmd)
+	return cmd
 }

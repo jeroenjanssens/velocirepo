@@ -1,6 +1,6 @@
 # velocirepo
 
-Go CLI tool for fetching and storing open-source project metrics.
+Go CLI tool for fetching and aggregating open-source project metrics. Uses a flat command structure (verb-first, no subcommands).
 
 ## Build
 

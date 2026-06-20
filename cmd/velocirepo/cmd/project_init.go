@@ -10,13 +10,14 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func projectInitCmd() *cobra.Command {
+func initCmd() *cobra.Command {
 	var dataDir string
 	var dir string
 
 	cmd := &cobra.Command{
-		Use:   "init",
-		Short: "Create a new velocirepo.toml config file",
+		Use:     "init",
+		Short:   "Create a new velocirepo.toml config file",
+		GroupID: "project",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if dir == "" {
 				var err error
@@ -28,7 +29,7 @@ func projectInitCmd() *cobra.Command {
 
 			cfgPath := filepath.Join(dir, "velocirepo.toml")
 			if _, err := os.Stat(cfgPath); err == nil {
-				return fmt.Errorf("velocirepo.toml already exists in %s (use 'project add' to add projects)", dir)
+				return fmt.Errorf("velocirepo.toml already exists in %s (use 'add-project' to add projects)", dir)
 			}
 
 			if dataDir == "" {

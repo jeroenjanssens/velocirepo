@@ -72,7 +72,7 @@ jobs:
 Or generate this workflow automatically (no installation required):
 
 ```bash
-uvx velocirepo ci install
+uvx velocirepo install-ci
 ```
 
 ### Local installation
@@ -99,7 +99,7 @@ uv tool install velocirepo
 Or run without installing:
 
 ```bash
-uvx velocirepo fetch all
+uvx velocirepo fetch
 ```
 
 #### Go
@@ -159,7 +159,7 @@ The `github-traffic` source fetches daily page views and clone counts. GitHub on
 Or initialize one interactively (auto-detects sources from your repository):
 
 ```bash
-velocirepo project init
+velocirepo init
 ```
 
 velocirepo looks for `velocirepo.toml` by walking up from the current directory. Override with `--config` or the `VELOCIREPO_CONFIG` environment variable.
@@ -178,18 +178,18 @@ These can also be set in a `.env` file in the current directory.
 ## Usage
 
 ```
-velocirepo fetch github-events   Fetch GitHub events (stars, forks, issues, PRs)
-velocirepo fetch github-traffic  Fetch GitHub traffic (views and clones)
-velocirepo fetch pypi            Fetch PyPI download counts
-velocirepo fetch cran            Fetch CRAN download counts
-velocirepo fetch homebrew        Fetch Homebrew install counts
-velocirepo fetch plausible       Fetch Plausible analytics
-velocirepo fetch openvsx         Fetch Open VSX extension metrics
-velocirepo fetch youtube         Fetch YouTube metrics
-velocirepo fetch all             Fetch from all configured sources
+velocirepo fetch                 Fetch from all configured sources
+velocirepo fetch-github          Fetch GitHub events (stars, forks, issues, PRs)
+velocirepo fetch-traffic         Fetch GitHub traffic (views and clones)
+velocirepo fetch-pypi            Fetch PyPI download counts
+velocirepo fetch-cran            Fetch CRAN download counts
+velocirepo fetch-homebrew        Fetch Homebrew install counts
+velocirepo fetch-plausible       Fetch Plausible analytics
+velocirepo fetch-openvsx         Fetch Open VSX extension metrics
+velocirepo fetch-youtube         Fetch YouTube metrics
 
-velocirepo query run [sql]       Run a SQL query against the metrics data
-velocirepo query schema          Show table schemas
+velocirepo query <sql>           Run a SQL query against the metrics data
+velocirepo schema                Show table schemas
 
 velocirepo export <dir>          Export data to Parquet or CSV files
 
@@ -199,19 +199,20 @@ velocirepo badge downloads       Generate a downloads badge
 velocirepo badge pageviews       Generate a pageviews badge
 velocirepo badge custom          Generate a badge from a custom query
 
-velocirepo project init          Create a new velocirepo.toml
-velocirepo project add           Add a project to the config
-velocirepo project update        Update a project's configuration
-velocirepo project remove        Remove a project from the config
-velocirepo project rename        Rename a project's ID
-velocirepo project list          List configured projects
-velocirepo project show          Show project details
-velocirepo project import        Bulk-import from GitHub org/user or file
-velocirepo project validate      Validate source URLs
+velocirepo init                  Create a new velocirepo.toml
+velocirepo add-project           Add a project to the config
+velocirepo update-project        Update a project's configuration
+velocirepo remove-project        Remove a project from the config
+velocirepo rename-project        Rename a project's ID
+velocirepo list-projects         List configured projects
+velocirepo show-project          Show project details
+velocirepo import-projects       Bulk-import from GitHub org/user or file
+velocirepo validate-projects     Validate source URLs
 
 velocirepo migrate               Migrate data to the latest schema version
 
-velocirepo ci install            Generate a GitHub Actions workflow
+velocirepo install-ci            Generate a GitHub Actions workflow
+velocirepo sync-secrets          Sync .env secrets to GitHub Actions
 
 velocirepo version               Print version information
 ```
@@ -319,7 +320,7 @@ The `query` command reads JSONL files directly using DuckDB and exposes four vie
 ### Daily star counts
 
 ```bash
-velocirepo query run "
+velocirepo query "
   SELECT project, date, value AS stars
   FROM metrics
   WHERE source = 'github' AND metric = 'daily_stars'
@@ -331,7 +332,7 @@ velocirepo query run "
 ### Total stars per project
 
 ```bash
-velocirepo query run "
+velocirepo query "
   SELECT p.name, SUM(value) AS stars
   FROM metrics m
   JOIN projects p ON m.project = p.id
@@ -359,7 +360,7 @@ velocirepo query run "
 The `github_events` view gives you access to individual events when you need per-user or per-timestamp detail:
 
 ```bash
-velocirepo query run "
+velocirepo query "
   SELECT date_trunc('month', datetime)::DATE AS month, COUNT(*) AS stars
   FROM github_events
   WHERE project = 'quarto' AND event_type = 'star'
@@ -384,7 +385,7 @@ velocirepo query run "
 ### Top YouTube videos by views
 
 ```bash
-velocirepo query run "
+velocirepo query "
   SELECT yi.title, m.value AS views
   FROM metrics m
   JOIN youtube_index yi ON m.tags->>'video_id' = yi.video_id
@@ -397,7 +398,7 @@ velocirepo query run "
 ### Latest metrics across sources
 
 ```bash
-velocirepo query run "
+velocirepo query "
   SELECT project, source, metric, date, value
   FROM metrics
   WHERE source != 'github'
@@ -423,15 +424,15 @@ velocirepo query run "
 By default, results are printed as a table. Use `--json`, `--csv`, or `--parquet` for machine-readable output:
 
 ```bash
-velocirepo query run --csv "SELECT project, metric, value FROM metrics LIMIT 3"
-velocirepo query run --json "SELECT project, metric, value FROM metrics LIMIT 3"
-velocirepo query run --parquet "SELECT * FROM metrics" > metrics.parquet
+velocirepo query --csv "SELECT project, metric, value FROM metrics LIMIT 3"
+velocirepo query --json "SELECT project, metric, value FROM metrics LIMIT 3"
+velocirepo query --parquet "SELECT * FROM metrics" > metrics.parquet
 ```
 
-The `query schema` command shows all available columns:
+The `schema` command shows all available columns:
 
 ```bash
-velocirepo query schema
+velocirepo schema
 ```
 
 ## Exporting data

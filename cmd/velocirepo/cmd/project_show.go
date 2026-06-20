@@ -11,13 +11,14 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func projectShowCmd() *cobra.Command {
+func showProjectCmd() *cobra.Command {
 	var jsonOutput bool
 
 	cmd := &cobra.Command{
-		Use:   "show <id>",
-		Short: "Show detailed information about a project",
-		Args:  cobra.ExactArgs(1),
+		Use:     "show-project <id>",
+		Short:   "Show detailed information about a project",
+		Args:    cobra.ExactArgs(1),
+		GroupID: "project",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id := args[0]
 

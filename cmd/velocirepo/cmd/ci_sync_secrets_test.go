@@ -80,7 +80,7 @@ dir = "data"
 	envPath := filepath.Join(dir, ".env")
 	os.WriteFile(envPath, []byte("MY_SECRET=value123\n"), 0644)
 
-	_, buf, err := execCmd(cfgPath, "ci", "sync-secrets", "--dry-run", "--env-file", envPath, "--repo", "owner/repo")
+	_, buf, err := execCmd(cfgPath, "sync-secrets", "--dry-run", "--env-file", envPath, "--repo", "owner/repo")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -139,7 +139,7 @@ dir = "data"
 
 	t.Setenv("GITHUB_TOKEN", "fake-token")
 
-	_, buf, err := execCmd(cfgPath, "ci", "sync-secrets", "--env-file", envPath, "--repo", "owner/repo")
+	_, buf, err := execCmd(cfgPath, "sync-secrets", "--env-file", envPath, "--repo", "owner/repo")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -12,8 +12,8 @@ import (
 )
 
 func fetchYouTubeCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "youtube",
+	cmd := &cobra.Command{
+		Use:   "fetch-youtube",
 		Short: "Fetch YouTube metrics (views, likes, comments, subscribers)",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			projects := cfg.ResolveProjects()
@@ -96,6 +96,9 @@ func fetchYouTubeCmd() *cobra.Command {
 			return nil
 		},
 	}
+
+	addFetchFlags(cmd)
+	return cmd
 }
 
 func youtubeAPIKey() string {

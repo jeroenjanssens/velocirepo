@@ -10,15 +10,16 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func projectRemoveCmd() *cobra.Command {
+func removeProjectCmd() *cobra.Command {
 	var force bool
 	var deleteData bool
 
 	cmd := &cobra.Command{
-		Use:     "remove <id>",
-		Aliases: []string{"rm"},
+		Use:     "remove-project <id>",
+		Aliases: []string{"rm-project"},
 		Short:   "Remove a project from the config",
 		Args:    cobra.ExactArgs(1),
+		GroupID: "project",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id := args[0]
 

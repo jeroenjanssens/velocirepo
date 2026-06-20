@@ -9,8 +9,8 @@ import (
 )
 
 func fetchPlausibleCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "plausible",
+	cmd := &cobra.Command{
+		Use:   "fetch-plausible",
 		Short: "Fetch Plausible analytics (pageviews, visitors, visits)",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			key := plausibleKey()
@@ -30,4 +30,7 @@ func fetchPlausibleCmd() *cobra.Command {
 			})
 		},
 	}
+
+	addFetchFlags(cmd)
+	return cmd
 }

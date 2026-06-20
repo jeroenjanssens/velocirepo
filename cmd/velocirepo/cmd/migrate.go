@@ -12,8 +12,9 @@ func migrateCmd() *cobra.Command {
 	var force bool
 
 	cmd := &cobra.Command{
-		Use:   "migrate",
-		Short: "Migrate data to the latest schema version",
+		Use:     "migrate",
+		Short:   "Migrate data to the latest schema version",
+		GroupID: "data",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			dataDir := cfg.DataDir()
 

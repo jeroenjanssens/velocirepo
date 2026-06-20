@@ -14,10 +14,11 @@ func exportCmd() *cobra.Command {
 	var format, source, project string
 
 	cmd := &cobra.Command{
-		Use:   "export <directory>",
-		Short: "Export data to Parquet or CSV files",
-		Long:  "Export metrics, events, and projects to separate files in the given directory.",
-		Args:  cobra.ExactArgs(1),
+		Use:     "export <directory>",
+		Short:   "Export data to Parquet or CSV files",
+		Long:    "Export metrics, events, and projects to separate files in the given directory.",
+		Args:    cobra.ExactArgs(1),
+		GroupID: "query",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			outDir := args[0]
 			written, err := store.Export(store.ExportOptions{

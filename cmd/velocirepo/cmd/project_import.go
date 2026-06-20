@@ -16,7 +16,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func projectImportCmd() *cobra.Command {
+func importProjectsCmd() *cobra.Command {
 	var (
 		githubOrg       string
 		githubUser      string
@@ -30,8 +30,9 @@ func projectImportCmd() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "import",
-		Short: "Bulk-add projects from an external source",
+		Use:     "import-projects",
+		Short:   "Bulk-add projects from an external source",
+		GroupID: "project",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			sources := 0
 			if githubOrg != "" {

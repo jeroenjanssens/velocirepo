@@ -7,8 +7,8 @@ import (
 )
 
 func fetchOpenVSXCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "openvsx",
+	cmd := &cobra.Command{
+		Use:   "fetch-openvsx",
 		Short: "Fetch Open VSX extension metrics",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runFetchMulti(cmd, "openvsx", func(id string, p config.Project) []source.Source {
@@ -23,4 +23,7 @@ func fetchOpenVSXCmd() *cobra.Command {
 			})
 		},
 	}
+
+	addFetchFlags(cmd)
+	return cmd
 }

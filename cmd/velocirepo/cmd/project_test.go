@@ -42,7 +42,7 @@ name = "Beta"
 pypi = "beta-pkg"
 `)
 
-	_, buf, err := execCmd(cfgPath, "project", "list")
+	_, buf, err := execCmd(cfgPath, "list-projects")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -62,7 +62,7 @@ name = "My Project"
 github-events = "me/myproj"
 `)
 
-	_, buf, err := execCmd(cfgPath, "project", "list", "--json")
+	_, buf, err := execCmd(cfgPath, "list-projects", "--json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -89,7 +89,7 @@ name = "Beta"
 github-events = "org/beta"
 `)
 
-	_, buf, err := execCmd(cfgPath, "project", "list", "--ids-only")
+	_, buf, err := execCmd(cfgPath, "list-projects", "--ids-only")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -105,7 +105,7 @@ func TestProjectListEmpty(t *testing.T) {
 dir = "data"
 `)
 
-	_, buf, err := execCmd(cfgPath, "project", "list")
+	_, buf, err := execCmd(cfgPath, "list-projects")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -120,7 +120,7 @@ func TestProjectAddWithFlags(t *testing.T) {
 dir = "data"
 `)
 
-	_, _, err := execCmd(cfgPath, "project", "add", "myproj", "--github-events", "org/myproj", "--pypi", "myproj")
+	_, _, err := execCmd(cfgPath, "add-project", "myproj", "--github-events", "org/myproj", "--pypi", "myproj")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -144,7 +144,7 @@ name = "Existing"
 github-events = "org/existing"
 `)
 
-	_, _, err := execCmd(cfgPath, "project", "add", "existing", "--github-events", "org/other")
+	_, _, err := execCmd(cfgPath, "add-project", "existing", "--github-events", "org/other")
 	if err == nil {
 		t.Fatal("expected error for duplicate project")
 	}
@@ -155,7 +155,7 @@ func TestProjectAddInvalidID(t *testing.T) {
 dir = "data"
 `)
 
-	_, _, err := execCmd(cfgPath, "project", "add", "INVALID_ID", "--github-events", "org/repo")
+	_, _, err := execCmd(cfgPath, "add-project", "INVALID_ID", "--github-events", "org/repo")
 	if err == nil {
 		t.Fatal("expected error for invalid ID")
 	}
@@ -166,7 +166,7 @@ func TestProjectAddInvalidGitHub(t *testing.T) {
 dir = "data"
 `)
 
-	_, _, err := execCmd(cfgPath, "project", "add", "myproj", "--github-events", "not-a-valid-format")
+	_, _, err := execCmd(cfgPath, "add-project", "myproj", "--github-events", "not-a-valid-format")
 	if err == nil {
 		t.Fatal("expected error for invalid GitHub format")
 	}
@@ -182,7 +182,7 @@ name = "Beta"
 github-events = "org/beta"
 `)
 
-	_, _, err := execCmd(cfgPath, "project", "remove", "alpha", "--force")
+	_, _, err := execCmd(cfgPath, "remove-project", "alpha", "--force")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -203,7 +203,7 @@ name = "Alpha"
 github-events = "org/alpha"
 `)
 
-	_, _, err := execCmd(cfgPath, "project", "remove", "nonexistent", "--force")
+	_, _, err := execCmd(cfgPath, "remove-project", "nonexistent", "--force")
 	if err == nil {
 		t.Fatal("expected error for nonexistent project")
 	}
@@ -225,7 +225,7 @@ github-events = "org/alpha"
 	os.WriteFile(filepath.Join(dataDir, "2025-01-01.jsonl"), []byte(`{}`), 0644)
 	os.WriteFile(filepath.Join(dir, "data", ".schema-version"), []byte("3\n"), 0644)
 
-	_, _, err := execCmd(cfgPath, "project", "remove", "alpha", "--force", "--delete-data")
+	_, _, err := execCmd(cfgPath, "remove-project", "alpha", "--force", "--delete-data")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -241,7 +241,7 @@ name = "Alpha"
 github-events = "org/alpha"
 `)
 
-	_, _, err := execCmd(cfgPath, "project", "update", "alpha", "--pypi", "alpha-pkg")
+	_, _, err := execCmd(cfgPath, "update-project", "alpha", "--pypi", "alpha-pkg")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -263,7 +263,7 @@ github-events = "org/alpha"
 pypi = "alpha"
 `)
 
-	_, _, err := execCmd(cfgPath, "project", "update", "alpha", "--unset", "pypi")
+	_, _, err := execCmd(cfgPath, "update-project", "alpha", "--unset", "pypi")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -281,7 +281,7 @@ name = "Alpha"
 github-events = "org/alpha"
 `)
 
-	_, _, err := execCmd(cfgPath, "project", "update", "nonexistent", "--name", "New")
+	_, _, err := execCmd(cfgPath, "update-project", "nonexistent", "--name", "New")
 	if err == nil {
 		t.Fatal("expected error for nonexistent project")
 	}
@@ -304,7 +304,7 @@ github-events = "org/alpha"
 		[]byte(`{"source":"github","event_type":"star","project_id":"alpha","github_repo":"org/alpha","datetime":"2025-01-01T10:00:00Z","user":"alice"}`+"\n"), 0644)
 	os.WriteFile(filepath.Join(dir, "data", ".schema-version"), []byte("3\n"), 0644)
 
-	_, buf, err := execCmd(cfgPath, "project", "show", "alpha")
+	_, buf, err := execCmd(cfgPath, "show-project", "alpha")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -324,7 +324,7 @@ name = "Alpha"
 github-events = "org/alpha"
 `)
 
-	_, _, err := execCmd(cfgPath, "project", "show", "nonexistent")
+	_, _, err := execCmd(cfgPath, "show-project", "nonexistent")
 	if err == nil {
 		t.Fatal("expected error for nonexistent project")
 	}
@@ -341,7 +341,7 @@ name = "Alpha"
 github-events = "org/alpha"
 `), 0644)
 
-	_, buf, err := execCmd(cfgPath, "project", "show", "alpha", "--json")
+	_, buf, err := execCmd(cfgPath, "show-project", "alpha", "--json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -371,7 +371,7 @@ github-events = "org/old"
 	os.WriteFile(filepath.Join(dataDir, "2025-01-01.jsonl"), []byte("{}"), 0644)
 	os.WriteFile(filepath.Join(dir, "data", ".schema-version"), []byte("3\n"), 0644)
 
-	_, _, err := execCmd(cfgPath, "project", "rename", "old-name", "new-name")
+	_, _, err := execCmd(cfgPath, "rename-project", "old-name", "new-name")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -400,7 +400,7 @@ name = "Old"
 github-events = "org/old"
 `)
 
-	_, _, err := execCmd(cfgPath, "project", "rename", "old-name", "new-name", "--no-move-data")
+	_, _, err := execCmd(cfgPath, "rename-project", "old-name", "new-name", "--no-move-data")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -412,7 +412,7 @@ name = "Alpha"
 github-events = "org/alpha"
 `)
 
-	_, _, err := execCmd(cfgPath, "project", "rename", "alpha", "INVALID")
+	_, _, err := execCmd(cfgPath, "rename-project", "alpha", "INVALID")
 	if err == nil {
 		t.Fatal("expected error for invalid new ID")
 	}
@@ -428,7 +428,7 @@ name = "Beta"
 github-events = "org/beta"
 `)
 
-	_, _, err := execCmd(cfgPath, "project", "rename", "alpha", "beta")
+	_, _, err := execCmd(cfgPath, "rename-project", "alpha", "beta")
 	if err == nil {
 		t.Fatal("expected error when new ID already exists")
 	}
@@ -447,7 +447,7 @@ dir = "data"
 		{"id": "proj-b", "github": "org/proj-b", "pypi": "proj-b"}
 	]`), 0644)
 
-	_, _, err := execCmd(cfgPath, "project", "import", "--from-file", importFile, "--yes")
+	_, _, err := execCmd(cfgPath, "import-projects", "--from-file", importFile, "--yes")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -475,7 +475,7 @@ dir = "data"
 	importFile := filepath.Join(dir, "projects.csv")
 	os.WriteFile(importFile, []byte("id,name,github,pypi\nmy-proj,My Project,org/my-proj,my-proj\n"), 0644)
 
-	_, _, err := execCmd(cfgPath, "project", "import", "--from-file", importFile, "--yes")
+	_, _, err := execCmd(cfgPath, "import-projects", "--from-file", importFile, "--yes")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -497,7 +497,7 @@ dir = "data"
 	importFile := filepath.Join(dir, "projects.json")
 	os.WriteFile(importFile, []byte(`[{"id": "proj-a", "github": "org/proj-a"}]`), 0644)
 
-	_, _, err := execCmd(cfgPath, "project", "import", "--from-file", importFile, "--dry-run")
+	_, _, err := execCmd(cfgPath, "import-projects", "--from-file", importFile, "--dry-run")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -526,7 +526,7 @@ github-events = "org/existing"
 		{"id": "new-proj", "github": "org/new-proj"}
 	]`), 0644)
 
-	_, _, err := execCmd(cfgPath, "project", "import", "--from-file", importFile, "--skip-existing", "--yes")
+	_, _, err := execCmd(cfgPath, "import-projects", "--from-file", importFile, "--skip-existing", "--yes")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -542,7 +542,7 @@ func TestProjectInitCreatesConfig(t *testing.T) {
 	dir := t.TempDir()
 
 	rootCmd := newRootCmd()
-	rootCmd.SetArgs([]string{"project", "init", "--dir", dir})
+	rootCmd.SetArgs([]string{"init", "--dir", dir})
 	if err := rootCmd.Execute(); err != nil {
 		t.Fatal(err)
 	}
@@ -568,7 +568,7 @@ func TestProjectInitAlreadyExists(t *testing.T) {
 	os.WriteFile(filepath.Join(dir, "velocirepo.toml"), []byte("[data]\n"), 0644)
 
 	rootCmd := newRootCmd()
-	rootCmd.SetArgs([]string{"project", "init", "--dir", dir})
+	rootCmd.SetArgs([]string{"init", "--dir", dir})
 	err := rootCmd.Execute()
 	if err == nil {
 		t.Fatal("expected error when config already exists")

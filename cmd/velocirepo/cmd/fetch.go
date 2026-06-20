@@ -20,29 +20,12 @@ var (
 	noAggregate    bool
 )
 
-func fetchCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "fetch",
-		Short: "Fetch metrics from data sources",
-		Long:  "Fetch metrics from one or all configured data sources.",
-	}
-
-	cmd.PersistentFlags().StringVar(&fetchProject, "project", "", "fetch only this project ID")
-	cmd.PersistentFlags().StringVar(&fetchStartDate, "start-date", "", "start date (YYYY-MM-DD)")
-	cmd.PersistentFlags().StringVar(&fetchEndDate, "end-date", "", "end date (YYYY-MM-DD, default: yesterday)")
-	cmd.PersistentFlags().BoolVar(&noAggregate, "no-concatenate", false, "skip concatenation after fetch")
-
-	cmd.AddCommand(fetchGitHubCmd())
-	cmd.AddCommand(fetchGitHubTrafficCmd())
-	cmd.AddCommand(fetchPyPICmd())
-	cmd.AddCommand(fetchCRANCmd())
-	cmd.AddCommand(fetchHomebrewCmd())
-	cmd.AddCommand(fetchPlausibleCmd())
-	cmd.AddCommand(fetchOpenVSXCmd())
-	cmd.AddCommand(fetchYouTubeCmd())
-	cmd.AddCommand(fetchAllCmd())
-
-	return cmd
+func addFetchFlags(cmd *cobra.Command) {
+	cmd.Flags().StringVar(&fetchProject, "project", "", "fetch only this project ID")
+	cmd.Flags().StringVar(&fetchStartDate, "start-date", "", "start date (YYYY-MM-DD)")
+	cmd.Flags().StringVar(&fetchEndDate, "end-date", "", "end date (YYYY-MM-DD, default: yesterday)")
+	cmd.Flags().BoolVar(&noAggregate, "no-concatenate", false, "skip concatenation after fetch")
+	cmd.GroupID = "fetch"
 }
 
 func resolveEndDate() (time.Time, error) {

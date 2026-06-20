@@ -10,21 +10,22 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func projectUpdateCmd() *cobra.Command {
+func updateProjectCmd() *cobra.Command {
 	var name, githubEvents, githubTraffic, pypi, cran, homebrew, plausible, openvsx, youtube string
 	var unset []string
 
 	cmd := &cobra.Command{
-		Use:   "update <id>",
-		Short: "Update a project's configuration",
-		Args:  cobra.ExactArgs(1),
+		Use:     "update-project <id>",
+		Short:   "Update a project's configuration",
+		Args:    cobra.ExactArgs(1),
+		GroupID: "project",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id := args[0]
 
 			projects := cfg.ResolveProjects()
 			proj, exists := projects[id]
 			if !exists {
-				return fmt.Errorf("project %q not found in config (use 'project add' to create)", id)
+				return fmt.Errorf("project %q not found in config (use 'add-project' to create)", id)
 			}
 
 			cfgPath := cfgFilePath()

@@ -47,10 +47,11 @@ jobs:
           git push
 `
 
-func ciInstallCmd() *cobra.Command {
+func installCICmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "install",
-		Short: "Generate GitHub Actions workflow for nightly metric fetching",
+		Use:     "install-ci",
+		Short:   "Generate GitHub Actions workflow for nightly metric fetching",
+		GroupID: "ci",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !isInteractive() {
 				return fmt.Errorf("ci install requires an interactive terminal")

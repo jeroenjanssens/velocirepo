@@ -7,8 +7,8 @@ import (
 )
 
 func fetchCRANCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "cran",
+	cmd := &cobra.Command{
+		Use:   "fetch-cran",
 		Short: "Fetch CRAN download statistics",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runFetchMulti(cmd, "cran", func(id string, p config.Project) []source.Source {
@@ -23,4 +23,7 @@ func fetchCRANCmd() *cobra.Command {
 			})
 		},
 	}
+
+	addFetchFlags(cmd)
+	return cmd
 }
