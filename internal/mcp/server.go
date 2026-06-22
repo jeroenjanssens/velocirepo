@@ -52,7 +52,19 @@ func NewServer(opts ServerOptions) *server.MCPServer {
 
 func queryTool() mcp.Tool {
 	return mcp.NewTool("query",
-		mcp.WithDescription("Run a SQL query against the metrics data. Available views: metrics (unified time-series), github_events (raw events with user/timestamp), youtube_index (video metadata), projects (config metadata). Default LIMIT is 1000."),
+		mcp.WithDescription(`Run a SQL query against the metrics data (DuckDB). Default LIMIT is 1000.
+
+Schema:
+  metrics: project VARCHAR, source VARCHAR, target VARCHAR, metric VARCHAR, date DATE, value BIGINT, tags JSON
+  github_events: project VARCHAR, source VARCHAR, event_type VARCHAR, github_repo VARCHAR, datetime TIMESTAMP, "user" VARCHAR
+  youtube_index: video_id VARCHAR, title VARCHAR, published_at TIMESTAMP, channel VARCHAR, duration BIGINT, tags JSON
+  projects: id VARCHAR, name VARCHAR, description VARCHAR, color VARCHAR, tags VARCHAR[], website VARCHAR, logo VARCHAR
+
+Notes:
+- metrics.source: github, github-traffic, pypi, cran, homebrew, plausible, openvsx, youtube
+- metrics.metric examples: daily_stars, daily_forks, daily_downloads, total_downloads, daily_pageviews
+- github_events.event_type: star, fork, issue_open, issue_close, pr_open, pr_merge
+- github_events."user" is a reserved word in SQL, quote it in queries`),
 		mcp.WithString("sql", mcp.Required(), mcp.Description("SQL query to execute")),
 		mcp.WithNumber("limit", mcp.Description("Maximum rows to return (default: 1000)")),
 	)
