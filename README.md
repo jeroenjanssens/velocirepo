@@ -135,6 +135,19 @@ curl -sSfL https://raw.githubusercontent.com/jeroenjanssens/velocirepo/main/inst
 
 Pre-built binaries for Linux, macOS, and Windows are available on the [Releases](https://github.com/jeroenjanssens/velocirepo/releases) page.
 
+### Shell completion
+
+```bash
+# Zsh (add to ~/.zshrc)
+eval "$(velocirepo completion zsh)"
+
+# Bash (add to ~/.bashrc)
+eval "$(velocirepo completion bash)"
+
+# Fish
+velocirepo completion fish | source
+```
+
 ## Configuration
 
 Create a `velocirepo.toml` in your project root:
