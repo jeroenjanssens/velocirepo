@@ -13,6 +13,7 @@ All your open-source and social-media metrics in one place.
 - [Querying the data](#querying-the-data)
 - [Exporting data](#exporting-data)
 - [Generating badges](#generating-badges)
+- [Views](#views)
 - [MCP server](#mcp-server)
 
 ## Overview
@@ -209,6 +210,14 @@ velocirepo list-projects         List configured projects
 velocirepo show-project          Show project details
 velocirepo import-projects       Bulk-import from GitHub org/user or file
 velocirepo validate-projects     Validate source URLs
+
+velocirepo add-view <name>       Scaffold a new view
+velocirepo remove-view <name>    Remove a view and its output
+velocirepo list-views            List all views
+velocirepo show-view <name>      Show details about a view
+velocirepo render-view <name>    Render a single view
+velocirepo render-views          Render all or filtered views
+velocirepo serve-view <name>     Start a dev server for a view
 
 velocirepo migrate               Migrate data to the latest schema version
 
@@ -506,6 +515,84 @@ Three styles are available via `--style`:
 
 Numbers are automatically formatted for readability (e.g., `5274` becomes `5.3k`, `1500000` becomes `1.5M`).
 
+## Views
+
+Views let you create dashboards, reports, and visualizations from your metrics data using your preferred framework. Velocirepo handles scaffolding, data export, and render orchestration — the actual rendering is done by external tools.
+
+### Supported frameworks
+
+| Framework | Extension | Renderer | Serve mode |
+|-----------|-----------|----------|------------|
+| Quarto | `.qmd` | `quarto` | `quarto preview` |
+| Jupyter | `.ipynb` | `jupyter` | `jupyter notebook` |
+| Marimo | `.py` | `python` | `marimo edit` |
+| R | `.R` | `Rscript` | render + open |
+| ggsql | `.sql` | `ggsql` | render + open |
+
+### Quick start
+
+```bash
+# Scaffold a view
+velocirepo add-view stars --framework sql
+
+# Edit the generated file (views/stars.sql)
+# Then render it
+velocirepo render-view stars
+
+# Or start a live dev server (Quarto, Marimo, Jupyter)
+velocirepo serve-view overview
+```
+
+### Data sources
+
+Views can read data in two ways, controlled by the `--source` flag (or `[views].source` in config):
+
+- **`parquet`** (default): Reads from exported Parquet files in `views/_data/`. Faster queries, includes computed views like `metrics` with aggregated GitHub events. The `render-view` / `render-views` commands auto-export before rendering.
+- **`jsonl`**: Reads raw JSONL files directly via DuckDB's `read_json_auto()`. Simpler but lacks computed views.
+
+### Configuration
+
+Add a `[views]` section to `velocirepo.toml` for global settings. Per-view overrides go in `[[views.items]]`:
+
+```toml
+[views]
+dir = "views"          # default: velocirepo/views
+source = "parquet"     # default data source for new views
+
+[[views.items]]
+path = "overview.py"
+venv = ".venv"         # use a specific Python venv
+
+[[views.items]]
+path = "raw-debug.qmd"
+source = "jsonl"       # this view reads raw JSONL
+```
+
+Views not listed in `[[views.items]]` still work with defaults — config entries are only needed for overrides (venv, output path, source).
+
+### Rendering
+
+```bash
+velocirepo render-view stars         # render one view
+velocirepo render-views              # render all views
+velocirepo render-views weekly/      # render views matching a prefix
+velocirepo render-views --no-export  # skip Parquet export step
+```
+
+Output goes to `views/_output/` by default, mirroring the source tree structure.
+
+### CI usage
+
+```yaml
+- name: Render views
+  run: velocirepo render-views
+
+- name: Commit rendered output
+  run: |
+    git add views/_output/
+    git diff --staged --quiet || git commit -m "Update rendered views"
+```
+
 ## MCP server
 
 velocirepo includes a built-in [Model Context Protocol](https://modelcontextprotocol.io) (MCP) server, allowing AI assistants like Claude to query your metrics, trigger fetches, and manage projects conversationally.
@@ -571,6 +658,12 @@ Add to your project's `.mcp.json`:
 | `rename_project` | Rename a project ID |
 | `import_projects` | Bulk-import from GitHub org/user |
 | `validate_projects` | Check that source URLs are reachable |
+| `list_views` | List all views with framework and source |
+| `show_view` | Show view details |
+| `add_view` | Scaffold a new view |
+| `remove_view` | Remove a view |
+| `render_view` | Render a single view |
+| `render_views` | Render all or filtered views |
 | `badge` | Generate an SVG badge |
 | `export` | Export data to Parquet or CSV |
 | `migrate` | Migrate data to latest schema |
