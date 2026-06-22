@@ -13,6 +13,7 @@ All your open-source and social-media metrics in one place.
 - [Querying the data](#querying-the-data)
 - [Exporting data](#exporting-data)
 - [Generating badges](#generating-badges)
+- [MCP server](#mcp-server)
 
 ## Overview
 
@@ -504,6 +505,86 @@ Three styles are available via `--style`:
 | `-o` | stdout | Output file path |
 
 Numbers are automatically formatted for readability (e.g., `5274` becomes `5.3k`, `1500000` becomes `1.5M`).
+
+## MCP server
+
+velocirepo includes a built-in [Model Context Protocol](https://modelcontextprotocol.io) (MCP) server, allowing AI assistants like Claude to query your metrics, trigger fetches, and manage projects conversationally.
+
+### Starting the server
+
+```bash
+velocirepo mcp                          # stdio (for Claude Desktop / Claude Code)
+velocirepo mcp --http 127.0.0.1:8080    # Streamable HTTP
+velocirepo mcp --read-only              # Disable fetch/write tools
+```
+
+### Claude Desktop configuration
+
+Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "velocirepo": {
+      "command": "velocirepo",
+      "args": ["mcp", "--config", "/path/to/velocirepo.toml"]
+    }
+  }
+}
+```
+
+### Claude Code configuration
+
+Add to your project's `.mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "velocirepo": {
+      "command": "velocirepo",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+### Available tools
+
+| Tool | Description |
+|------|-------------|
+| `query` | Run SQL against metrics, github_events, youtube_index, projects views |
+| `schema` | Show all table columns and types |
+| `fetch` | Fetch from all configured sources |
+| `fetch_github` | Fetch GitHub events |
+| `fetch_traffic` | Fetch GitHub traffic |
+| `fetch_pypi` | Fetch PyPI downloads |
+| `fetch_cran` | Fetch CRAN downloads |
+| `fetch_homebrew` | Fetch Homebrew installs |
+| `fetch_plausible` | Fetch Plausible analytics |
+| `fetch_openvsx` | Fetch Open VSX metrics |
+| `fetch_youtube` | Fetch YouTube metrics |
+| `list_projects` | List configured projects |
+| `show_project` | Show project details and fetch stats |
+| `add_project` | Add a project to the config |
+| `update_project` | Update project configuration |
+| `remove_project` | Remove a project |
+| `rename_project` | Rename a project ID |
+| `import_projects` | Bulk-import from GitHub org/user |
+| `validate_projects` | Check that source URLs are reachable |
+| `badge` | Generate an SVG badge |
+| `export` | Export data to Parquet or CSV |
+| `migrate` | Migrate data to latest schema |
+| `version` | Show version info |
+
+### Example prompts
+
+Once connected, you can ask things like:
+
+- "Which project got the most stars this month?"
+- "Show me PyPI download trends for plotnine over the last 6 months"
+- "Fetch the latest metrics for all projects"
+- "Add a new project called 'my-lib' tracking pypi package my-lib and github owner/my-lib"
+- "Generate a stars badge for quarto"
 
 ## License
 
