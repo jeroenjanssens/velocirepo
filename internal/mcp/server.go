@@ -25,6 +25,8 @@ func NewServer(opts ServerOptions) *server.MCPServer {
 	s.AddTool(listProjectsTool(), h.handleListProjects)
 	s.AddTool(showProjectTool(), h.handleShowProject)
 	s.AddTool(badgeTool(), h.handleBadge)
+	s.AddTool(listViewsTool(), h.handleListViews)
+	s.AddTool(showViewTool(), h.handleShowView)
 	s.AddTool(versionTool(), h.handleVersion)
 
 	if !opts.ReadOnly {
@@ -45,6 +47,10 @@ func NewServer(opts ServerOptions) *server.MCPServer {
 		s.AddTool(validateProjectsTool(), h.handleValidateProjects)
 		s.AddTool(exportTool(), h.handleExport)
 		s.AddTool(migrateTool(), h.handleMigrate)
+		s.AddTool(addViewTool(), h.handleAddView)
+		s.AddTool(removeViewTool(), h.handleRemoveView)
+		s.AddTool(renderViewTool(), h.handleRenderView)
+		s.AddTool(renderViewsTool(), h.handleRenderViews)
 	}
 
 	return s
@@ -267,5 +273,51 @@ func migrateTool() mcp.Tool {
 	return mcp.NewTool("migrate",
 		mcp.WithDescription("Migrate data to the latest schema version."),
 		mcp.WithBoolean("force", mcp.Description("Re-run all migrations from scratch")),
+	)
+}
+
+func listViewsTool() mcp.Tool {
+	return mcp.NewTool("list_views",
+		mcp.WithDescription("List all configured views with their framework and data source."),
+	)
+}
+
+func showViewTool() mcp.Tool {
+	return mcp.NewTool("show_view",
+		mcp.WithDescription("Show details about a specific view."),
+		mcp.WithString("name", mcp.Required(), mcp.Description("View name (relative path without extension)")),
+	)
+}
+
+func addViewTool() mcp.Tool {
+	return mcp.NewTool("add_view",
+		mcp.WithDescription("Scaffold a new view from a template."),
+		mcp.WithString("name", mcp.Required(), mcp.Description("View name (can include slashes for subdirs, e.g. weekly/stars)")),
+		mcp.WithString("framework", mcp.Required(), mcp.Description("Framework: quarto, jupyter, marimo, r, sql")),
+		mcp.WithString("source", mcp.Description("Data source: parquet or jsonl (default: from config)")),
+	)
+}
+
+func removeViewTool() mcp.Tool {
+	return mcp.NewTool("remove_view",
+		mcp.WithDescription("Remove a view source file and its rendered output."),
+		mcp.WithString("name", mcp.Required(), mcp.Description("View name to remove")),
+		mcp.WithBoolean("keep_output", mcp.Description("Don't delete rendered output")),
+	)
+}
+
+func renderViewTool() mcp.Tool {
+	return mcp.NewTool("render_view",
+		mcp.WithDescription("Render a single view."),
+		mcp.WithString("name", mcp.Required(), mcp.Description("View name to render")),
+		mcp.WithBoolean("no_export", mcp.Description("Skip Parquet export step")),
+	)
+}
+
+func renderViewsTool() mcp.Tool {
+	return mcp.NewTool("render_views",
+		mcp.WithDescription("Render all views, or those matching a prefix."),
+		mcp.WithString("prefix", mcp.Description("Only render views whose name starts with this prefix")),
+		mcp.WithBoolean("no_export", mcp.Description("Skip Parquet export step")),
 	)
 }

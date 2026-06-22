@@ -1,0 +1,5 @@
+SELECT project, date, metric, SUM(value) AS total
+FROM read_parquet('{{.ViewsDataDir}}/metrics.parquet')
+WHERE metric = 'daily_stars'
+GROUP BY project, date, metric
+ORDER BY date DESC

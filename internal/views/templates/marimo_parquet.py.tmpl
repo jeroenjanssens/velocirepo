@@ -1,0 +1,22 @@
+import marimo
+
+app = marimo.App()
+
+
+@app.cell
+def _():
+    import duckdb
+
+    con = duckdb.connect()
+    df = con.sql("""
+        SELECT project, date, metric, value
+        FROM read_parquet('{{.ViewsDataDir}}/metrics.parquet')
+        WHERE metric = 'daily_stars'
+        ORDER BY date DESC
+        LIMIT 100
+    """).df()
+    df
+
+
+if __name__ == "__main__":
+    app.run()

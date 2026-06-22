@@ -1,6 +1,9 @@
 [data]
 dir = "data"
 
+[views]
+dir = "views"
+
 [projects.velocirepo]
 name = "velocirepo"
 homebrew = "jeroenjanssens/tap/velocirepo"

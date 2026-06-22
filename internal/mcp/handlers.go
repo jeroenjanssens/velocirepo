@@ -16,6 +16,7 @@ import (
 	"github.com/jeroenjanssens/velocirepo/internal/fetch"
 	"github.com/jeroenjanssens/velocirepo/internal/store"
 	"github.com/jeroenjanssens/velocirepo/internal/version"
+	"github.com/jeroenjanssens/velocirepo/internal/views"
 	"github.com/mark3labs/mcp-go/mcp"
 )
 
@@ -863,6 +864,248 @@ func (h *handlers) handleMigrate(ctx context.Context, req mcp.CallToolRequest) (
 	}
 
 	return textResult(fmt.Sprintf("Applied %d migration(s), now at schema version %d", applied, store.LatestSchemaVersion)), nil
+}
+
+func (h *handlers) handleListViews(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	viewsDir := h.cfg.ViewsDir()
+	allViews, err := views.Discover(viewsDir, h.cfg.Views.Items, h.cfg.ViewsSource())
+	if err != nil {
+		return errorResult(fmt.Sprintf("discover views: %v", err)), nil
+	}
+
+	type viewEntry struct {
+		Name      string `json:"name"`
+		Framework string `json:"framework"`
+		Source    string `json:"source"`
+		Path      string `json:"path"`
+		Output    string `json:"output"`
+	}
+
+	entries := make([]viewEntry, len(allViews))
+	for i, v := range allViews {
+		entries[i] = viewEntry{
+			Name:      v.Name,
+			Framework: string(v.Framework),
+			Source:    v.Source,
+			Path:      v.Path,
+			Output:    v.Output,
+		}
+	}
+
+	return jsonResult(entries), nil
+}
+
+func (h *handlers) handleShowView(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	name, err := req.RequireString("name")
+	if err != nil {
+		return errorResult(err.Error()), nil
+	}
+
+	viewsDir := h.cfg.ViewsDir()
+	allViews, err := views.Discover(viewsDir, h.cfg.Views.Items, h.cfg.ViewsSource())
+	if err != nil {
+		return errorResult(fmt.Sprintf("discover views: %v", err)), nil
+	}
+
+	v, found := views.FindView(allViews, name)
+	if !found {
+		return errorResult(fmt.Sprintf("view %q not found", name)), nil
+	}
+
+	type viewDetail struct {
+		Name      string `json:"name"`
+		Framework string `json:"framework"`
+		Source    string `json:"source"`
+		Path      string `json:"path"`
+		Output    string `json:"output"`
+		Venv      string `json:"venv,omitempty"`
+		Renderer  string `json:"renderer,omitempty"`
+	}
+
+	detail := viewDetail{
+		Name:      v.Name,
+		Framework: string(v.Framework),
+		Source:    v.Source,
+		Path:      v.Path,
+		Output:    v.Output,
+		Venv:      v.Venv,
+	}
+
+	if ver, err := views.CheckRenderer(v.Framework, v.Venv); err == nil {
+		detail.Renderer = ver
+	}
+
+	return jsonResult(detail), nil
+}
+
+func (h *handlers) handleAddView(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	name, err := req.RequireString("name")
+	if err != nil {
+		return errorResult(err.Error()), nil
+	}
+	framework, err := req.RequireString("framework")
+	if err != nil {
+		return errorResult(err.Error()), nil
+	}
+
+	fw, err := views.ParseFramework(framework)
+	if err != nil {
+		return errorResult(err.Error()), nil
+	}
+
+	source := req.GetString("source", h.cfg.ViewsSource())
+	if source != "parquet" && source != "jsonl" {
+		return errorResult(fmt.Sprintf("invalid source %q (use parquet or jsonl)", source)), nil
+	}
+
+	viewsDir := h.cfg.ViewsDir()
+	path, err := views.Scaffold(viewsDir, name, fw, source, h.cfg.DataDir())
+	if err != nil {
+		return errorResult(fmt.Sprintf("scaffold: %v", err)), nil
+	}
+
+	return textResult(fmt.Sprintf("Created view '%s' at %s", name, path)), nil
+}
+
+func (h *handlers) handleRemoveView(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	name, err := req.RequireString("name")
+	if err != nil {
+		return errorResult(err.Error()), nil
+	}
+
+	viewsDir := h.cfg.ViewsDir()
+	allViews, err := views.Discover(viewsDir, h.cfg.Views.Items, h.cfg.ViewsSource())
+	if err != nil {
+		return errorResult(fmt.Sprintf("discover views: %v", err)), nil
+	}
+
+	v, found := views.FindView(allViews, name)
+	if !found {
+		return errorResult(fmt.Sprintf("view %q not found", name)), nil
+	}
+
+	if err := os.Remove(v.Path); err != nil && !os.IsNotExist(err) {
+		return errorResult(fmt.Sprintf("remove source: %v", err)), nil
+	}
+
+	keepOutput := false
+	if args := req.GetArguments(); args != nil {
+		if val, ok := args["keep_output"]; ok {
+			keepOutput, _ = val.(bool)
+		}
+	}
+
+	if !keepOutput {
+		os.Remove(v.Output)
+	}
+
+	return textResult(fmt.Sprintf("Removed view '%s'", name)), nil
+}
+
+func (h *handlers) handleRenderView(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	name, err := req.RequireString("name")
+	if err != nil {
+		return errorResult(err.Error()), nil
+	}
+
+	viewsDir := h.cfg.ViewsDir()
+	allViews, err := views.Discover(viewsDir, h.cfg.Views.Items, h.cfg.ViewsSource())
+	if err != nil {
+		return errorResult(fmt.Sprintf("discover views: %v", err)), nil
+	}
+
+	v, found := views.FindView(allViews, name)
+	if !found {
+		return errorResult(fmt.Sprintf("view %q not found", name)), nil
+	}
+
+	if _, err := views.CheckRenderer(v.Framework, v.Venv); err != nil {
+		return errorResult(err.Error()), nil
+	}
+
+	noExport := false
+	if args := req.GetArguments(); args != nil {
+		if val, ok := args["no_export"]; ok {
+			noExport, _ = val.(bool)
+		}
+	}
+
+	if !noExport && v.Source == "parquet" {
+		dataDir := filepath.Join(viewsDir, "_data")
+		if _, err := store.Export(store.ExportOptions{
+			DataDir:  h.cfg.DataDir(),
+			OutDir:   dataDir,
+			Format:   "parquet",
+			Projects: h.projectInfos(),
+		}); err != nil {
+			return errorResult(fmt.Sprintf("export data: %v", err)), nil
+		}
+	}
+
+	if err := views.Render(v); err != nil {
+		return errorResult(fmt.Sprintf("render: %v", err)), nil
+	}
+
+	return textResult(fmt.Sprintf("Rendered '%s' → %s", v.Name, v.Output)), nil
+}
+
+func (h *handlers) handleRenderViews(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	viewsDir := h.cfg.ViewsDir()
+	allViews, err := views.Discover(viewsDir, h.cfg.Views.Items, h.cfg.ViewsSource())
+	if err != nil {
+		return errorResult(fmt.Sprintf("discover views: %v", err)), nil
+	}
+
+	prefix := req.GetString("prefix", "")
+	noExport := false
+	if args := req.GetArguments(); args != nil {
+		if val, ok := args["no_export"]; ok {
+			noExport, _ = val.(bool)
+		}
+	}
+
+	var toRender []views.View
+	for _, v := range allViews {
+		if prefix == "" || strings.HasPrefix(v.Name, prefix) {
+			toRender = append(toRender, v)
+		}
+	}
+
+	if len(toRender) == 0 {
+		return textResult("No views found to render"), nil
+	}
+
+	if !noExport && views.AnyUsesParquet(toRender) {
+		dataDir := filepath.Join(viewsDir, "_data")
+		if _, err := store.Export(store.ExportOptions{
+			DataDir:  h.cfg.DataDir(),
+			OutDir:   dataDir,
+			Format:   "parquet",
+			Projects: h.projectInfos(),
+		}); err != nil {
+			return errorResult(fmt.Sprintf("export data: %v", err)), nil
+		}
+	}
+
+	var rendered int
+	var errors []string
+	for _, v := range toRender {
+		if _, err := views.CheckRenderer(v.Framework, v.Venv); err != nil {
+			errors = append(errors, fmt.Sprintf("%s: %v", v.Name, err))
+			continue
+		}
+		if err := views.Render(v); err != nil {
+			errors = append(errors, fmt.Sprintf("%s: %v", v.Name, err))
+			continue
+		}
+		rendered++
+	}
+
+	msg := fmt.Sprintf("Rendered %d/%d views", rendered, len(toRender))
+	if len(errors) > 0 {
+		msg += "\nErrors:\n" + strings.Join(errors, "\n")
+	}
+	return textResult(msg), nil
 }
 
 func toStringList(s string) config.StringList {

@@ -1,0 +1,35 @@
+{
+ "cells": [
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "import duckdb\n",
+    "\n",
+    "con = duckdb.connect()\n",
+    "con.sql(\"\"\"\n",
+    "    SELECT project_id AS project, date, metric, value\n",
+    "    FROM read_json_auto('{{.DataDir}}/**/*.jsonl')\n",
+    "    WHERE metric = 'daily_downloads'\n",
+    "    ORDER BY date DESC\n",
+    "    LIMIT 100\n",
+    "\"\"\").show()"
+   ]
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": "Python 3",
+   "language": "python",
+   "name": "python3"
+  },
+  "language_info": {
+   "name": "python",
+   "version": "3.12.0"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 5
+}

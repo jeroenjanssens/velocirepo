@@ -80,13 +80,45 @@ type SettingsConfig struct {
 	EndDate string `toml:"end_date"`
 }
 
+type ViewsConfig struct {
+	Dir    string     `toml:"dir"`
+	Source string     `toml:"source"`
+	Items  []ViewItem `toml:"items"`
+}
+
+type ViewItem struct {
+	Path   string `toml:"path"`
+	Output string `toml:"output"`
+	Venv   string `toml:"venv"`
+	Source string `toml:"source"`
+}
+
 type Config struct {
 	Data     DataConfig         `toml:"data"`
 	Settings SettingsConfig     `toml:"settings"`
+	Views    ViewsConfig        `toml:"views"`
 	Projects map[string]Project `toml:"projects"`
 
 	// Computed fields
 	Dir string `toml:"-"`
+}
+
+func (c *Config) ViewsDir() string {
+	dir := c.Views.Dir
+	if dir == "" {
+		dir = "velocirepo/views"
+	}
+	if filepath.IsAbs(dir) {
+		return dir
+	}
+	return filepath.Join(c.Dir, dir)
+}
+
+func (c *Config) ViewsSource() string {
+	if c.Views.Source != "" {
+		return c.Views.Source
+	}
+	return "parquet"
 }
 
 func (c *Config) DataDir() string {

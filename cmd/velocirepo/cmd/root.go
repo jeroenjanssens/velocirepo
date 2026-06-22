@@ -59,6 +59,7 @@ func newRootCmd() *cobra.Command {
 		&cobra.Group{ID: "fetch", Title: "Fetching:"},
 		&cobra.Group{ID: "query", Title: "Querying:"},
 		&cobra.Group{ID: "badge", Title: "Badges:"},
+		&cobra.Group{ID: "view", Title: "Views:"},
 		&cobra.Group{ID: "project", Title: "Projects:"},
 		&cobra.Group{ID: "ci", Title: "CI/CD:"},
 		&cobra.Group{ID: "data", Title: "Data:"},
@@ -93,6 +94,15 @@ func newRootCmd() *cobra.Command {
 	rootCmd.AddCommand(listProjectsCmd())
 	rootCmd.AddCommand(importProjectsCmd())
 	rootCmd.AddCommand(validateProjectsCmd())
+
+	// Views
+	rootCmd.AddCommand(addViewCmd())
+	rootCmd.AddCommand(removeViewCmd())
+	rootCmd.AddCommand(listViewsCmd())
+	rootCmd.AddCommand(showViewCmd())
+	rootCmd.AddCommand(renderViewCmd())
+	rootCmd.AddCommand(renderViewsCmd())
+	rootCmd.AddCommand(serveViewCmd())
 
 	// CI/CD
 	rootCmd.AddCommand(installCICmd())

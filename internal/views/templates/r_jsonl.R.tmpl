@@ -1,0 +1,12 @@
+library(duckdb)
+
+con <- dbConnect(duckdb())
+df <- dbGetQuery(con, "
+    SELECT project_id AS project, date, metric, value
+    FROM read_json_auto('{{.DataDir}}/**/*.jsonl')
+    WHERE metric = 'daily_downloads'
+    ORDER BY date DESC
+    LIMIT 100
+")
+print(df)
+dbDisconnect(con, shutdown = TRUE)

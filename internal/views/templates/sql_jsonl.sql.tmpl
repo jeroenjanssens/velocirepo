@@ -1,0 +1,5 @@
+SELECT project_id AS project, date, metric, SUM(value) AS total
+FROM read_json_auto('{{.DataDir}}/**/*.jsonl')
+WHERE metric = 'daily_downloads'
+GROUP BY project_id, date, metric
+ORDER BY date DESC
