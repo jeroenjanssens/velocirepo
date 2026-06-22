@@ -1,5 +1,11 @@
-SELECT project, date, metric, SUM(value) AS total
+-- ggsql documentation: https://ggsql.io
+SELECT
+    date,
+    project,
+    SUM(value) OVER (PARTITION BY project ORDER BY date) AS cumulative
 FROM read_parquet('{{.ViewsDataDir}}/metrics.parquet')
 WHERE metric = 'daily_stars'
-GROUP BY project, date, metric
-ORDER BY date DESC
+ORDER BY date, project
+
+VISUALISE date AS x, cumulative AS y, project AS color
+DRAW line

@@ -536,11 +536,11 @@ Views let you create dashboards, reports, and visualizations from your metrics d
 
 | Framework | Extension | Renderer | Serve mode |
 |-----------|-----------|----------|------------|
-| Quarto | `.qmd` | `quarto` | `quarto preview` |
-| Jupyter | `.ipynb` | `jupyter` | `jupyter notebook` |
-| Marimo | `.py` | `python` | `marimo edit` |
+| [Quarto](https://quarto.org) | `.qmd` | `quarto` | `quarto preview` |
+| [Jupyter](https://jupyter.org) | `.ipynb` | `jupyter` | `jupyter notebook` |
+| [Marimo](https://marimo.io) | `.py` | `python` | `marimo edit` |
 | R | `.R` | `Rscript` | render + open |
-| ggsql | `.sql` | `ggsql` | render + open |
+| [ggsql](https://ggsql.io) | `.sql` | `ggsql` | render + open |
 
 ### Quick start
 

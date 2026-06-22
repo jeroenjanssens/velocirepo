@@ -1,5 +1,11 @@
-SELECT project_id AS project, date, metric, SUM(value) AS total
+-- ggsql documentation: https://ggsql.io
+SELECT
+    date,
+    project_id AS project,
+    SUM(value) OVER (PARTITION BY project_id ORDER BY date) AS cumulative
 FROM read_json_auto('{{.DataDir}}/**/*.jsonl')
 WHERE metric = 'daily_downloads'
-GROUP BY project_id, date, metric
-ORDER BY date DESC
+ORDER BY date, project_id
+
+VISUALISE date AS x, cumulative AS y, project AS color
+DRAW line
