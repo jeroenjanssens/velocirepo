@@ -1,6 +1,6 @@
 # velocirepo
 
-All your open-source and social-media metrics in one place.
+Track your project's pulse across package registries, GitHub, and the web.
 
 ## Table of contents
 

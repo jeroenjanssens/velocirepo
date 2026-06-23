@@ -23,8 +23,8 @@ var (
 func newRootCmd() *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   "velocirepo",
-		Short: "Fetch and store open-source project metrics",
-		Long:  "velocirepo collects metrics from GitHub, PyPI, CRAN, Plausible, and OpenVSX for your open-source projects.",
+		Short: "Track your project's pulse across package registries, GitHub, and the web",
+		Long:  "velocirepo tracks your project's pulse across package registries, GitHub, and the web — collecting daily metrics from GitHub, PyPI, CRAN, Homebrew, Plausible, OpenVSX, and YouTube.",
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
 			setupLogging()

@@ -1,8 +1,8 @@
 name: velocirepo
-description: Fetch and store open-source project metrics
+description: Track your project's pulse across package registries, GitHub, and the web
 branding:
-  icon: bar-chart-2
-  color: blue
+  icon: hexagon
+  color: green
 
 inputs:
   github-token:
