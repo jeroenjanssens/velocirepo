@@ -166,7 +166,7 @@ func formatProjectSection(id string, project Project) string {
 	if project.Name != "" {
 		fmt.Fprintf(&b, "name = %q\n", project.Name)
 	}
-	writeStringList(&b, "github-events", project.GitHubEvents)
+	writeStringList(&b, "github", project.GitHubEvents)
 	writeStringList(&b, "github-traffic", project.GitHubTraffic)
 	writeStringList(&b, "pypi", project.PyPI)
 	writeStringList(&b, "cran", project.CRAN)

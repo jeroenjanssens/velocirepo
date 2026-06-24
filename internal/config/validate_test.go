@@ -26,7 +26,7 @@ func TestValidateSourceGitHubOK(t *testing.T) {
 	result := ValidateSource(context.Background(), ValidationOptions{
 		Client:  client,
 		Timeout: 5 * time.Second,
-	}, "github-events","org/repo")
+	}, "github","org/repo")
 
 	if !result.OK {
 		t.Errorf("expected OK, got error: %s", result.Error)
@@ -45,7 +45,7 @@ func TestValidateSourceGitHub404(t *testing.T) {
 	result := ValidateSource(context.Background(), ValidationOptions{
 		Client:  client,
 		Timeout: 5 * time.Second,
-	}, "github-events","org/nonexistent")
+	}, "github","org/nonexistent")
 
 	if result.OK {
 		t.Error("expected failure for 404")
@@ -107,7 +107,7 @@ func TestValidateSourceCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	result := ValidateSource(ctx, ValidationOptions{Client: client}, "github-events","org/repo")
+	result := ValidateSource(ctx, ValidationOptions{Client: client}, "github","org/repo")
 	if result.OK {
 		t.Error("expected failure due to cancelled context")
 	}

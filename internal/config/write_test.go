@@ -69,7 +69,7 @@ func TestAppendProject(t *testing.T) {
 	if !strings.Contains(content, "[projects.beta]") {
 		t.Error("missing [projects.beta] section")
 	}
-	if !strings.Contains(content, `github-events = "org/beta"`) {
+	if !strings.Contains(content, `github = "org/beta"`) {
 		t.Error("missing github field")
 	}
 	if !strings.Contains(content, `pypi = "beta-pkg"`) {

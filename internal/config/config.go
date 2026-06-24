@@ -62,7 +62,7 @@ type Project struct {
 	Website     string     `toml:"website"`
 	Logo        string     `toml:"logo"`
 
-	GitHubEvents  StringList `toml:"github-events"`
+	GitHubEvents  StringList `toml:"github"`
 	GitHubTraffic StringList `toml:"github-traffic"`
 	PyPI          StringList `toml:"pypi"`
 	CRAN          StringList `toml:"cran"`

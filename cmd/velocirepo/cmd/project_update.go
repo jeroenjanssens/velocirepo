@@ -31,7 +31,7 @@ func updateProjectCmd() *cobra.Command {
 			cfgPath := cfgFilePath()
 
 			flagsProvided := cmd.Flags().Changed("name") ||
-				cmd.Flags().Changed("github-events") || cmd.Flags().Changed("github-traffic") ||
+				cmd.Flags().Changed("github") || cmd.Flags().Changed("github-traffic") ||
 				cmd.Flags().Changed("pypi") || cmd.Flags().Changed("cran") || cmd.Flags().Changed("homebrew") ||
 				cmd.Flags().Changed("plausible") || cmd.Flags().Changed("openvsx") ||
 				cmd.Flags().Changed("youtube") || len(unset) > 0
@@ -48,11 +48,11 @@ func updateProjectCmd() *cobra.Command {
 			if cmd.Flags().Changed("name") {
 				updates["name"] = name
 			}
-			if cmd.Flags().Changed("github-events") {
+			if cmd.Flags().Changed("github") {
 				if githubEvents != "" && !validGitHubRe.MatchString(githubEvents) {
 					return fmt.Errorf("invalid GitHub repo %q: must be owner/repo", githubEvents)
 				}
-				updates["github-events"] = githubEvents
+				updates["github"] = githubEvents
 			}
 			if cmd.Flags().Changed("github-traffic") {
 				if githubTraffic != "" && !validGitHubRe.MatchString(githubTraffic) {
@@ -97,7 +97,7 @@ func updateProjectCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&name, "name", "", "display name")
-	cmd.Flags().StringVar(&githubEvents, "github-events", "", "GitHub owner/repo")
+	cmd.Flags().StringVar(&githubEvents, "github", "", "GitHub owner/repo")
 	cmd.Flags().StringVar(&githubTraffic, "github-traffic", "", "GitHub owner/repo for traffic data")
 	cmd.Flags().StringVar(&pypi, "pypi", "", "PyPI package name")
 	cmd.Flags().StringVar(&cran, "cran", "", "CRAN package name")
@@ -120,7 +120,7 @@ func projectUpdateInteractive(cfgPath string, id string, proj config.Project) er
 	if err != nil {
 		return err
 	}
-	githubEvents, err := prompt(os.Stdout, reader, "GitHub events (owner/repo)", proj.GitHubEvents.String(), "")
+	githubEvents, err := prompt(os.Stdout, reader, "GitHub (owner/repo)", proj.GitHubEvents.String(), "")
 	if err != nil {
 		return err
 	}
@@ -178,7 +178,7 @@ func projectUpdateInteractive(cfgPath string, id string, proj config.Project) er
 	}
 
 	updateOrUnset("name", name, proj.Name)
-	updateOrUnset("github-events", githubEvents, proj.GitHubEvents.String())
+	updateOrUnset("github", githubEvents, proj.GitHubEvents.String())
 	updateOrUnset("github-traffic", githubTraffic, proj.GitHubTraffic.String())
 	updateOrUnset("pypi", pypi, proj.PyPI.String())
 	updateOrUnset("cran", cran, proj.CRAN.String())

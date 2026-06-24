@@ -85,7 +85,7 @@ func addProjectCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&name, "name", "", "display name")
-	cmd.Flags().StringVar(&githubEvents, "github-events", "", "GitHub owner/repo")
+	cmd.Flags().StringVar(&githubEvents, "github", "", "GitHub owner/repo")
 	cmd.Flags().StringVar(&githubTraffic, "github-traffic", "", "GitHub owner/repo for traffic data")
 	cmd.Flags().StringVar(&pypi, "pypi", "", "PyPI package name")
 	cmd.Flags().StringVar(&cran, "cran", "", "CRAN package name")
@@ -138,7 +138,7 @@ func projectAddInteractive(cfgPath string, id string) error {
 	if overridden {
 		suppress = true
 	}
-	githubEvents, overridden, err := promptWithHint(os.Stdout, reader, "GitHub events (owner/repo)", detected.GitHub, detected.GitHubSource, suppress)
+	githubEvents, overridden, err := promptWithHint(os.Stdout, reader, "GitHub (owner/repo)", detected.GitHub, detected.GitHubSource, suppress)
 	if err != nil {
 		return err
 	}
@@ -232,7 +232,7 @@ func projectAddInteractive(cfgPath string, id string) error {
 func listSources(p config.Project) []string {
 	var sources []string
 	if !p.GitHubEvents.IsEmpty() {
-		sources = append(sources, "github-events")
+		sources = append(sources, "github")
 	}
 	if !p.GitHubTraffic.IsEmpty() {
 		sources = append(sources, "github-traffic")
@@ -259,9 +259,6 @@ func listSources(p config.Project) []string {
 }
 
 func sourceDataDir(src string) string {
-	if src == "github-events" {
-		return "github"
-	}
 	return src
 }
 

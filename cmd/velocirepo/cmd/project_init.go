@@ -101,7 +101,7 @@ func initCmd() *cobra.Command {
 func formatSection(id string, p config.Project) string {
 	s := fmt.Sprintf("[projects.%s]\nname = %q\n", id, p.Name)
 	if !p.GitHubEvents.IsEmpty() {
-		s += fmt.Sprintf("github-events = %q\n", p.GitHubEvents.First())
+		s += fmt.Sprintf("github = %q\n", p.GitHubEvents.First())
 	}
 	if !p.GitHubTraffic.IsEmpty() {
 		s += fmt.Sprintf("github-traffic = %q\n", p.GitHubTraffic.First())

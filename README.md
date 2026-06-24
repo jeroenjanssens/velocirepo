@@ -157,13 +157,13 @@ Create a `velocirepo.toml` in your project root:
 ```toml
 [projects.my-project]
 name = "My Project"
-github-events = "owner/repo"
+github = "owner/repo"
 github-traffic = "owner/repo"
 pypi = "my-package"
 
 [projects.other-project]
 name = "Other Project"
-github-events = ["owner/other", "owner/other-utils"]
+github = ["owner/other", "owner/other-utils"]
 cran = "other"
 homebrew = "other"
 youtube = "@ChannelHandle"

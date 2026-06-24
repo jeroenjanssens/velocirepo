@@ -59,7 +59,7 @@ func showProjectCmd() *cobra.Command {
 				out := struct {
 					ID            string        `json:"id"`
 					Name          string        `json:"name"`
-					GitHubEvents  []string      `json:"github-events,omitempty"`
+					GitHubEvents  []string      `json:"github,omitempty"`
 					GitHubTraffic []string      `json:"github-traffic,omitempty"`
 					PyPI          []string      `json:"pypi,omitempty"`
 					CRAN          []string      `json:"cran,omitempty"`
@@ -93,7 +93,7 @@ func showProjectCmd() *cobra.Command {
 			fmt.Fprintf(cmd.OutOrStdout(), "Project: %s\n", id)
 			fmt.Fprintf(cmd.OutOrStdout(), "Name:    %s\n", proj.Name)
 			if !proj.GitHubEvents.IsEmpty() {
-				fmt.Fprintf(cmd.OutOrStdout(), "GitHub Events: %s\n", proj.GitHubEvents.String())
+				fmt.Fprintf(cmd.OutOrStdout(), "GitHub:  %s\n", proj.GitHubEvents.String())
 			}
 			if !proj.GitHubTraffic.IsEmpty() {
 				fmt.Fprintf(cmd.OutOrStdout(), "GitHub Traffic: %s\n", proj.GitHubTraffic.String())

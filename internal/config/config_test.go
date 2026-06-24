@@ -15,7 +15,7 @@ dir = "metrics"
 
 [projects.my-project]
 name = "My Project"
-github-events ="owner/repo"
+github ="owner/repo"
 pypi = "my-project"
 `
 	if err := os.WriteFile(cfgPath, []byte(content), 0644); err != nil {
@@ -61,12 +61,12 @@ func TestLoadMultiProject(t *testing.T) {
 	content := `
 [projects.alpha]
 name = "Alpha"
-github-events ="org/alpha"
+github ="org/alpha"
 pypi = "alpha"
 
 [projects.beta]
 name = "Beta"
-github-events ="org/beta"
+github ="org/beta"
 cran = "beta"
 `
 	if err := os.WriteFile(cfgPath, []byte(content), 0644); err != nil {
@@ -97,7 +97,7 @@ func TestLoadMultiValueSources(t *testing.T) {
 	content := `
 [projects.my-org]
 name = "My Org"
-github-events =["org/repo-a", "org/repo-b"]
+github =["org/repo-a", "org/repo-b"]
 pypi = ["pkg-one", "pkg-two"]
 cran = "single-pkg"
 `
@@ -158,7 +158,7 @@ func TestDiscovery(t *testing.T) {
 	cfgPath := filepath.Join(dir, "velocirepo.toml")
 	content := `[projects.found]
 name = "Found"
-github-events = "org/found"
+github = "org/found"
 `
 	if err := os.WriteFile(cfgPath, []byte(content), 0644); err != nil {
 		t.Fatal(err)
@@ -186,7 +186,7 @@ func TestEnvVarOverride(t *testing.T) {
 	cfgPath := filepath.Join(dir, "velocirepo.toml")
 	content := `[projects.envtest]
 name = "EnvTest"
-github-events = "org/envtest"
+github = "org/envtest"
 `
 	if err := os.WriteFile(cfgPath, []byte(content), 0644); err != nil {
 		t.Fatal(err)
@@ -210,7 +210,7 @@ func TestDefaultDataDir(t *testing.T) {
 	cfgPath := filepath.Join(dir, "velocirepo.toml")
 	content := `[projects.test]
 name = "Test"
-github-events = "org/test"
+github = "org/test"
 `
 	if err := os.WriteFile(cfgPath, []byte(content), 0644); err != nil {
 		t.Fatal(err)

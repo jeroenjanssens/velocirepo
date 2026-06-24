@@ -33,7 +33,7 @@ func listProjectsCmd() *cobra.Command {
 				type projectJSON struct {
 					ID            string   `json:"id"`
 					Name          string   `json:"name"`
-					GitHubEvents  []string `json:"github-events,omitempty"`
+					GitHubEvents  []string `json:"github,omitempty"`
 					GitHubTraffic []string `json:"github-traffic,omitempty"`
 					PyPI          []string `json:"pypi,omitempty"`
 					CRAN          []string `json:"cran,omitempty"`

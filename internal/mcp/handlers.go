@@ -148,7 +148,7 @@ func (h *handlers) handleListProjects(ctx context.Context, req mcp.CallToolReque
 	type projectEntry struct {
 		ID            string   `json:"id"`
 		Name          string   `json:"name"`
-		GitHubEvents  []string `json:"github_events,omitempty"`
+		GitHub        []string `json:"github,omitempty"`
 		GitHubTraffic []string `json:"github_traffic,omitempty"`
 		PyPI          []string `json:"pypi,omitempty"`
 		CRAN          []string `json:"cran,omitempty"`
@@ -163,7 +163,7 @@ func (h *handlers) handleListProjects(ctx context.Context, req mcp.CallToolReque
 		list = append(list, projectEntry{
 			ID:            id,
 			Name:          p.Name,
-			GitHubEvents:  []string(p.GitHubEvents),
+			GitHub:        []string(p.GitHubEvents),
 			GitHubTraffic: []string(p.GitHubTraffic),
 			PyPI:          []string(p.PyPI),
 			CRAN:          []string(p.CRAN),
@@ -241,7 +241,7 @@ func (h *handlers) handleShowProject(ctx context.Context, req mcp.CallToolReques
 	output := struct {
 		ID            string        `json:"id"`
 		Name          string        `json:"name"`
-		GitHubEvents  []string      `json:"github_events,omitempty"`
+		GitHub        []string      `json:"github,omitempty"`
 		GitHubTraffic []string      `json:"github_traffic,omitempty"`
 		PyPI          []string      `json:"pypi,omitempty"`
 		CRAN          []string      `json:"cran,omitempty"`
@@ -253,7 +253,7 @@ func (h *handlers) handleShowProject(ctx context.Context, req mcp.CallToolReques
 	}{
 		ID:            id,
 		Name:          proj.Name,
-		GitHubEvents:  []string(proj.GitHubEvents),
+		GitHub:        []string(proj.GitHubEvents),
 		GitHubTraffic: []string(proj.GitHubTraffic),
 		PyPI:          []string(proj.PyPI),
 		CRAN:          []string(proj.CRAN),
@@ -493,7 +493,7 @@ func (h *handlers) handleAddProject(ctx context.Context, req mcp.CallToolRequest
 
 	proj := config.Project{
 		Name:          name,
-		GitHubEvents:  toStringList(req.GetString("github_events", "")),
+		GitHubEvents:  toStringList(req.GetString("github", "")),
 		GitHubTraffic: toStringList(req.GetString("github_traffic", "")),
 		PyPI:          toStringList(req.GetString("pypi", "")),
 		CRAN:          toStringList(req.GetString("cran", "")),
@@ -529,7 +529,7 @@ func (h *handlers) handleUpdateProject(ctx context.Context, req mcp.CallToolRequ
 
 	fieldMap := map[string]string{
 		"name":           "name",
-		"github_events":  "github-events",
+		"github":         "github",
 		"github_traffic": "github-traffic",
 		"pypi":           "pypi",
 		"cran":           "cran",
