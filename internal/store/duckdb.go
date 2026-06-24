@@ -57,7 +57,7 @@ func SchemaLive(dataDir string, projects []ProjectInfo) ([]SchemaColumn, error) 
 	}
 	defer db.Close()
 
-	rows, err := db.Query("SELECT table_name, column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name IN ('github_events', 'metrics', 'projects', 'youtube_index') ORDER BY table_name, ordinal_position")
+	rows, err := db.Query("SELECT table_name, column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name IN ('github_events', 'indicators', 'metrics', 'projects', 'youtube_index') ORDER BY table_name, ordinal_position")
 	if err != nil {
 		return nil, fmt.Errorf("query schema: %w", err)
 	}
@@ -102,6 +102,11 @@ func openLiveDB(dataDir string, projects []ProjectInfo) (*sql.DB, error) {
 	}
 
 	if err := createProjectsView(db, projects); err != nil {
+		db.Close()
+		return nil, err
+	}
+
+	if err := createIndicatorsView(db); err != nil {
 		db.Close()
 		return nil, err
 	}
@@ -284,6 +289,47 @@ func createProjectsView(db *sql.DB, projects []ProjectInfo) error {
 
 	if _, err := db.Exec(query); err != nil {
 		return fmt.Errorf("create projects view: %w", err)
+	}
+	return nil
+}
+
+const indicatorsViewSQL = `CREATE OR REPLACE VIEW indicators AS
+WITH windowed AS (
+	SELECT
+		project, source, metric, date,
+		SUM(value) OVER w AS sum_28d,
+		SUM(value) OVER w_prior AS sum_prior_28d,
+		REGR_SLOPE(value, EXTRACT(EPOCH FROM CAST(date AS TIMESTAMP)) / 86400) OVER w AS trend_28d
+	FROM metrics
+	WHERE metric LIKE 'daily_%'
+	WINDOW
+		w AS (PARTITION BY project, source, metric ORDER BY date ROWS BETWEEN 27 PRECEDING AND CURRENT ROW),
+		w_prior AS (PARTITION BY project, source, metric ORDER BY date ROWS BETWEEN 55 PRECEDING AND 28 PRECEDING)
+)
+SELECT project, source, metric, 'growth_rate' AS indicator, date,
+	(sum_28d - sum_prior_28d) / NULLIF(sum_prior_28d, 0.0) AS value
+FROM windowed
+WHERE sum_prior_28d IS NOT NULL
+UNION ALL
+SELECT project, source, metric, 'trend' AS indicator, date,
+	trend_28d AS value
+FROM windowed
+WHERE trend_28d IS NOT NULL`
+
+func createIndicatorsView(db *sql.DB) error {
+	if _, err := db.Exec(indicatorsViewSQL); err != nil {
+		slog.Debug("indicators view creation failed, using empty view", "error", err)
+		return createEmptyIndicatorsView(db)
+	}
+	return nil
+}
+
+func createEmptyIndicatorsView(db *sql.DB) error {
+	_, err := db.Exec(`CREATE VIEW indicators (project, source, metric, indicator, date, value) AS
+		SELECT NULL::VARCHAR, NULL::VARCHAR, NULL::VARCHAR, NULL::VARCHAR, NULL::DATE, NULL::DOUBLE
+		WHERE false`)
+	if err != nil {
+		return fmt.Errorf("create empty indicators view: %w", err)
 	}
 	return nil
 }

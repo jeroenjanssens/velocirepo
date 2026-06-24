@@ -333,11 +333,12 @@ This is safe to run repeatedly — all migrations are idempotent.
 
 ## Querying the data
 
-The `query` command reads JSONL files directly using DuckDB and exposes four views:
+The `query` command reads JSONL files directly using DuckDB and exposes five views:
 
 | View | Description |
 |------|-------------|
 | `metrics` | Unified time-series: all sources including aggregated GitHub events |
+| `indicators` | Derived growth rate and trend for daily metrics (28-day windows) |
 | `github_events` | Raw GitHub events with user and timestamp |
 | `youtube_index` | Video metadata (title, publish date, channel, duration) |
 | `projects` | Project metadata from your config |
@@ -444,6 +445,23 @@ velocirepo query "
 └──────────┴─────────┴─────────────────┴────────────┴─────────┘
 ```
 
+### Growth indicators
+
+The `indicators` view computes derived signals from daily metrics using 28-day trailing windows:
+
+- **growth_rate**: ratio of the current 28-day sum vs the prior 28-day sum (0.15 = 15% growth)
+- **trend**: linear regression slope over 28 days (units: value per day)
+
+```bash
+velocirepo query "
+  SELECT project, metric, indicator, date, ROUND(value, 3) AS value
+  FROM indicators
+  WHERE project = 'quarto' AND metric = 'daily_stars'
+  ORDER BY date DESC
+  LIMIT 5
+"
+```
+
 ### Output formats
 
 By default, results are printed as a table. Use `--json`, `--csv`, or `--parquet` for machine-readable output:
@@ -474,6 +492,7 @@ This writes one file per table:
   out/metrics.parquet (257 KB)
   out/github_events.parquet (2.9 MB)
   out/youtube_index.parquet (15 KB)
+  out/indicators.parquet (42 KB)
   out/projects.parquet (2 KB)
 ```
 

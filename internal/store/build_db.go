@@ -40,6 +40,9 @@ func BuildDB(dataDir string, projects []ProjectInfo) error {
 	if err := createProjectsTable(db, projects); err != nil {
 		return err
 	}
+	if err := createIndicatorsView(db); err != nil {
+		return err
+	}
 
 	return nil
 }

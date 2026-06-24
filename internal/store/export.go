@@ -41,6 +41,7 @@ func Export(opts ExportOptions) ([]string, error) {
 		{"metrics", buildExportQuery("metrics", opts)},
 		{"github_events", buildExportQuery("github_events", opts)},
 		{"youtube_index", buildExportQuery("youtube_index", opts)},
+		{"indicators", buildExportQuery("indicators", opts)},
 		{"projects", buildExportQuery("projects", opts)},
 	}
 
@@ -110,6 +111,8 @@ func buildExportQuery(table string, opts ExportOptions) string {
 		query += " ORDER BY project, event_type, datetime"
 	case "youtube_index":
 		query += " ORDER BY channel, published_at"
+	case "indicators":
+		query += " ORDER BY project, source, metric, indicator, date"
 	case "projects":
 		query += " ORDER BY id"
 	}
