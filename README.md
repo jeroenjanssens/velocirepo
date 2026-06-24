@@ -356,6 +356,18 @@ velocirepo query "
 "
 ```
 
+```
+┌──────────────────┬────────────┬───────┐
+│     project      │    date    │ stars │
+├──────────────────┼────────────┼───────┤
+│ ggsql            │ 2026-06-22 │ 1     │
+│ gt               │ 2026-06-22 │ 1     │
+│ images-workbench │ 2026-06-22 │ 1     │
+│ rmarkdown        │ 2026-06-22 │ 1     │
+│ pointblank       │ 2026-06-22 │ 1     │
+└──────────────────┴────────────┴───────┘
+```
+
 ### Total stars per project
 
 ```bash
@@ -375,10 +387,10 @@ velocirepo query "
 │    name     │ stars │
 ├─────────────┼───────┤
 │ ggplot2     │ 6877  │
+│ cheatsheets │ 6360  │
+│ shiny       │ 5655  │
 │ Shiny for R │ 5600  │
 │ Quarto      │ 5274  │
-│ dplyr       │ 4995  │
-│ plotnine    │ 4500  │
 └─────────────┴───────┘
 ```
 
@@ -435,15 +447,15 @@ velocirepo query "
 ```
 
 ```
-┌──────────┬─────────┬─────────────────┬────────────┬─────────┐
-│ project  │ source  │     metric      │    date    │  value  │
-├──────────┼─────────┼─────────────────┼────────────┼─────────┤
-│ quarto   │ openvsx │ total_downloads │ 2026-06-16 │ 3101234 │
-│ quarto   │ openvsx │ total_ratings   │ 2026-06-16 │ 500     │
-│ quarto   │ openvsx │ total_reviews   │ 2026-06-16 │ 2       │
-│ quarto   │ plausible│ daily_pageviews │ 2026-06-16 │ 14322   │
-│ quarto   │ plausible│ daily_visitors  │ 2026-06-16 │ 3324    │
-└──────────┴─────────┴─────────────────┴────────────┴─────────┘
+┌───────────────────┬─────────┬─────────────────┬────────────┬─────────┐
+│      project      │ source  │     metric      │    date    │  value  │
+├───────────────────┼─────────┼─────────────────┼────────────┼─────────┤
+│ shiny-r           │ openvsx │ total_downloads │ 2026-06-22 │ 2404755 │
+│ shiny-r           │ openvsx │ rating          │ 2026-06-22 │ 5       │
+│ shiny-r           │ openvsx │ reviews         │ 2026-06-22 │ 2       │
+│ pointblank-python │ pypi    │ daily_downloads │ 2026-06-22 │ 604     │
+│ orbital-r         │ cran    │ daily_downloads │ 2026-06-22 │ 37      │
+└───────────────────┴─────────┴─────────────────┴────────────┴─────────┘
 ```
 
 ### Output formats
@@ -460,6 +472,45 @@ The `schema` command shows all available columns:
 
 ```bash
 velocirepo schema
+```
+
+```
+┌───────────────┬──────────────┬───────────┐
+│ TABLE         │ COLUMN       │ TYPE      │
+├───────────────┼──────────────┼───────────┤
+│ github_events │ project      │ VARCHAR   │
+│ github_events │ source       │ VARCHAR   │
+│ github_events │ event_type   │ VARCHAR   │
+│ github_events │ github_repo  │ VARCHAR   │
+│ github_events │ datetime     │ TIMESTAMP │
+│ github_events │ user         │ VARCHAR   │
+│ indicators    │ project      │ VARCHAR   │
+│ indicators    │ source       │ VARCHAR   │
+│ indicators    │ metric       │ VARCHAR   │
+│ indicators    │ indicator    │ VARCHAR   │
+│ indicators    │ date         │ DATE      │
+│ indicators    │ value        │ DOUBLE    │
+│ metrics       │ project      │ VARCHAR   │
+│ metrics       │ source       │ VARCHAR   │
+│ metrics       │ target       │ VARCHAR   │
+│ metrics       │ metric       │ VARCHAR   │
+│ metrics       │ date         │ DATE      │
+│ metrics       │ value        │ BIGINT    │
+│ metrics       │ tags         │ JSON      │
+│ projects      │ id           │ VARCHAR   │
+│ projects      │ name         │ VARCHAR   │
+│ projects      │ description  │ VARCHAR   │
+│ projects      │ color        │ VARCHAR   │
+│ projects      │ tags         │ VARCHAR[] │
+│ projects      │ website      │ VARCHAR   │
+│ projects      │ logo         │ VARCHAR   │
+│ youtube_index │ video_id     │ VARCHAR   │
+│ youtube_index │ title        │ VARCHAR   │
+│ youtube_index │ published_at │ TIMESTAMP │
+│ youtube_index │ channel      │ VARCHAR   │
+│ youtube_index │ duration     │ BIGINT    │
+│ youtube_index │ tags         │ JSON      │
+└───────────────┴──────────────┴───────────┘
 ```
 
 ## Exporting data
@@ -584,6 +635,18 @@ velocirepo query "
 "
 ```
 
+```
+┌──────────────┬─────────────┬────────────┬─────────────┐
+│   project    │   metric    │    date    │ growth_rate │
+├──────────────┼─────────────┼────────────┼─────────────┤
+│ py-shiny     │ daily_stars │ 2026-06-22 │ 0.114       │
+│ dplyr        │ daily_stars │ 2026-06-22 │ -0.182      │
+│ plotnine     │ daily_stars │ 2026-06-22 │ -0.488      │
+│ great-tables │ daily_stars │ 2026-06-22 │ -0.174      │
+│ ggsql        │ daily_stars │ 2026-06-22 │ -0.875      │
+└──────────────┴─────────────┴────────────┴─────────────┘
+```
+
 ### Trend
 
 Measures the daily rate of change via linear regression over the trailing 28 days. The value represents units per day — for example, a trend of `3.2` on `daily_stars` means the project is gaining roughly 3.2 more stars per day than it was at the start of the window.
@@ -600,6 +663,18 @@ velocirepo query "
 "
 ```
 
+```
+┌──────────┬─────────────────┬────────────┬───────────────┐
+│ project  │     metric      │    date    │ trend_per_day │
+├──────────┼─────────────────┼────────────┼───────────────┤
+│ plotnine │ daily_downloads │ 2026-06-22 │ -140.39       │
+│ plotnine │ daily_downloads │ 2026-06-21 │ -60.35        │
+│ plotnine │ daily_downloads │ 2026-06-20 │ 135.05        │
+│ plotnine │ daily_downloads │ 2026-06-19 │ 186.6         │
+│ plotnine │ daily_downloads │ 2026-06-18 │ 112.38        │
+└──────────┴─────────────────┴────────────┴───────────────┘
+```
+
 ### Querying indicators
 
 You can join indicators with project metadata for richer views:
@@ -611,7 +686,20 @@ velocirepo query "
   JOIN projects p ON i.project = p.id
   WHERE i.date = (SELECT MAX(date) FROM indicators)
   ORDER BY i.indicator, i.value DESC
+  LIMIT 5
 "
+```
+
+```
+┌────────────┬─────────────────────┬─────────────┬────────────┬───────┐
+│    name    │       metric        │  indicator  │    date    │ value │
+├────────────┼─────────────────────┼─────────────┼────────────┼───────┤
+│ great-docs │ daily_issues_closed │ growth_rate │ 2026-06-22 │ 5.143 │
+│ mcp-repl   │ daily_prs_merged    │ growth_rate │ 2026-06-22 │ 3.143 │
+│ mcp-repl   │ daily_prs_opened    │ growth_rate │ 2026-06-22 │ 2.815 │
+│ great-docs │ daily_issues_opened │ growth_rate │ 2026-06-22 │ 1.647 │
+│ Positron   │ daily_pr_comment    │ growth_rate │ 2026-06-22 │ 1.271 │
+└────────────┴─────────────────────┴─────────────┴────────────┴───────┘
 ```
 
 ## Generating badges
