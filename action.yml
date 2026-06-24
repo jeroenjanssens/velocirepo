@@ -34,6 +34,10 @@ runs:
         URL="https://github.com/jeroenjanssens/velocirepo/releases/download/v${VERSION}/velocirepo_${VERSION}_linux_amd64.tar.gz"
         curl -sSL "$URL" | tar xz -C /usr/local/bin velocirepo
 
+    - name: Print version
+      shell: bash
+      run: velocirepo version
+
     - name: Fetch all sources
       shell: bash
       env:
