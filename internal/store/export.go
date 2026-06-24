@@ -8,16 +8,17 @@ import (
 )
 
 type ExportOptions struct {
-	DataDir  string
-	OutDir   string
-	Format   string
-	Source   string
-	Project  string
-	Projects []ProjectInfo
+	DataDir    string
+	OutDir     string
+	Format     string
+	Source     string
+	Project    string
+	Projects   []ProjectInfo
+	Indicators []IndicatorDef
 }
 
 func Export(opts ExportOptions) ([]string, error) {
-	db, err := openLiveDB(opts.DataDir, opts.Projects)
+	db, err := openLiveDB(opts.DataDir, opts.Projects, opts.Indicators)
 	if err != nil {
 		return nil, err
 	}

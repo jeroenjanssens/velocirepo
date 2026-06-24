@@ -77,7 +77,8 @@ type DataConfig struct {
 }
 
 type SettingsConfig struct {
-	EndDate string `toml:"end_date"`
+	EndDate                  string `toml:"end_date"`
+	IncludeDefaultIndicators *bool  `toml:"include_default_indicators"`
 }
 
 type ViewsConfig struct {
@@ -93,11 +94,17 @@ type ViewItem struct {
 	Source string `toml:"source"`
 }
 
+type IndicatorConfig struct {
+	Description string `toml:"description"`
+	Query       string `toml:"query"`
+}
+
 type Config struct {
-	Data     DataConfig         `toml:"data"`
-	Settings SettingsConfig     `toml:"settings"`
-	Views    ViewsConfig        `toml:"views"`
-	Projects map[string]Project `toml:"projects"`
+	Data       DataConfig                `toml:"data"`
+	Settings   SettingsConfig            `toml:"settings"`
+	Views      ViewsConfig               `toml:"views"`
+	Indicators map[string]IndicatorConfig `toml:"indicators"`
+	Projects   map[string]Project        `toml:"projects"`
 
 	// Computed fields
 	Dir string `toml:"-"`

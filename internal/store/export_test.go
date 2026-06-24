@@ -142,7 +142,7 @@ func TestExportWithProjectFilter(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	results, _, err := QueryLive(dataDir, nil, "SELECT COUNT(*) AS cnt FROM '"+filepath.Join(outDir, "metrics.parquet")+"'")
+	results, _, err := QueryLive(dataDir, nil, nil, "SELECT COUNT(*) AS cnt FROM '"+filepath.Join(outDir, "metrics.parquet")+"'")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -8,6 +8,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/jeroenjanssens/velocirepo/internal/config"
 	"github.com/jeroenjanssens/velocirepo/internal/store"
 	"github.com/olekukonko/tablewriter"
 	"github.com/olekukonko/tablewriter/tw"
@@ -27,7 +28,7 @@ func queryCmd() *cobra.Command {
 				return writeParquet(args[0])
 			}
 
-			results, cols, err := store.QueryLive(cfg.DataDir(), projectInfos(), args[0])
+			results, cols, err := store.QueryLive(cfg.DataDir(), projectInfos(), indicatorDefs(), args[0])
 			if err != nil {
 				return err
 			}
@@ -58,7 +59,7 @@ func schemaCmd() *cobra.Command {
 		Short: "Show table schemas",
 		GroupID: "query",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cols, err := store.SchemaLive(cfg.DataDir(), projectInfos())
+			cols, err := store.SchemaLive(cfg.DataDir(), projectInfos(), indicatorDefs())
 			if err != nil {
 				return err
 			}
@@ -116,7 +117,7 @@ func writeParquet(query string) error {
 	tmp.Close()
 	defer os.Remove(tmpPath)
 
-	if err := store.QueryLiveParquet(cfg.DataDir(), projectInfos(), query, tmpPath); err != nil {
+	if err := store.QueryLiveParquet(cfg.DataDir(), projectInfos(), indicatorDefs(), query, tmpPath); err != nil {
 		return err
 	}
 
@@ -212,4 +213,29 @@ func projectInfos() []store.ProjectInfo {
 		})
 	}
 	return infos
+}
+
+func indicatorDefs() []store.IndicatorDef {
+	return indicatorDefsFromConfig(cfg)
+}
+
+func indicatorDefsFromConfig(c *config.Config) []store.IndicatorDef {
+	if len(c.Indicators) == 0 {
+		return store.DefaultIndicators
+	}
+
+	includeDefaults := c.Settings.IncludeDefaultIndicators == nil || *c.Settings.IncludeDefaultIndicators
+
+	var defs []store.IndicatorDef
+	if includeDefaults {
+		defs = append(defs, store.DefaultIndicators...)
+	}
+	for name, ind := range c.Indicators {
+		defs = append(defs, store.IndicatorDef{
+			Name:        name,
+			Description: ind.Description,
+			Query:       ind.Query,
+		})
+	}
+	return defs
 }

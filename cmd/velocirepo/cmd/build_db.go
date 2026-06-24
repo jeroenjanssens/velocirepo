@@ -17,7 +17,7 @@ func buildDBCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			started := time.Now()
 			dataDir := cfg.DataDir()
-			if err := store.BuildDB(dataDir, projectInfos()); err != nil {
+			if err := store.BuildDB(dataDir, projectInfos(), indicatorDefs()); err != nil {
 				return err
 			}
 			ui.Infof("Built %s/velocirepo.duckdb in %s", dataDir, time.Since(started).Round(time.Millisecond))
@@ -46,7 +46,8 @@ func rebuildDB() {
 			Logo:        p.Logo,
 		})
 	}
-	if err := store.BuildDB(cfg.DataDir(), infos); err != nil {
+	indicators := indicatorDefsFromConfig(fresh)
+	if err := store.BuildDB(cfg.DataDir(), infos, indicators); err != nil {
 		ui.Warnf("build-db: %v", err)
 	} else {
 		ui.Infof("Updated velocirepo.duckdb")

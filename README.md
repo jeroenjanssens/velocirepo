@@ -207,6 +207,7 @@ velocirepo fetch-youtube         Fetch YouTube metrics
 
 velocirepo query <sql>           Run a SQL query against the metrics data
 velocirepo schema                Show table schemas
+velocirepo show-indicators       Print built-in indicator definitions as TOML
 
 velocirepo export <dir>          Export data to Parquet or CSV files
 
@@ -704,6 +705,44 @@ velocirepo query "
 │ great-docs │ daily_issues_opened │ growth_rate │ 2026-06-22 │ 1.647 │
 │ Positron   │ daily_pr_comment    │ growth_rate │ 2026-06-22 │ 1.271 │
 └────────────┴─────────────────────┴─────────────┴────────────┴───────┘
+```
+
+### Custom indicators
+
+You can define your own indicators in `velocirepo.toml`. Each indicator is a named TOML table with a description and a SQL query:
+
+```toml
+[indicators.weekly_momentum]
+description = "7-day trailing sum"
+query = """
+  SELECT project, source, target, metric,
+    '{{indicator_name}}' AS indicator, date,
+    SUM(value) OVER w AS value,
+    tags
+  FROM metrics WHERE metric LIKE 'daily_%'
+  WINDOW w AS (PARTITION BY project, source, target, metric, tags ORDER BY date ROWS 6 PRECEDING)
+"""
+```
+
+The `{{indicator_name}}` placeholder is replaced with the TOML key at runtime (e.g., `weekly_momentum`).
+
+**Behavior:** Custom indicators are added alongside the built-in defaults. To disable the defaults, set:
+
+```toml
+[settings]
+include_default_indicators = false
+```
+
+To inspect the built-in defaults:
+
+```bash
+velocirepo show-indicators --defaults
+```
+
+Without `--defaults`, `show-indicators` prints all active indicators (defaults + custom). You can redirect to your config to use as a starting point:
+
+```bash
+velocirepo show-indicators --defaults >> velocirepo.toml
 ```
 
 ## Generating badges

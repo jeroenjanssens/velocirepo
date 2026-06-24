@@ -22,12 +22,13 @@ func exportCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			outDir := args[0]
 			written, err := store.Export(store.ExportOptions{
-				DataDir:  cfg.DataDir(),
-				OutDir:   outDir,
-				Format:   format,
-				Source:   source,
-				Project:  project,
-				Projects: projectInfos(),
+				DataDir:    cfg.DataDir(),
+				OutDir:     outDir,
+				Format:     format,
+				Source:     source,
+				Project:    project,
+				Projects:   projectInfos(),
+				Indicators: indicatorDefs(),
 			})
 			if err != nil {
 				return err

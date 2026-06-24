@@ -44,6 +44,27 @@ func (h *handlers) projectInfos() []store.ProjectInfo {
 	return infos
 }
 
+func (h *handlers) indicatorDefs() []store.IndicatorDef {
+	if len(h.cfg.Indicators) == 0 {
+		return store.DefaultIndicators
+	}
+
+	includeDefaults := h.cfg.Settings.IncludeDefaultIndicators == nil || *h.cfg.Settings.IncludeDefaultIndicators
+
+	var defs []store.IndicatorDef
+	if includeDefaults {
+		defs = append(defs, store.DefaultIndicators...)
+	}
+	for name, ind := range h.cfg.Indicators {
+		defs = append(defs, store.IndicatorDef{
+			Name:        name,
+			Description: ind.Description,
+			Query:       ind.Query,
+		})
+	}
+	return defs
+}
+
 func (h *handlers) cfgFilePath() string {
 	if h.cfg != nil && h.cfg.Dir != "" {
 		return filepath.Join(h.cfg.Dir, "velocirepo.toml")
@@ -83,7 +104,7 @@ func (h *handlers) handleQuery(ctx context.Context, req mcp.CallToolRequest) (*m
 		sql = fmt.Sprintf("SELECT * FROM (%s) LIMIT %d", sql, limit)
 	}
 
-	results, cols, err := store.QueryLive(h.cfg.DataDir(), h.projectInfos(), sql)
+	results, cols, err := store.QueryLive(h.cfg.DataDir(), h.projectInfos(), h.indicatorDefs(), sql)
 	if err != nil {
 		return errorResult(fmt.Sprintf("query error: %v", err)), nil
 	}
@@ -102,7 +123,7 @@ func (h *handlers) handleQuery(ctx context.Context, req mcp.CallToolRequest) (*m
 }
 
 func (h *handlers) handleSchema(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	cols, err := store.SchemaLive(h.cfg.DataDir(), h.projectInfos())
+	cols, err := store.SchemaLive(h.cfg.DataDir(), h.projectInfos(), h.indicatorDefs())
 	if err != nil {
 		return errorResult(fmt.Sprintf("schema error: %v", err)), nil
 	}
@@ -325,7 +346,7 @@ func (h *handlers) handleBadge(ctx context.Context, req mcp.CallToolRequest) (*m
 		}
 	}
 
-	results, _, err := store.QueryLive(h.cfg.DataDir(), h.projectInfos(), q)
+	results, _, err := store.QueryLive(h.cfg.DataDir(), h.projectInfos(), h.indicatorDefs(), q)
 	if err != nil {
 		return errorResult(fmt.Sprintf("badge query: %v", err)), nil
 	}
@@ -816,12 +837,13 @@ func (h *handlers) handleExport(ctx context.Context, req mcp.CallToolRequest) (*
 	project := req.GetString("project", "")
 
 	written, err := store.Export(store.ExportOptions{
-		DataDir:  h.cfg.DataDir(),
-		OutDir:   directory,
-		Format:   format,
-		Source:   source,
-		Project:  project,
-		Projects: h.projectInfos(),
+		DataDir:    h.cfg.DataDir(),
+		OutDir:     directory,
+		Format:     format,
+		Source:     source,
+		Project:    project,
+		Projects:   h.projectInfos(),
+		Indicators: h.indicatorDefs(),
 	})
 	if err != nil {
 		return errorResult(fmt.Sprintf("export: %v", err)), nil
@@ -1033,10 +1055,11 @@ func (h *handlers) handleRenderView(ctx context.Context, req mcp.CallToolRequest
 	if !noExport && v.Source == "parquet" {
 		dataDir := filepath.Join(viewsDir, "_data")
 		if _, err := store.Export(store.ExportOptions{
-			DataDir:  h.cfg.DataDir(),
-			OutDir:   dataDir,
-			Format:   "parquet",
-			Projects: h.projectInfos(),
+			DataDir:    h.cfg.DataDir(),
+			OutDir:     dataDir,
+			Format:     "parquet",
+			Projects:   h.projectInfos(),
+			Indicators: h.indicatorDefs(),
 		}); err != nil {
 			return errorResult(fmt.Sprintf("export data: %v", err)), nil
 		}
@@ -1078,10 +1101,11 @@ func (h *handlers) handleRenderViews(ctx context.Context, req mcp.CallToolReques
 	if !noExport && views.AnyUsesParquet(toRender) {
 		dataDir := filepath.Join(viewsDir, "_data")
 		if _, err := store.Export(store.ExportOptions{
-			DataDir:  h.cfg.DataDir(),
-			OutDir:   dataDir,
-			Format:   "parquet",
-			Projects: h.projectInfos(),
+			DataDir:    h.cfg.DataDir(),
+			OutDir:     dataDir,
+			Format:     "parquet",
+			Projects:   h.projectInfos(),
+			Indicators: h.indicatorDefs(),
 		}); err != nil {
 			return errorResult(fmt.Sprintf("export data: %v", err)), nil
 		}

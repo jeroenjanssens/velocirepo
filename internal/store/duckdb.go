@@ -28,8 +28,8 @@ type ProjectInfo struct {
 	Logo        string
 }
 
-func QueryLive(dataDir string, projects []ProjectInfo, query string) ([]map[string]interface{}, []string, error) {
-	db, err := openLiveDB(dataDir, projects)
+func QueryLive(dataDir string, projects []ProjectInfo, indicators []IndicatorDef, query string) ([]map[string]interface{}, []string, error) {
+	db, err := openLiveDB(dataDir, projects, indicators)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -38,8 +38,8 @@ func QueryLive(dataDir string, projects []ProjectInfo, query string) ([]map[stri
 	return queryRows(db, query)
 }
 
-func QueryLiveParquet(dataDir string, projects []ProjectInfo, query string, outPath string) error {
-	db, err := openLiveDB(dataDir, projects)
+func QueryLiveParquet(dataDir string, projects []ProjectInfo, indicators []IndicatorDef, query string, outPath string) error {
+	db, err := openLiveDB(dataDir, projects, indicators)
 	if err != nil {
 		return err
 	}
@@ -50,8 +50,8 @@ func QueryLiveParquet(dataDir string, projects []ProjectInfo, query string, outP
 	return err
 }
 
-func SchemaLive(dataDir string, projects []ProjectInfo) ([]SchemaColumn, error) {
-	db, err := openLiveDB(dataDir, projects)
+func SchemaLive(dataDir string, projects []ProjectInfo, indicators []IndicatorDef) ([]SchemaColumn, error) {
+	db, err := openLiveDB(dataDir, projects, indicators)
 	if err != nil {
 		return nil, err
 	}
@@ -74,7 +74,7 @@ func SchemaLive(dataDir string, projects []ProjectInfo) ([]SchemaColumn, error) 
 	return cols, rows.Err()
 }
 
-func openLiveDB(dataDir string, projects []ProjectInfo) (*sql.DB, error) {
+func openLiveDB(dataDir string, projects []ProjectInfo, indicators []IndicatorDef) (*sql.DB, error) {
 	db, err := sql.Open("duckdb", "")
 	if err != nil {
 		return nil, fmt.Errorf("open in-memory duckdb: %w", err)
@@ -106,7 +106,7 @@ func openLiveDB(dataDir string, projects []ProjectInfo) (*sql.DB, error) {
 		return nil, err
 	}
 
-	if err := createIndicatorsView(db); err != nil {
+	if err := createIndicatorsView(db, indicators); err != nil {
 		db.Close()
 		return nil, err
 	}
@@ -293,33 +293,55 @@ func createProjectsView(db *sql.DB, projects []ProjectInfo) error {
 	return nil
 }
 
-const indicatorsViewSQL = `CREATE OR REPLACE VIEW indicators AS
-WITH windowed AS (
-	SELECT
-		project, source, target, metric, date, tags,
-		SUM(value) OVER w AS sum_28d,
-		SUM(value) OVER w_prior AS sum_prior_28d,
-		REGR_SLOPE(value, EXTRACT(EPOCH FROM CAST(date AS TIMESTAMP)) / 86400) OVER w AS trend_28d
-	FROM metrics
-	WHERE metric LIKE 'daily_%'
+type IndicatorDef struct {
+	Name        string
+	Description string
+	Query       string
+}
+
+var DefaultIndicators = []IndicatorDef{
+	{
+		Name:        "growth_rate",
+		Description: "28-day growth rate (ratio of current vs prior 28-day sum)",
+		Query: `SELECT project, source, target, metric,
+	'{{indicator_name}}' AS indicator, date,
+	(sum_28d - sum_prior_28d) / NULLIF(sum_prior_28d, 0.0) AS value,
+	tags
+FROM (
+	SELECT *, SUM(value) OVER w AS sum_28d,
+		SUM(value) OVER w_prior AS sum_prior_28d
+	FROM metrics WHERE metric LIKE 'daily_%'
 	WINDOW
 		w AS (PARTITION BY project, source, target, metric, tags ORDER BY date ROWS BETWEEN 27 PRECEDING AND CURRENT ROW),
 		w_prior AS (PARTITION BY project, source, target, metric, tags ORDER BY date ROWS BETWEEN 55 PRECEDING AND 28 PRECEDING)
-)
-SELECT project, source, target, metric, 'growth_rate' AS indicator, date,
-	(sum_28d - sum_prior_28d) / NULLIF(sum_prior_28d, 0.0) AS value,
+) WHERE sum_prior_28d IS NOT NULL`,
+	},
+	{
+		Name:        "trend",
+		Description: "28-day linear trend (value per day via regression)",
+		Query: `SELECT project, source, target, metric,
+	'{{indicator_name}}' AS indicator, date,
+	REGR_SLOPE(value, EXTRACT(EPOCH FROM CAST(date AS TIMESTAMP)) / 86400) OVER w AS value,
 	tags
-FROM windowed
-WHERE sum_prior_28d IS NOT NULL
-UNION ALL
-SELECT project, source, target, metric, 'trend' AS indicator, date,
-	trend_28d AS value,
-	tags
-FROM windowed
-WHERE trend_28d IS NOT NULL`
+FROM metrics WHERE metric LIKE 'daily_%'
+WINDOW w AS (PARTITION BY project, source, target, metric, tags ORDER BY date ROWS BETWEEN 27 PRECEDING AND CURRENT ROW)`,
+	},
+}
 
-func createIndicatorsView(db *sql.DB) error {
-	if _, err := db.Exec(indicatorsViewSQL); err != nil {
+func createIndicatorsView(db *sql.DB, indicators []IndicatorDef) error {
+	if len(indicators) == 0 {
+		return createEmptyIndicatorsView(db)
+	}
+
+	var parts []string
+	for _, ind := range indicators {
+		q := strings.ReplaceAll(ind.Query, "{{indicator_name}}", escapeSQLString(ind.Name))
+		parts = append(parts, q)
+	}
+
+	query := "CREATE OR REPLACE VIEW indicators AS " + strings.Join(parts, "\nUNION ALL\n")
+
+	if _, err := db.Exec(query); err != nil {
 		slog.Debug("indicators view creation failed, using empty view", "error", err)
 		return createEmptyIndicatorsView(db)
 	}

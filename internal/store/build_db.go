@@ -11,7 +11,7 @@ import (
 	_ "github.com/marcboeker/go-duckdb"
 )
 
-func BuildDB(dataDir string, projects []ProjectInfo) error {
+func BuildDB(dataDir string, projects []ProjectInfo, indicators []IndicatorDef) error {
 	absDir, err := filepath.Abs(dataDir)
 	if err != nil {
 		return fmt.Errorf("resolve data dir: %w", err)
@@ -40,7 +40,7 @@ func BuildDB(dataDir string, projects []ProjectInfo) error {
 	if err := createProjectsTable(db, projects); err != nil {
 		return err
 	}
-	if err := createIndicatorsView(db); err != nil {
+	if err := createIndicatorsView(db, indicators); err != nil {
 		return err
 	}
 

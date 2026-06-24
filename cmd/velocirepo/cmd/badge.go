@@ -110,7 +110,7 @@ For custom badges, provide --query and --label.`,
 }
 
 func queryBadgeValue(query string) (string, error) {
-	results, _, err := store.QueryLive(cfg.DataDir(), projectInfos(), query)
+	results, _, err := store.QueryLive(cfg.DataDir(), projectInfos(), indicatorDefs(), query)
 	if err != nil {
 		return "", fmt.Errorf("badge query: %w", err)
 	}

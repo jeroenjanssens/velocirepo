@@ -87,7 +87,7 @@ func TestYouTubeIndexDuckDBView(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	results, _, err := QueryLive(dataDir, nil, "SELECT video_id, title, channel, duration FROM youtube_index")
+	results, _, err := QueryLive(dataDir, nil, nil, "SELECT video_id, title, channel, duration FROM youtube_index")
 	if err != nil {
 		t.Fatal(err)
 	}

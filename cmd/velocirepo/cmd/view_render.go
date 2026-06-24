@@ -57,10 +57,11 @@ func renderViewCmd() *cobra.Command {
 func exportViewsData(viewsDir string) error {
 	dataDir := viewsDir + "/_data"
 	_, err := store.Export(store.ExportOptions{
-		DataDir:  cfg.DataDir(),
-		OutDir:   dataDir,
-		Format:   "parquet",
-		Projects: projectInfos(),
+		DataDir:    cfg.DataDir(),
+		OutDir:     dataDir,
+		Format:     "parquet",
+		Projects:   projectInfos(),
+		Indicators: indicatorDefs(),
 	})
 	return err
 }

@@ -80,6 +80,7 @@ func newRootCmd() *cobra.Command {
 	rootCmd.AddCommand(queryCmd())
 	rootCmd.AddCommand(schemaCmd())
 	rootCmd.AddCommand(exportCmd())
+	rootCmd.AddCommand(showIndicatorsCmd())
 
 	// Badges
 	rootCmd.AddCommand(badgeCmd())

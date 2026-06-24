@@ -28,7 +28,7 @@ func TestQueryLive(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	results, _, err := QueryLive(dataDir, nil, "SELECT COUNT(*) AS cnt FROM metrics")
+	results, _, err := QueryLive(dataDir, nil, nil, "SELECT COUNT(*) AS cnt FROM metrics")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -43,7 +43,7 @@ func TestQueryLive(t *testing.T) {
 		t.Fatalf("expected 4 rows, got %d", cnt)
 	}
 
-	results, _, err = QueryLive(dataDir, nil, "SELECT DISTINCT source FROM metrics ORDER BY source")
+	results, _, err = QueryLive(dataDir, nil, nil, "SELECT DISTINCT source FROM metrics ORDER BY source")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -57,7 +57,7 @@ func TestQueryLive(t *testing.T) {
 		t.Errorf("expected second source=pypi, got %v", results[1]["source"])
 	}
 
-	results, _, err = QueryLive(dataDir, nil, "SELECT metric, value FROM metrics WHERE source = 'pypi'")
+	results, _, err = QueryLive(dataDir, nil, nil, "SELECT metric, value FROM metrics WHERE source = 'pypi'")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -86,7 +86,7 @@ func TestQueryLiveAggregation(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	results, _, err := QueryLive(dataDir, nil, "SELECT project, SUM(value) AS total FROM metrics WHERE metric = 'stars' GROUP BY project ORDER BY project")
+	results, _, err := QueryLive(dataDir, nil, nil, "SELECT project, SUM(value) AS total FROM metrics WHERE metric = 'stars' GROUP BY project ORDER BY project")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -103,7 +103,7 @@ func TestQueryLiveEmptyDir(t *testing.T) {
 	dataDir := filepath.Join(dir, "data")
 	os.MkdirAll(dataDir, 0755)
 
-	results, _, err := QueryLive(dataDir, nil, "SELECT COUNT(*) AS cnt FROM metrics")
+	results, _, err := QueryLive(dataDir, nil, nil, "SELECT COUNT(*) AS cnt FROM metrics")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -118,7 +118,7 @@ func TestQueryLiveInvalidSQL(t *testing.T) {
 	dataDir := filepath.Join(dir, "data")
 	os.MkdirAll(dataDir, 0755)
 
-	_, _, err := QueryLive(dataDir, nil, "SELECT * FROM nonexistent_table")
+	_, _, err := QueryLive(dataDir, nil, nil, "SELECT * FROM nonexistent_table")
 	if err == nil {
 		t.Fatal("expected error for invalid query")
 	}
@@ -142,7 +142,7 @@ func TestSchemaLive(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cols, err := SchemaLive(dataDir, nil)
+	cols, err := SchemaLive(dataDir, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -205,7 +205,7 @@ func TestQueryLiveGitHubEvents(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	results, _, err := QueryLive(dataDir, nil, "SELECT COUNT(*) AS cnt FROM github_events")
+	results, _, err := QueryLive(dataDir, nil, nil, "SELECT COUNT(*) AS cnt FROM github_events")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -214,7 +214,7 @@ func TestQueryLiveGitHubEvents(t *testing.T) {
 		t.Fatalf("expected 3 events, got %d", cnt)
 	}
 
-	results, _, err = QueryLive(dataDir, nil, "SELECT event_type, \"user\" FROM github_events WHERE event_type = 'star'")
+	results, _, err = QueryLive(dataDir, nil, nil, "SELECT event_type, \"user\" FROM github_events WHERE event_type = 'star'")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -244,7 +244,7 @@ func TestMetricsViewIncludesGitHubAggregated(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	results, _, err := QueryLive(dataDir, nil, "SELECT COUNT(*) AS cnt FROM metrics")
+	results, _, err := QueryLive(dataDir, nil, nil, "SELECT COUNT(*) AS cnt FROM metrics")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -267,7 +267,7 @@ func TestQueryLiveGitHubView(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	results, _, err := QueryLive(dataDir, nil,
+	results, _, err := QueryLive(dataDir, nil, nil,
 		"SELECT metric, value FROM metrics WHERE project = 'my-proj' AND source = 'github' AND date = '2025-06-01' ORDER BY metric")
 	if err != nil {
 		t.Fatal(err)
