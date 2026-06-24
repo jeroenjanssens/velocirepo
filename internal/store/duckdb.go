@@ -296,23 +296,25 @@ func createProjectsView(db *sql.DB, projects []ProjectInfo) error {
 const indicatorsViewSQL = `CREATE OR REPLACE VIEW indicators AS
 WITH windowed AS (
 	SELECT
-		project, source, metric, date,
+		project, source, target, metric, date, tags,
 		SUM(value) OVER w AS sum_28d,
 		SUM(value) OVER w_prior AS sum_prior_28d,
 		REGR_SLOPE(value, EXTRACT(EPOCH FROM CAST(date AS TIMESTAMP)) / 86400) OVER w AS trend_28d
 	FROM metrics
 	WHERE metric LIKE 'daily_%'
 	WINDOW
-		w AS (PARTITION BY project, source, metric ORDER BY date ROWS BETWEEN 27 PRECEDING AND CURRENT ROW),
-		w_prior AS (PARTITION BY project, source, metric ORDER BY date ROWS BETWEEN 55 PRECEDING AND 28 PRECEDING)
+		w AS (PARTITION BY project, source, target, metric ORDER BY date ROWS BETWEEN 27 PRECEDING AND CURRENT ROW),
+		w_prior AS (PARTITION BY project, source, target, metric ORDER BY date ROWS BETWEEN 55 PRECEDING AND 28 PRECEDING)
 )
-SELECT project, source, metric, 'growth_rate' AS indicator, date,
-	(sum_28d - sum_prior_28d) / NULLIF(sum_prior_28d, 0.0) AS value
+SELECT project, source, target, metric, 'growth_rate' AS indicator, date,
+	(sum_28d - sum_prior_28d) / NULLIF(sum_prior_28d, 0.0) AS value,
+	tags
 FROM windowed
 WHERE sum_prior_28d IS NOT NULL
 UNION ALL
-SELECT project, source, metric, 'trend' AS indicator, date,
-	trend_28d AS value
+SELECT project, source, target, metric, 'trend' AS indicator, date,
+	trend_28d AS value,
+	tags
 FROM windowed
 WHERE trend_28d IS NOT NULL`
 
@@ -325,8 +327,8 @@ func createIndicatorsView(db *sql.DB) error {
 }
 
 func createEmptyIndicatorsView(db *sql.DB) error {
-	_, err := db.Exec(`CREATE VIEW indicators (project, source, metric, indicator, date, value) AS
-		SELECT NULL::VARCHAR, NULL::VARCHAR, NULL::VARCHAR, NULL::VARCHAR, NULL::DATE, NULL::DOUBLE
+	_, err := db.Exec(`CREATE VIEW indicators (project, source, target, metric, indicator, date, value, tags) AS
+		SELECT NULL::VARCHAR, NULL::VARCHAR, NULL::VARCHAR, NULL::VARCHAR, NULL::VARCHAR, NULL::DATE, NULL::DOUBLE, NULL::JSON
 		WHERE false`)
 	if err != nil {
 		return fmt.Errorf("create empty indicators view: %w", err)

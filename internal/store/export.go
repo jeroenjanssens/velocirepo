@@ -95,7 +95,7 @@ func buildExportQuery(table string, opts ExportOptions) string {
 			conditions = append(conditions, fmt.Sprintf("%s = '%s'", col, escapeSQLString(opts.Project)))
 		}
 	}
-	if opts.Source != "" && table == "metrics" {
+	if opts.Source != "" && (table == "metrics" || table == "indicators") {
 		conditions = append(conditions, fmt.Sprintf("source = '%s'", escapeSQLString(opts.Source)))
 	}
 

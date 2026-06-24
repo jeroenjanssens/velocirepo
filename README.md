@@ -486,10 +486,12 @@ velocirepo schema
 │ github_events │ user         │ VARCHAR   │
 │ indicators    │ project      │ VARCHAR   │
 │ indicators    │ source       │ VARCHAR   │
+│ indicators    │ target       │ VARCHAR   │
 │ indicators    │ metric       │ VARCHAR   │
 │ indicators    │ indicator    │ VARCHAR   │
 │ indicators    │ date         │ DATE      │
 │ indicators    │ value        │ DOUBLE    │
+│ indicators    │ tags         │ JSON      │
 │ metrics       │ project      │ VARCHAR   │
 │ metrics       │ source       │ VARCHAR   │
 │ metrics       │ target       │ VARCHAR   │
@@ -609,10 +611,12 @@ Only metrics with a `daily_` prefix are included (these represent per-day deltas
 |--------|------|-------------|
 | `project` | VARCHAR | Project ID |
 | `source` | VARCHAR | Source name (github, pypi, etc.) |
+| `target` | VARCHAR | Specific package, repo, or site being tracked |
 | `metric` | VARCHAR | Underlying metric (e.g., `daily_stars`) |
 | `indicator` | VARCHAR | Indicator name (`growth_rate` or `trend`) |
 | `date` | DATE | Date of computation |
 | `value` | DOUBLE | Computed value |
+| `tags` | JSON | Optional metadata from the underlying metric |
 
 ### Growth rate
 
