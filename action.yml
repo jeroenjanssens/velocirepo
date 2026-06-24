@@ -1,7 +1,7 @@
 name: velocirepo
 description: Track your project's pulse across package registries, GitHub, and the web
 branding:
-  icon: hexagon
+  icon: bar-chart
   color: green
 
 inputs:
