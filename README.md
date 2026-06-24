@@ -13,6 +13,7 @@ Track your project's pulse across package registries, GitHub, and the web.
 - [Querying the data](#querying-the-data)
 - [Exporting data](#exporting-data)
 - [Using the data with other tools](#using-the-data-with-other-tools)
+- [Indicators](#indicators)
 - [Generating badges](#generating-badges)
 - [Views](#views)
 - [MCP server](#mcp-server)
@@ -445,23 +446,6 @@ velocirepo query "
 └──────────┴─────────┴─────────────────┴────────────┴─────────┘
 ```
 
-### Growth indicators
-
-The `indicators` view computes derived signals from daily metrics using 28-day trailing windows:
-
-- **growth_rate**: ratio of the current 28-day sum vs the prior 28-day sum (0.15 = 15% growth)
-- **trend**: linear regression slope over 28 days (units: value per day)
-
-```bash
-velocirepo query "
-  SELECT project, metric, indicator, date, ROUND(value, 3) AS value
-  FROM indicators
-  WHERE project = 'quarto' AND metric = 'daily_stars'
-  ORDER BY date DESC
-  LIMIT 5
-"
-```
-
 ### Output formats
 
 By default, results are printed as a table. Use `--json`, `--csv`, or `--parquet` for machine-readable output:
@@ -560,6 +544,74 @@ import polars as pl
 
 metrics = pl.read_parquet("out/metrics.parquet")
 stars = metrics.filter(pl.col("metric") == "daily_stars").group_by("project").agg(pl.col("value").sum())
+```
+
+## Indicators
+
+The `indicators` view computes derived signals from your daily metrics, giving you a sense of how fast a project is growing and in which direction it's heading. Indicators are computed using 28-day trailing windows and are available wherever you query data — via `velocirepo query`, the persistent `.duckdb` file, and Parquet exports.
+
+Only metrics with a `daily_` prefix are included (these represent per-day deltas like `daily_stars`, `daily_downloads`, `daily_pageviews`). Cumulative `total_*` metrics are excluded since growth rates on snapshots aren't meaningful.
+
+### Schema
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `project` | VARCHAR | Project ID |
+| `source` | VARCHAR | Source name (github, pypi, etc.) |
+| `metric` | VARCHAR | Underlying metric (e.g., `daily_stars`) |
+| `indicator` | VARCHAR | Indicator name (`growth_rate` or `trend`) |
+| `date` | DATE | Date of computation |
+| `value` | DOUBLE | Computed value |
+
+### Growth rate
+
+Measures how much activity increased or decreased compared to the prior period. Computed as:
+
+```
+growth_rate = (sum_last_28d - sum_prior_28d) / sum_prior_28d
+```
+
+A value of `0.15` means 15% more activity in the last 28 days compared to the 28 days before that. Negative values indicate declining activity.
+
+```bash
+velocirepo query "
+  SELECT project, metric, date, ROUND(value, 3) AS growth_rate
+  FROM indicators
+  WHERE indicator = 'growth_rate'
+    AND metric = 'daily_stars'
+  ORDER BY date DESC
+  LIMIT 5
+"
+```
+
+### Trend
+
+Measures the daily rate of change via linear regression over the trailing 28 days. The value represents units per day — for example, a trend of `3.2` on `daily_stars` means the project is gaining roughly 3.2 more stars per day than it was at the start of the window.
+
+```bash
+velocirepo query "
+  SELECT project, metric, date, ROUND(value, 2) AS trend_per_day
+  FROM indicators
+  WHERE indicator = 'trend'
+    AND metric = 'daily_downloads'
+    AND project = 'plotnine'
+  ORDER BY date DESC
+  LIMIT 5
+"
+```
+
+### Querying indicators
+
+You can join indicators with project metadata for richer views:
+
+```bash
+velocirepo query "
+  SELECT p.name, i.metric, i.indicator, i.date, ROUND(i.value, 3) AS value
+  FROM indicators i
+  JOIN projects p ON i.project = p.id
+  WHERE i.date = (SELECT MAX(date) FROM indicators)
+  ORDER BY i.indicator, i.value DESC
+"
 ```
 
 ## Generating badges
