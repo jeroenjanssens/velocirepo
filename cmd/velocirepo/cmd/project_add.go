@@ -79,6 +79,7 @@ func addProjectCmd() *cobra.Command {
 
 			sources := listSources(proj)
 			fmt.Fprintf(os.Stdout, "Added project '%s' with sources: %s\n", id, strings.Join(sources, ", "))
+			rebuildDB()
 			return nil
 		},
 	}
@@ -224,6 +225,7 @@ func projectAddInteractive(cfgPath string, id string) error {
 	}
 
 	fmt.Fprintf(os.Stdout, "\nAdded project '%s' with sources: %s\n", id, strings.Join(sources, ", "))
+	rebuildDB()
 	return nil
 }
 

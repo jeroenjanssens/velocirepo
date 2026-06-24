@@ -62,6 +62,7 @@ func removeProjectCmd() *cobra.Command {
 				fmt.Fprintf(os.Stdout, "Removed project '%s'\n", id)
 			}
 
+			rebuildDB()
 			return nil
 		},
 	}

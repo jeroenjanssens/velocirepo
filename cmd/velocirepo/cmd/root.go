@@ -110,6 +110,7 @@ func newRootCmd() *cobra.Command {
 
 	// Data
 	rootCmd.AddCommand(migrateCmd())
+	rootCmd.AddCommand(buildDBCmd())
 
 	// MCP
 	rootCmd.AddCommand(mcpCmd())

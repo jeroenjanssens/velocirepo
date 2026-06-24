@@ -91,6 +91,7 @@ func updateProjectCmd() *cobra.Command {
 				changes = append(changes, fmt.Sprintf("-%s", u))
 			}
 			fmt.Fprintf(os.Stdout, "Updated project '%s': %s\n", id, strings.Join(changes, ", "))
+			rebuildDB()
 			return nil
 		},
 	}
@@ -196,5 +197,6 @@ func projectUpdateInteractive(cfgPath string, id string, proj config.Project) er
 	}
 
 	fmt.Fprintf(os.Stdout, "\nUpdated project '%s'\n", id)
+	rebuildDB()
 	return nil
 }

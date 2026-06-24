@@ -176,6 +176,8 @@ func fetchAllCmd() *cobra.Command {
 				}
 			}
 
+			rebuildDB()
+
 			if n := fetchErrors.Load(); n > 0 {
 				return fmt.Errorf("%d source(s) failed to fetch", n)
 			}

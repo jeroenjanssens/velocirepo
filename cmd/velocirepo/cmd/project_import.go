@@ -135,6 +135,7 @@ func importProjectsCmd() *cobra.Command {
 			}
 
 			fmt.Fprintf(os.Stdout, "Added %d projects.\n", len(toAdd))
+			rebuildDB()
 			return nil
 		},
 	}

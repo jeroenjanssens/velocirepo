@@ -145,6 +145,8 @@ func runFetchMulti(cmd *cobra.Command, sourceName string, createSources func(pro
 		}
 	}
 
+	rebuildDB()
+
 	return nil
 }
 

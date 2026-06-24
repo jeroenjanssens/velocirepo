@@ -62,6 +62,7 @@ func renameProjectCmd() *cobra.Command {
 				fmt.Fprintf(os.Stdout, "Renamed project '%s' → '%s'\n", oldID, newID)
 			}
 
+			rebuildDB()
 			return nil
 		},
 	}

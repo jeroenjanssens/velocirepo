@@ -8,3 +8,5 @@ data/
 devrel-io/
 plan.md
 research.md
+*.duckdb
+*.duckdb.wal

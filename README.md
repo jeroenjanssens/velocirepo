@@ -12,6 +12,7 @@ Track your project's pulse across package registries, GitHub, and the web.
 - [Migrating data](#migrating-data)
 - [Querying the data](#querying-the-data)
 - [Exporting data](#exporting-data)
+- [Using the data with other tools](#using-the-data-with-other-tools)
 - [Generating badges](#generating-badges)
 - [Views](#views)
 - [MCP server](#mcp-server)
@@ -232,6 +233,7 @@ velocirepo render-view <name>    Render a single view
 velocirepo render-views          Render all or filtered views
 velocirepo serve-view <name>     Start a dev server for a view
 
+velocirepo build-db              Build the DuckDB database file for external tools
 velocirepo migrate               Migrate data to the latest schema version
 
 velocirepo install-ci            Generate a GitHub Actions workflow
@@ -481,6 +483,64 @@ Use `--format csv` for CSV output, and `--source` or `--project` to filter:
 velocirepo export ./out/ --format csv
 velocirepo export ./out/ --source github
 velocirepo export ./out/ --project quarto
+```
+
+## Using the data with other tools
+
+velocirepo provides two ways to access your metrics data from external tools:
+
+1. **DuckDB file** — a persistent `velocirepo/data/velocirepo.duckdb` file with views over the raw JSONL data and a `projects` table. Open it directly from any tool that supports DuckDB.
+2. **Parquet export** — use `velocirepo export ./out/` to write Parquet (or CSV) files that any data tool can read.
+
+The DuckDB file is rebuilt automatically after every `fetch` and project mutation command. You can also rebuild it manually:
+
+```bash
+velocirepo build-db
+```
+
+> **Note:** The DuckDB file uses relative paths, so external tools must open it from the data directory (or set DuckDB's working directory to it).
+
+### Tool compatibility
+
+| Tool / Package | DuckDB file | Parquet |
+|---|---|---|
+| DuckDB CLI | Yes | Yes |
+| Python `duckdb` | Yes | Yes |
+| Polars (Python/Rust) | No | Yes |
+| pandas | No | Yes |
+| Marimo | Yes (via `duckdb`) | Yes |
+| R `duckdb` / `DBI` | Yes | Yes |
+| R `arrow` | No | Yes |
+| Observable / Evidence | Yes | Yes |
+| Excel / Google Sheets | No | Yes (via CSV) |
+
+### Examples
+
+**DuckDB CLI:**
+
+```bash
+cd velocirepo/data
+duckdb velocirepo.duckdb "SELECT project, SUM(value) AS stars FROM metrics WHERE metric = 'daily_stars' GROUP BY project ORDER BY stars DESC"
+```
+
+**Python (`duckdb`):**
+
+```python
+import duckdb
+import os
+
+os.chdir("velocirepo/data")
+con = duckdb.connect("velocirepo.duckdb", read_only=True)
+df = con.sql("SELECT * FROM metrics WHERE source = 'pypi' ORDER BY date DESC LIMIT 10").df()
+```
+
+**Polars (from Parquet export):**
+
+```python
+import polars as pl
+
+metrics = pl.read_parquet("out/metrics.parquet")
+stars = metrics.filter(pl.col("metric") == "daily_stars").group_by("project").agg(pl.col("value").sum())
 ```
 
 ## Generating badges
