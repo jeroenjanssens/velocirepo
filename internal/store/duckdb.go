@@ -303,8 +303,8 @@ WITH windowed AS (
 	FROM metrics
 	WHERE metric LIKE 'daily_%'
 	WINDOW
-		w AS (PARTITION BY project, source, target, metric ORDER BY date ROWS BETWEEN 27 PRECEDING AND CURRENT ROW),
-		w_prior AS (PARTITION BY project, source, target, metric ORDER BY date ROWS BETWEEN 55 PRECEDING AND 28 PRECEDING)
+		w AS (PARTITION BY project, source, target, metric, tags ORDER BY date ROWS BETWEEN 27 PRECEDING AND CURRENT ROW),
+		w_prior AS (PARTITION BY project, source, target, metric, tags ORDER BY date ROWS BETWEEN 55 PRECEDING AND 28 PRECEDING)
 )
 SELECT project, source, target, metric, 'growth_rate' AS indicator, date,
 	(sum_28d - sum_prior_28d) / NULLIF(sum_prior_28d, 0.0) AS value,
