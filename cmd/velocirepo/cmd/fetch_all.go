@@ -82,7 +82,7 @@ func fetchAllCmd() *cobra.Command {
 
 			ui.Infof("Starting fetch for %d job(s), end date: %s", len(jobs), endDate.Format("2006-01-02"))
 
-			var fetchErrors atomic.Int32
+			var fetchErrors, fetchSkips, fetchSuccesses atomic.Int32
 			g, ctx := errgroup.WithContext(cmd.Context())
 			g.SetLimit(4)
 
@@ -98,6 +98,7 @@ func fetchAllCmd() *cobra.Command {
 
 					if !startDate.Before(endDate.AddDate(0, 0, 1)) {
 						ui.FetchSkip(job.sourceName, job.projectID, "already up to date")
+						fetchSkips.Add(1)
 						return nil
 					}
 
@@ -119,6 +120,7 @@ func fetchAllCmd() *cobra.Command {
 
 						if len(events) == 0 {
 							ui.FetchSkip(job.sourceName, job.projectID, "no new events")
+							fetchSkips.Add(1)
 							return nil
 						}
 
@@ -127,6 +129,7 @@ func fetchAllCmd() *cobra.Command {
 							fetchErrors.Add(1)
 						} else {
 							ui.FetchDone(job.sourceName, job.projectID, len(events), time.Since(started))
+							fetchSuccesses.Add(1)
 						}
 					} else {
 						records, err := job.src.Fetch(ctx, source.FetchOptions{
@@ -142,6 +145,7 @@ func fetchAllCmd() *cobra.Command {
 
 						if len(records) == 0 {
 							ui.FetchSkip(job.sourceName, job.projectID, "no new records")
+							fetchSkips.Add(1)
 							return nil
 						}
 
@@ -157,6 +161,7 @@ func fetchAllCmd() *cobra.Command {
 								}
 							}
 							ui.FetchDone(job.sourceName, job.projectID, len(records), time.Since(started))
+							fetchSuccesses.Add(1)
 						}
 					}
 
@@ -178,9 +183,7 @@ func fetchAllCmd() *cobra.Command {
 
 			rebuildDB()
 
-			if n := fetchErrors.Load(); n > 0 {
-				return fmt.Errorf("%d source(s) failed to fetch", n)
-			}
+			ui.Infof("Done: %d succeeded, %d skipped, %d failed", fetchSuccesses.Load(), fetchSkips.Load(), fetchErrors.Load())
 			return nil
 		},
 	}
