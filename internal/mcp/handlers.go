@@ -1036,13 +1036,9 @@ func (h *handlers) handleRenderView(ctx context.Context, req mcp.CallToolRequest
 		return errorResult(fmt.Sprintf("discover views: %v", err)), nil
 	}
 
-	v, found := views.FindView(allViews, name)
-	if !found {
-		return errorResult(fmt.Sprintf("view %q not found", name)), nil
-	}
-
-	if _, err := views.CheckRenderer(v.Framework, v.Venv); err != nil {
-		return errorResult(err.Error()), nil
+	toRender := views.FindViews(allViews, name)
+	if len(toRender) == 0 {
+		return errorResult(fmt.Sprintf("no views matching %q", name)), nil
 	}
 
 	noExport := false
@@ -1052,7 +1048,7 @@ func (h *handlers) handleRenderView(ctx context.Context, req mcp.CallToolRequest
 		}
 	}
 
-	if !noExport && v.Source == "parquet" {
+	if !noExport && views.AnyUsesParquet(toRender) {
 		dataDir := filepath.Join(viewsDir, "_data")
 		if _, err := store.Export(store.ExportOptions{
 			DataDir:    h.cfg.DataDir(),
@@ -1065,11 +1061,18 @@ func (h *handlers) handleRenderView(ctx context.Context, req mcp.CallToolRequest
 		}
 	}
 
-	if err := views.Render(v); err != nil {
-		return errorResult(fmt.Sprintf("render: %v", err)), nil
+	var rendered []string
+	for _, v := range toRender {
+		if _, err := views.CheckRenderer(v.Framework, v.Venv); err != nil {
+			continue
+		}
+		if err := views.Render(v); err != nil {
+			return errorResult(fmt.Sprintf("render %s: %v", v.Name, err)), nil
+		}
+		rendered = append(rendered, fmt.Sprintf("'%s' → %s", v.Name, v.Output))
 	}
 
-	return textResult(fmt.Sprintf("Rendered '%s' → %s", v.Name, v.Output)), nil
+	return textResult(fmt.Sprintf("Rendered %d view(s):\n%s", len(rendered), strings.Join(rendered, "\n"))), nil
 }
 
 func (h *handlers) handleRenderViews(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {

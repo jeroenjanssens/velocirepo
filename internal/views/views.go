@@ -149,6 +149,22 @@ func FindView(views []View, name string) (View, bool) {
 	return View{}, false
 }
 
+func FindViews(views []View, name string) []View {
+	for _, v := range views {
+		if v.Name == name {
+			return []View{v}
+		}
+	}
+	prefix := strings.TrimSuffix(name, "/") + "/"
+	var matched []View
+	for _, v := range views {
+		if strings.HasPrefix(v.Name, prefix) {
+			matched = append(matched, v)
+		}
+	}
+	return matched
+}
+
 func AnyUsesParquet(views []View) bool {
 	for _, v := range views {
 		if v.Source == "parquet" {

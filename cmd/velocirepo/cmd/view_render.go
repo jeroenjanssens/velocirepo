@@ -12,8 +12,8 @@ func renderViewCmd() *cobra.Command {
 	var noExport bool
 
 	cmd := &cobra.Command{
-		Use:     "render-view <name>",
-		Short:   "Render a single view",
+		Use:     "render-view <name|directory>",
+		Short:   "Render a view or all views in a directory",
 		Args:    cobra.ExactArgs(1),
 		GroupID: "view",
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -25,26 +25,29 @@ func renderViewCmd() *cobra.Command {
 				return err
 			}
 
-			v, found := views.FindView(allViews, name)
-			if !found {
-				return fmt.Errorf("view %q not found in %s", name, viewsDir)
+			toRender := views.FindViews(allViews, name)
+			if len(toRender) == 0 {
+				return fmt.Errorf("no views matching %q in %s", name, viewsDir)
 			}
 
-			if _, err := views.CheckRenderer(v.Framework, v.Venv); err != nil {
-				return err
-			}
-
-			if !noExport && v.Source == "parquet" {
+			if !noExport && views.AnyUsesParquet(toRender) {
 				if err := exportViewsData(viewsDir); err != nil {
 					return fmt.Errorf("export data: %w", err)
 				}
 			}
 
-			if err := views.Render(v); err != nil {
-				return err
-			}
+			for _, v := range toRender {
+				if _, err := views.CheckRenderer(v.Framework, v.Venv); err != nil {
+					fmt.Printf("Skipping '%s': %v\n", v.Name, err)
+					continue
+				}
 
-			fmt.Printf("Rendered '%s' → %s\n", v.Name, v.Output)
+				if err := views.Render(v); err != nil {
+					return err
+				}
+
+				fmt.Printf("Rendered '%s' → %s\n", v.Name, v.Output)
+			}
 			return nil
 		},
 	}

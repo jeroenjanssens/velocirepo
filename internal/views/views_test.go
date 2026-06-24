@@ -143,6 +143,39 @@ func TestFindView(t *testing.T) {
 	}
 }
 
+func TestFindViews(t *testing.T) {
+	allViews := []View{
+		{Name: "overview"},
+		{Name: "weekly/stars"},
+		{Name: "weekly/forks"},
+		{Name: "monthly/summary"},
+	}
+
+	// Exact match returns single view
+	got := FindViews(allViews, "overview")
+	if len(got) != 1 || got[0].Name != "overview" {
+		t.Errorf("exact match: got %v, want [overview]", got)
+	}
+
+	// Directory match returns all views in that directory
+	got = FindViews(allViews, "weekly")
+	if len(got) != 2 {
+		t.Fatalf("directory match: got %d views, want 2", len(got))
+	}
+
+	// Trailing slash also works
+	got = FindViews(allViews, "weekly/")
+	if len(got) != 2 {
+		t.Fatalf("directory match with slash: got %d views, want 2", len(got))
+	}
+
+	// No match returns nil
+	got = FindViews(allViews, "nonexistent")
+	if len(got) != 0 {
+		t.Errorf("no match: got %v, want []", got)
+	}
+}
+
 func TestAnyUsesParquet(t *testing.T) {
 	if AnyUsesParquet([]View{{Source: "jsonl"}}) {
 		t.Error("expected false for all-jsonl views")
