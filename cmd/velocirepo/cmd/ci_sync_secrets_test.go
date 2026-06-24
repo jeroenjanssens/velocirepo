@@ -94,6 +94,33 @@ dir = "data"
 	}
 }
 
+func TestCiSyncSecretsDryRunRenamesGitHub(t *testing.T) {
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "velocirepo.toml")
+	os.WriteFile(cfgPath, []byte(`[data]
+dir = "data"
+`), 0644)
+
+	envPath := filepath.Join(dir, ".env")
+	os.WriteFile(envPath, []byte("GITHUB_TOKEN=ghp_secret\nPLAUSIBLE_TOKEN=abc\n"), 0644)
+
+	_, buf, err := execCmd(cfgPath, "sync-secrets", "--dry-run", "--env-file", envPath, "--repo", "owner/repo")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "GH_TOKEN") {
+		t.Errorf("expected GITHUB_TOKEN renamed to GH_TOKEN: %s", output)
+	}
+	if strings.Contains(output, "GITHUB_TOKEN") {
+		t.Errorf("GITHUB_TOKEN should have been renamed: %s", output)
+	}
+	if !strings.Contains(output, "Would sync 2 secret") {
+		t.Errorf("unexpected output: %s", output)
+	}
+}
+
 func TestCiSyncSecretsIntegration(t *testing.T) {
 	var privateKey [32]byte
 	rand.Read(privateKey[:])
@@ -139,7 +166,7 @@ dir = "data"
 
 	t.Setenv("GITHUB_TOKEN", "fake-token")
 
-	_, buf, err := execCmd(cfgPath, "sync-secrets", "--env-file", envPath, "--repo", "owner/repo")
+	_, buf, err := execCmd(cfgPath, "sync-secrets", "--force", "--env-file", envPath, "--repo", "owner/repo")
 	if err != nil {
 		t.Fatal(err)
 	}

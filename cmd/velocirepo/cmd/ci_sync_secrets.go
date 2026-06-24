@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bufio"
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
@@ -19,6 +20,7 @@ import (
 func syncSecretsCmd() *cobra.Command {
 	var repo string
 	var dryRun bool
+	var force bool
 	var envFile string
 
 	cmd := &cobra.Command{
@@ -52,15 +54,17 @@ func syncSecretsCmd() *cobra.Command {
 				return nil
 			}
 
-			for name := range secrets {
+			// Rename GITHUB_* to GH_* (GITHUB_ prefix is reserved on GitHub Actions)
+			for name, value := range secrets {
 				if strings.HasPrefix(name, "GITHUB_") {
-					fmt.Fprintf(cmd.OutOrStdout(), "  %s (skipped: GITHUB_ prefix is reserved)\n", name)
+					ghName := "GH_" + strings.TrimPrefix(name, "GITHUB_")
+					secrets[ghName] = value
 					delete(secrets, name)
 				}
 			}
 
 			if len(secrets) == 0 {
-				fmt.Fprintln(cmd.OutOrStdout(), "No secrets to sync after filtering reserved names")
+				fmt.Fprintln(cmd.OutOrStdout(), "No secrets to sync")
 				return nil
 			}
 
@@ -70,6 +74,10 @@ func syncSecretsCmd() *cobra.Command {
 					fmt.Fprintf(cmd.OutOrStdout(), "  %s\n", name)
 				}
 				return nil
+			}
+
+			if !force && !isInteractive() {
+				return fmt.Errorf("cannot prompt for confirmation (use --force to skip prompts)")
 			}
 
 			token := os.Getenv("GITHUB_TOKEN")
@@ -86,8 +94,24 @@ func syncSecretsCmd() *cobra.Command {
 				return fmt.Errorf("get repository public key: %w", err)
 			}
 
+			var reader *bufio.Reader
+			if !force {
+				reader = bufio.NewReader(os.Stdin)
+			}
+
 			synced := 0
 			for name, value := range secrets {
+				if !force {
+					ok, err := confirm(cmd.OutOrStdout(), reader, fmt.Sprintf("Sync %s to %s?", name, repo))
+					if err != nil {
+						return err
+					}
+					if !ok {
+						fmt.Fprintf(cmd.OutOrStdout(), "  %s (skipped)\n", name)
+						continue
+					}
+				}
+
 				encrypted, err := encryptSecret(pubKey, value)
 				if err != nil {
 					return fmt.Errorf("encrypt secret %s: %w", name, err)
@@ -106,6 +130,7 @@ func syncSecretsCmd() *cobra.Command {
 
 	cmd.Flags().StringVar(&repo, "repo", "", "target repository (owner/name; default: from git remote)")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "show what would be synced without making changes")
+	cmd.Flags().BoolVarP(&force, "force", "f", false, "skip confirmation prompts")
 	cmd.Flags().StringVar(&envFile, "env-file", "", "path to .env file (default: .env in config directory)")
 
 	return cmd
