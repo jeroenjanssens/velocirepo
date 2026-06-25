@@ -8,19 +8,17 @@ import (
 )
 
 func serveViewCmd() *cobra.Command {
-	var port string
-
 	cmd := &cobra.Command{
 		Use:     "serve-view <name>",
 		Short:   "Start a dev server for a view",
-		Long:    "Start the framework's live dev server (quarto preview, marimo edit, jupyter notebook).",
+		Long:    "Start the view's serve.sh script for live development.",
 		Args:    cobra.ExactArgs(1),
 		GroupID: "view",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name := args[0]
 			viewsDir := cfg.ViewsDir()
 
-			allViews, err := views.Discover(viewsDir, cfg.Views.Items, cfg.ViewsSource())
+			allViews, err := views.Discover(viewsDir)
 			if err != nil {
 				return err
 			}
@@ -30,7 +28,7 @@ func serveViewCmd() *cobra.Command {
 				return fmt.Errorf("view %q not found in %s", name, viewsDir)
 			}
 
-			serveCmd, err := views.ServeCmd(v, port)
+			serveCmd, err := views.ServeCmd(v)
 			if err != nil {
 				return err
 			}
@@ -38,8 +36,6 @@ func serveViewCmd() *cobra.Command {
 			return serveCmd.Run()
 		},
 	}
-
-	cmd.Flags().StringVar(&port, "port", "", "override port for dev server")
 
 	return cmd
 }

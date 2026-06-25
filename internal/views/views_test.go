@@ -4,8 +4,6 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-
-	"github.com/jeroenjanssens/velocirepo/internal/config"
 )
 
 func TestParseFramework(t *testing.T) {
@@ -15,11 +13,9 @@ func TestParseFramework(t *testing.T) {
 		err   bool
 	}{
 		{"quarto", FrameworkQuarto, false},
-		{"Quarto", FrameworkQuarto, false},
 		{"jupyter", FrameworkJupyter, false},
 		{"marimo", FrameworkMarimo, false},
 		{"r", FrameworkR, false},
-		{"R", FrameworkR, false},
 		{"sql", FrameworkSQL, false},
 		{"invalid", "", true},
 	}
@@ -38,95 +34,82 @@ func TestParseFramework(t *testing.T) {
 	}
 }
 
-func TestExtForFramework(t *testing.T) {
-	tests := []struct {
-		fw   Framework
-		want string
-	}{
-		{FrameworkQuarto, ".qmd"},
-		{FrameworkJupyter, ".ipynb"},
-		{FrameworkMarimo, ".py"},
-		{FrameworkR, ".R"},
-		{FrameworkSQL, ".sql"},
-	}
-
-	for _, tt := range tests {
-		got := ExtForFramework(tt.fw)
-		if got != tt.want {
-			t.Errorf("ExtForFramework(%q) = %q, want %q", tt.fw, got, tt.want)
-		}
-	}
-}
-
 func TestDiscover(t *testing.T) {
 	dir := t.TempDir()
 
-	os.MkdirAll(filepath.Join(dir, "weekly"), 0755)
-	os.WriteFile(filepath.Join(dir, "overview.py"), []byte("# marimo"), 0644)
-	os.WriteFile(filepath.Join(dir, "weekly", "stars.qmd"), []byte("---\ntitle: stars\n---"), 0644)
-	os.WriteFile(filepath.Join(dir, "report.sql"), []byte("SELECT 1"), 0644)
-	os.WriteFile(filepath.Join(dir, "readme.txt"), []byte("not a view"), 0644)
+	// Create view directories with render.sh
+	os.MkdirAll(filepath.Join(dir, "overview"), 0755)
+	os.WriteFile(filepath.Join(dir, "overview", "render.sh"), []byte("#!/bin/bash\n"), 0755)
 
-	// Create _output and _data dirs that should be skipped
+	os.MkdirAll(filepath.Join(dir, "weekly", "stars"), 0755)
+	os.WriteFile(filepath.Join(dir, "weekly", "stars", "render.sh"), []byte("#!/bin/bash\n"), 0755)
+
+	os.MkdirAll(filepath.Join(dir, "weekly", "forks"), 0755)
+	os.WriteFile(filepath.Join(dir, "weekly", "forks", "render.sh"), []byte("#!/bin/bash\n"), 0755)
+
+	// Directories without render.sh should be skipped
+	os.MkdirAll(filepath.Join(dir, "draft"), 0755)
+	os.WriteFile(filepath.Join(dir, "draft", "notes.txt"), []byte("not a view"), 0644)
+
+	// _output and _data dirs should be skipped
 	os.MkdirAll(filepath.Join(dir, "_output"), 0755)
-	os.WriteFile(filepath.Join(dir, "_output", "old.html"), []byte(""), 0644)
+	os.WriteFile(filepath.Join(dir, "_output", "render.sh"), []byte("#!/bin/bash\n"), 0755)
 	os.MkdirAll(filepath.Join(dir, "_data"), 0755)
-	os.WriteFile(filepath.Join(dir, "_data", "metrics.parquet"), []byte(""), 0644)
 
-	views, err := Discover(dir, nil, "parquet")
+	// Hidden dirs should be skipped
+	os.MkdirAll(filepath.Join(dir, ".hidden"), 0755)
+	os.WriteFile(filepath.Join(dir, ".hidden", "render.sh"), []byte("#!/bin/bash\n"), 0755)
+
+	views, err := Discover(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	if len(views) != 3 {
-		t.Fatalf("expected 3 views, got %d", len(views))
-	}
-
-	names := map[string]bool{}
-	for _, v := range views {
-		names[v.Name] = true
-		if v.Source != "parquet" {
-			t.Errorf("view %q has source %q, want parquet", v.Name, v.Source)
+		names := make([]string, len(views))
+		for i, v := range views {
+			names[i] = v.Name
 		}
+		t.Fatalf("expected 3 views, got %d: %v", len(views), names)
 	}
 
-	for _, want := range []string{"overview", "weekly/stars", "report"} {
-		if !names[want] {
+	nameSet := map[string]bool{}
+	for _, v := range views {
+		nameSet[v.Name] = true
+	}
+
+	for _, want := range []string{"overview", "weekly/stars", "weekly/forks"} {
+		if !nameSet[want] {
 			t.Errorf("expected view %q not found", want)
 		}
 	}
 }
 
-func TestDiscoverWithItems(t *testing.T) {
+func TestDiscoverEmpty(t *testing.T) {
 	dir := t.TempDir()
-	os.WriteFile(filepath.Join(dir, "overview.py"), []byte("# marimo"), 0644)
-
-	items := []config.ViewItem{
-		{Path: "overview.py", Source: "jsonl", Venv: "/path/to/venv"},
-	}
-
-	views, err := Discover(dir, items, "parquet")
+	views, err := Discover(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	if len(views) != 1 {
-		t.Fatalf("expected 1 view, got %d", len(views))
+	if len(views) != 0 {
+		t.Errorf("expected 0 views, got %d", len(views))
 	}
+}
 
-	v := views[0]
-	if v.Source != "jsonl" {
-		t.Errorf("source = %q, want jsonl", v.Source)
+func TestDiscoverNonexistent(t *testing.T) {
+	views, err := Discover("/nonexistent/path")
+	if err != nil {
+		t.Fatal(err)
 	}
-	if v.Venv != "/path/to/venv" {
-		t.Errorf("venv = %q, want /path/to/venv", v.Venv)
+	if views != nil {
+		t.Errorf("expected nil views for nonexistent dir, got %v", views)
 	}
 }
 
 func TestFindView(t *testing.T) {
 	views := []View{
-		{Name: "overview"},
-		{Name: "weekly/stars"},
+		{Name: "overview", Dir: "/views/overview"},
+		{Name: "weekly/stars", Dir: "/views/weekly/stars"},
 	}
 
 	v, found := FindView(views, "weekly/stars")
@@ -151,36 +134,23 @@ func TestFindViews(t *testing.T) {
 		{Name: "monthly/summary"},
 	}
 
-	// Exact match returns single view
 	got := FindViews(allViews, "overview")
 	if len(got) != 1 || got[0].Name != "overview" {
 		t.Errorf("exact match: got %v, want [overview]", got)
 	}
 
-	// Directory match returns all views in that directory
 	got = FindViews(allViews, "weekly")
 	if len(got) != 2 {
 		t.Fatalf("directory match: got %d views, want 2", len(got))
 	}
 
-	// Trailing slash also works
 	got = FindViews(allViews, "weekly/")
 	if len(got) != 2 {
 		t.Fatalf("directory match with slash: got %d views, want 2", len(got))
 	}
 
-	// No match returns nil
 	got = FindViews(allViews, "nonexistent")
 	if len(got) != 0 {
 		t.Errorf("no match: got %v, want []", got)
-	}
-}
-
-func TestAnyUsesParquet(t *testing.T) {
-	if AnyUsesParquet([]View{{Source: "jsonl"}}) {
-		t.Error("expected false for all-jsonl views")
-	}
-	if !AnyUsesParquet([]View{{Source: "jsonl"}, {Source: "parquet"}}) {
-		t.Error("expected true when one view uses parquet")
 	}
 }

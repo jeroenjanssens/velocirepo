@@ -18,7 +18,7 @@ func listViewsCmd() *cobra.Command {
 		GroupID: "view",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			viewsDir := cfg.ViewsDir()
-			allViews, err := views.Discover(viewsDir, cfg.Views.Items, cfg.ViewsSource())
+			allViews, err := views.Discover(viewsDir)
 			if err != nil {
 				return err
 			}
@@ -36,14 +36,14 @@ func listViewsCmd() *cobra.Command {
 					Symbols: tw.NewSymbols(tw.StyleLight),
 				}),
 			)
-			table.Header([]string{"NAME", "FRAMEWORK", "SOURCE", "OUTPUT"})
+			table.Header([]string{"NAME", "DIR"})
 
 			for _, v := range allViews {
-				output := v.Output
-				if rel, err := filepath.Rel(".", output); err == nil {
-					output = rel
+				dir := v.Dir
+				if rel, err := filepath.Rel(".", dir); err == nil {
+					dir = rel
 				}
-				table.Append([]string{v.Name, string(v.Framework), v.Source, output})
+				table.Append([]string{v.Name, dir})
 			}
 
 			table.Render()

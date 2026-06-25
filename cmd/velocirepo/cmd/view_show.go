@@ -2,6 +2,9 @@ package cmd
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/jeroenjanssens/velocirepo/internal/views"
 	"github.com/spf13/cobra"
@@ -17,7 +20,7 @@ func showViewCmd() *cobra.Command {
 			name := args[0]
 			viewsDir := cfg.ViewsDir()
 
-			allViews, err := views.Discover(viewsDir, cfg.Views.Items, cfg.ViewsSource())
+			allViews, err := views.Discover(viewsDir)
 			if err != nil {
 				return err
 			}
@@ -27,23 +30,26 @@ func showViewCmd() *cobra.Command {
 				return fmt.Errorf("view %q not found in %s", name, viewsDir)
 			}
 
-			fmt.Printf("Name:       %s\n", v.Name)
-			fmt.Printf("Framework:  %s\n", v.Framework)
-			fmt.Printf("Source:     %s\n", v.Source)
-			fmt.Printf("File:       %s\n", v.Path)
-			fmt.Printf("Output:     %s\n", v.Output)
+			fmt.Printf("Name:  %s\n", v.Name)
+			fmt.Printf("Dir:   %s\n", v.Dir)
 
-			if v.Venv != "" {
-				fmt.Printf("Venv:       %s\n", v.Venv)
-			} else {
-				fmt.Printf("Venv:       (none)\n")
+			entries, err := os.ReadDir(v.Dir)
+			if err == nil {
+				var files []string
+				for _, e := range entries {
+					if !e.IsDir() {
+						files = append(files, e.Name())
+					}
+				}
+				if len(files) > 0 {
+					fmt.Printf("Files: %s\n", strings.Join(files, ", "))
+				}
 			}
 
-			ver, err := views.CheckRenderer(v.Framework, v.Venv)
-			if err != nil {
-				fmt.Printf("Renderer:   not found (%v)\n", err)
-			} else {
-				fmt.Printf("Renderer:   %s %s\n", v.Framework, ver)
+			renderScript := filepath.Join(v.Dir, "render.sh")
+			if _, err := os.Stat(renderScript); err == nil {
+				data, _ := os.ReadFile(renderScript)
+				fmt.Printf("\nrender.sh:\n%s", string(data))
 			}
 
 			return nil

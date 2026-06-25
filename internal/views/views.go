@@ -1,143 +1,64 @@
 package views
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
-
-	"github.com/jeroenjanssens/velocirepo/internal/config"
 )
-
-type Framework string
-
-const (
-	FrameworkQuarto  Framework = "quarto"
-	FrameworkJupyter Framework = "jupyter"
-	FrameworkMarimo  Framework = "marimo"
-	FrameworkR       Framework = "r"
-	FrameworkSQL     Framework = "sql"
-)
-
-var frameworkExtensions = map[Framework]string{
-	FrameworkQuarto:  ".qmd",
-	FrameworkJupyter: ".ipynb",
-	FrameworkMarimo:  ".py",
-	FrameworkR:       ".R",
-	FrameworkSQL:     ".sql",
-}
-
-var extensionFrameworks = map[string]Framework{
-	".qmd":   FrameworkQuarto,
-	".ipynb":  FrameworkJupyter,
-	".py":    FrameworkMarimo,
-	".R":     FrameworkR,
-	".sql":   FrameworkSQL,
-}
-
-func ExtForFramework(fw Framework) string {
-	return frameworkExtensions[fw]
-}
-
-func ParseFramework(s string) (Framework, error) {
-	switch strings.ToLower(s) {
-	case "quarto":
-		return FrameworkQuarto, nil
-	case "jupyter":
-		return FrameworkJupyter, nil
-	case "marimo":
-		return FrameworkMarimo, nil
-	case "r":
-		return FrameworkR, nil
-	case "sql":
-		return FrameworkSQL, nil
-	default:
-		return "", fmt.Errorf("unknown framework %q (available: quarto, jupyter, marimo, r, sql)", s)
-	}
-}
 
 type View struct {
-	Name      string
-	Path      string
-	Framework Framework
-	Source    string
-	Output    string
-	Venv      string
+	Name string
+	Dir  string
 }
 
-func Discover(viewsDir string, items []config.ViewItem, defaultSource string) ([]View, error) {
-	if defaultSource == "" {
-		defaultSource = "parquet"
-	}
-
-	itemMap := make(map[string]config.ViewItem)
-	for _, item := range items {
-		name := strings.TrimSuffix(item.Path, filepath.Ext(item.Path))
-		itemMap[name] = item
-	}
-
+func Discover(viewsDir string) ([]View, error) {
 	var views []View
-	err := filepath.Walk(viewsDir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return nil
-		}
-		if info.IsDir() {
-			base := filepath.Base(path)
-			if base == "_output" || base == "_data" {
-				return filepath.SkipDir
-			}
-			return nil
-		}
 
-		ext := filepath.Ext(path)
-		fw, ok := extensionFrameworks[ext]
-		if !ok {
-			return nil
+	entries, err := os.ReadDir(viewsDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
 		}
-
-		rel, _ := filepath.Rel(viewsDir, path)
-		name := strings.TrimSuffix(rel, ext)
-
-		view := View{
-			Name:      name,
-			Path:      path,
-			Framework: fw,
-			Source:    defaultSource,
-		}
-
-		if item, exists := itemMap[name]; exists {
-			if item.Source != "" {
-				view.Source = item.Source
-			}
-			if item.Output != "" {
-				view.Output = item.Output
-			}
-			if item.Venv != "" {
-				view.Venv = item.Venv
-			}
-			delete(itemMap, name)
-		}
-
-		if view.Output == "" {
-			view.Output = defaultOutput(viewsDir, name, fw)
-		}
-
-		views = append(views, view)
-		return nil
-	})
-	if err != nil && !os.IsNotExist(err) {
 		return nil, err
+	}
+
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
+		if strings.HasPrefix(name, ".") || name == "_output" || name == "_data" {
+			continue
+		}
+		dir := filepath.Join(viewsDir, name)
+		discoverRecursive(dir, name, &views)
 	}
 
 	return views, nil
 }
 
-func defaultOutput(viewsDir, name string, fw Framework) string {
-	ext := ".html"
-	if fw == FrameworkSQL {
-		ext = ".json"
+func discoverRecursive(dir, prefix string, views *[]View) {
+	renderScript := filepath.Join(dir, "render.sh")
+	if _, err := os.Stat(renderScript); err == nil {
+		*views = append(*views, View{Name: prefix, Dir: dir})
+		return
 	}
-	return filepath.Join(viewsDir, "_output", name+ext)
+
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return
+	}
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
+		if strings.HasPrefix(name, ".") || name == "_output" || name == "_data" {
+			continue
+		}
+		subdir := filepath.Join(dir, name)
+		discoverRecursive(subdir, prefix+"/"+name, views)
+	}
 }
 
 func FindView(views []View, name string) (View, bool) {
@@ -163,13 +84,4 @@ func FindViews(views []View, name string) []View {
 		}
 	}
 	return matched
-}
-
-func AnyUsesParquet(views []View) bool {
-	for _, v := range views {
-		if v.Source == "parquet" {
-			return true
-		}
-	}
-	return false
 }

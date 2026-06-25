@@ -2,19 +2,20 @@ package cmd
 
 import (
 	"fmt"
-	"os"
+	"path/filepath"
 
 	"github.com/jeroenjanssens/velocirepo/internal/views"
 	"github.com/spf13/cobra"
 )
 
 func addViewCmd() *cobra.Command {
-	var framework, source, venv, output string
+	var framework, source string
+	var noUV, renv bool
 
 	cmd := &cobra.Command{
 		Use:     "add-view <name>",
-		Short:   "Scaffold a new view",
-		Long:    "Create a new view file from a template. The name can include slashes for subdirectories (e.g., weekly/stars).",
+		Short:   "Scaffold a new view directory",
+		Long:    "Create a new view directory with render.sh and template files. The name can include slashes for subdirectories (e.g., reports/weekly-stars).",
 		Args:    cobra.ExactArgs(1),
 		GroupID: "view",
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -25,40 +26,60 @@ func addViewCmd() *cobra.Command {
 				return err
 			}
 
-			if source == "" {
-				source = cfg.ViewsSource()
-			}
-			if source != "parquet" && source != "jsonl" {
-				return fmt.Errorf("invalid source %q (use parquet or jsonl)", source)
+			if source != "duckdb" && source != "parquet" {
+				return fmt.Errorf("invalid source %q (use duckdb or parquet)", source)
 			}
 
-			ver, err := views.CheckRenderer(fw, venv)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Warning: %v\n", err)
-			} else if ver != "" && !quiet {
-				fmt.Fprintf(os.Stderr, "Using %s %s\n", fw, ver)
+			if renv && fw != views.FrameworkR {
+				return fmt.Errorf("--renv can only be used with --framework r")
 			}
 
 			viewsDir := cfg.ViewsDir()
-			path, err := views.Scaffold(viewsDir, name, fw, source, cfg.DataDir())
+			viewDir := filepath.Join(viewsDir, name)
+
+			var dbPath, dataDir string
+			if source == "duckdb" {
+				absViewDir, _ := filepath.Abs(viewDir)
+				absDataDir, _ := filepath.Abs(cfg.DataDir())
+				dbFile := filepath.Join(absDataDir, "velocirepo.duckdb")
+				rel, err := filepath.Rel(absViewDir, dbFile)
+				if err != nil {
+					rel = dbFile
+				}
+				dbPath = filepath.ToSlash(rel)
+			} else {
+				absViewDir, _ := filepath.Abs(viewDir)
+				absDataDir, _ := filepath.Abs(filepath.Join(viewsDir, "_data"))
+				rel, err := filepath.Rel(absViewDir, absDataDir)
+				if err != nil {
+					rel = absDataDir
+				}
+				dataDir = filepath.ToSlash(rel)
+			}
+
+			dir, err := views.Scaffold(views.ScaffoldOptions{
+				ViewsDir:  viewsDir,
+				Name:      name,
+				Framework: fw,
+				Source:    source,
+				DBPath:    dbPath,
+				DataDir:   dataDir,
+				NoUV:      noUV,
+				Renv:      renv,
+			})
 			if err != nil {
 				return err
 			}
 
-			fmt.Printf("Created view '%s' at %s\n", name, path)
-
-			if venv != "" || output != "" || source != cfg.ViewsSource() {
-				fmt.Fprintf(os.Stderr, "Note: add a [[views.items]] entry to velocirepo.toml for custom options (venv, output, source)\n")
-			}
-
+			fmt.Printf("Created view '%s' at %s\n", name, dir)
 			return nil
 		},
 	}
 
 	cmd.Flags().StringVarP(&framework, "framework", "f", "", "framework: quarto, jupyter, marimo, r, sql (required)")
-	cmd.Flags().StringVarP(&source, "source", "s", "", "data source: parquet or jsonl (default: from config)")
-	cmd.Flags().StringVar(&venv, "venv", "", "Python venv path")
-	cmd.Flags().StringVarP(&output, "output", "o", "", "custom output path")
+	cmd.Flags().StringVarP(&source, "source", "s", "duckdb", "data source: duckdb or parquet")
+	cmd.Flags().BoolVar(&noUV, "no-uv", false, "skip pyproject.toml generation")
+	cmd.Flags().BoolVar(&renv, "renv", false, "scaffold renv for R views")
 	cmd.MarkFlagRequired("framework")
 
 	return cmd

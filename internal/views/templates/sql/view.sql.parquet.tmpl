@@ -1,0 +1,5 @@
+SELECT project, date, metric, value
+FROM read_parquet('{{.DataDir}}/metrics.parquet')
+WHERE metric = 'daily_stars'
+ORDER BY date DESC
+LIMIT 100;

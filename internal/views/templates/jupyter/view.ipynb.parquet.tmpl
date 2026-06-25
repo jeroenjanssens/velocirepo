@@ -11,7 +11,7 @@
     "con = duckdb.connect()\n",
     "con.sql(\"\"\"\n",
     "    SELECT project, date, metric, value\n",
-    "    FROM read_parquet('{{.ViewsDataDir}}/metrics.parquet')\n",
+    "    FROM read_parquet('{{.DataDir}}/metrics.parquet')\n",
     "    WHERE metric = 'daily_stars'\n",
     "    ORDER BY date DESC\n",
     "    LIMIT 100\n",
@@ -27,7 +27,7 @@
   },
   "language_info": {
    "name": "python",
-   "version": "3.12.0"
+   "version": "3.11.0"
   }
  },
  "nbformat": 4,

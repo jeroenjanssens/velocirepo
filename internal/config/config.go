@@ -82,16 +82,7 @@ type SettingsConfig struct {
 }
 
 type ViewsConfig struct {
-	Dir    string     `toml:"dir"`
-	Source string     `toml:"source"`
-	Items  []ViewItem `toml:"items"`
-}
-
-type ViewItem struct {
-	Path   string `toml:"path"`
-	Output string `toml:"output"`
-	Venv   string `toml:"venv"`
-	Source string `toml:"source"`
+	Dir string `toml:"dir"`
 }
 
 type IndicatorConfig struct {
@@ -121,12 +112,6 @@ func (c *Config) ViewsDir() string {
 	return filepath.Join(c.Dir, dir)
 }
 
-func (c *Config) ViewsSource() string {
-	if c.Views.Source != "" {
-		return c.Views.Source
-	}
-	return "parquet"
-}
 
 func (c *Config) DataDir() string {
 	dir := c.Data.Dir

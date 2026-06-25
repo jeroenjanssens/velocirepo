@@ -291,26 +291,24 @@ func showViewTool() mcp.Tool {
 
 func addViewTool() mcp.Tool {
 	return mcp.NewTool("add_view",
-		mcp.WithDescription("Scaffold a new view from a template."),
+		mcp.WithDescription("Scaffold a new view directory with render.sh and template files."),
 		mcp.WithString("name", mcp.Required(), mcp.Description("View name (can include slashes for subdirs, e.g. weekly/stars)")),
 		mcp.WithString("framework", mcp.Required(), mcp.Description("Framework: quarto, jupyter, marimo, r, sql")),
-		mcp.WithString("source", mcp.Description("Data source: parquet or jsonl (default: from config)")),
+		mcp.WithString("source", mcp.Description("Data source: duckdb (default) or parquet")),
 	)
 }
 
 func removeViewTool() mcp.Tool {
 	return mcp.NewTool("remove_view",
-		mcp.WithDescription("Remove a view source file and its rendered output."),
+		mcp.WithDescription("Remove a view directory."),
 		mcp.WithString("name", mcp.Required(), mcp.Description("View name to remove")),
-		mcp.WithBoolean("keep_output", mcp.Description("Don't delete rendered output")),
 	)
 }
 
 func renderViewTool() mcp.Tool {
 	return mcp.NewTool("render_view",
-		mcp.WithDescription("Render a single view."),
-		mcp.WithString("name", mcp.Required(), mcp.Description("View name to render")),
-		mcp.WithBoolean("no_export", mcp.Description("Skip Parquet export step")),
+		mcp.WithDescription("Render a view by running its render.sh script."),
+		mcp.WithString("name", mcp.Required(), mcp.Description("View name or directory prefix to render")),
 	)
 }
 
@@ -318,6 +316,5 @@ func renderViewsTool() mcp.Tool {
 	return mcp.NewTool("render_views",
 		mcp.WithDescription("Render all views, or those matching a prefix."),
 		mcp.WithString("prefix", mcp.Description("Only render views whose name starts with this prefix")),
-		mcp.WithBoolean("no_export", mcp.Description("Skip Parquet export step")),
 	)
 }

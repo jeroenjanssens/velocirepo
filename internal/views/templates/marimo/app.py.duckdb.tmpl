@@ -7,10 +7,10 @@ app = marimo.App()
 def _():
     import duckdb
 
-    con = duckdb.connect()
+    con = duckdb.connect("{{.DBPath}}")
     df = con.sql("""
         SELECT project, date, metric, value
-        FROM read_parquet('{{.ViewsDataDir}}/metrics.parquet')
+        FROM metrics
         WHERE metric = 'daily_stars'
         ORDER BY date DESC
         LIMIT 100

@@ -1,9 +1,9 @@
 library(duckdb)
 
-con <- dbConnect(duckdb())
+con <- dbConnect(duckdb(), "{{.DBPath}}")
 df <- dbGetQuery(con, "
     SELECT project, date, metric, value
-    FROM read_parquet('{{.ViewsDataDir}}/metrics.parquet')
+    FROM metrics
     WHERE metric = 'daily_stars'
     ORDER BY date DESC
     LIMIT 100

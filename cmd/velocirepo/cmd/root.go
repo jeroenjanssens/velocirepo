@@ -104,6 +104,7 @@ func newRootCmd() *cobra.Command {
 	rootCmd.AddCommand(renderViewCmd())
 	rootCmd.AddCommand(renderViewsCmd())
 	rootCmd.AddCommand(serveViewCmd())
+	rootCmd.AddCommand(setupViewsCmd())
 
 	// CI/CD
 	rootCmd.AddCommand(installCICmd())

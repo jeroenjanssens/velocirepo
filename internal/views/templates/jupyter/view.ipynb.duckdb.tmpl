@@ -8,11 +8,11 @@
    "source": [
     "import duckdb\n",
     "\n",
-    "con = duckdb.connect()\n",
+    "con = duckdb.connect(\"{{.DBPath}}\")\n",
     "con.sql(\"\"\"\n",
-    "    SELECT project_id AS project, date, metric, value\n",
-    "    FROM read_json_auto('{{.DataDir}}/**/*.jsonl')\n",
-    "    WHERE metric = 'daily_downloads'\n",
+    "    SELECT project, date, metric, value\n",
+    "    FROM metrics\n",
+    "    WHERE metric = 'daily_stars'\n",
     "    ORDER BY date DESC\n",
     "    LIMIT 100\n",
     "\"\"\").show()"
@@ -27,7 +27,7 @@
   },
   "language_info": {
    "name": "python",
-   "version": "3.12.0"
+   "version": "3.11.0"
   }
  },
  "nbformat": 4,

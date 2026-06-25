@@ -2,9 +2,9 @@ library(duckdb)
 
 con <- dbConnect(duckdb())
 df <- dbGetQuery(con, "
-    SELECT project_id AS project, date, metric, value
-    FROM read_json_auto('{{.DataDir}}/**/*.jsonl')
-    WHERE metric = 'daily_downloads'
+    SELECT project, date, metric, value
+    FROM read_parquet('{{.DataDir}}/metrics.parquet')
+    WHERE metric = 'daily_stars'
     ORDER BY date DESC
     LIMIT 100
 ")

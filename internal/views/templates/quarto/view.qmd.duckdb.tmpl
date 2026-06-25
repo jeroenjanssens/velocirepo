@@ -6,10 +6,10 @@ format: html
 ```{python}
 import duckdb
 
-con = duckdb.connect()
+con = duckdb.connect("{{.DBPath}}")
 con.sql("""
     SELECT project, date, metric, value
-    FROM read_parquet('{{.ViewsDataDir}}/metrics.parquet')
+    FROM metrics
     WHERE metric = 'daily_stars'
     ORDER BY date DESC
     LIMIT 100

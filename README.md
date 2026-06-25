@@ -227,13 +227,14 @@ velocirepo show-project          Show project details
 velocirepo import-projects       Bulk-import from GitHub org/user or file
 velocirepo validate-projects     Validate source URLs
 
-velocirepo add-view <name>       Scaffold a new view
-velocirepo remove-view <name>    Remove a view and its output
+velocirepo add-view <name>       Scaffold a new view directory
+velocirepo remove-view <name>    Remove a view directory
 velocirepo list-views            List all views
 velocirepo show-view <name>      Show details about a view
-velocirepo render-view <name>    Render a single view
+velocirepo render-view <name>    Render a view (runs render.sh)
 velocirepo render-views          Render all or filtered views
-velocirepo serve-view <name>     Start a dev server for a view
+velocirepo serve-view <name>     Start a dev server (runs serve.sh)
+velocirepo setup-views           Install dependencies for all views
 
 velocirepo build-db              Build the DuckDB database file for external tools
 velocirepo migrate               Migrate data to the latest schema version
@@ -792,80 +793,91 @@ Numbers are automatically formatted for readability (e.g., `5274` becomes `5.3k`
 
 ## Views
 
-Views let you create dashboards, reports, and visualizations from your metrics data using your preferred framework. Velocirepo handles scaffolding, data export, and render orchestration — the actual rendering is done by external tools.
+Views are self-contained directories that produce dashboards, reports, or visualizations from your metrics data. Each view has a `render.sh` script as the contract — velocirepo handles discovery and orchestration, while rendering is delegated to whatever tools the view needs.
 
-### Supported frameworks
+### Structure
 
-| Framework | Extension | Renderer | Serve mode |
-|-----------|-----------|----------|------------|
-| [Quarto](https://quarto.org) | `.qmd` | `quarto` | `quarto preview` |
-| [Jupyter](https://jupyter.org) | `.ipynb` | `jupyter` | `jupyter notebook` |
-| [Marimo](https://marimo.io) | `.py` | `python` | `marimo edit` |
-| R | `.R` | `Rscript` | render + open |
-| [ggsql](https://ggsql.io) | `.sql` | `ggsql` | render + open |
+A view is any directory under `views/` that contains a `render.sh` file:
+
+```
+views/
+  weekly-stars/
+    render.sh          # the render contract (executable)
+    pyproject.toml     # Python dependencies (managed by uv)
+    view.qmd           # the actual view file
+  monthly-report/
+    render.sh
+    pyproject.toml
+    app.py             # marimo notebook
+  r-summary/
+    render.sh
+    view.R
+```
 
 ### Quick start
 
 ```bash
-# Scaffold a view
-velocirepo add-view stars --framework sql
+# Scaffold a Quarto view (creates directory with render.sh, view.qmd, pyproject.toml)
+velocirepo add-view weekly-stars --framework quarto
 
-# Edit the generated file (views/stars.sql)
-# Then render it
-velocirepo render-view stars
+# Install dependencies
+velocirepo setup-views
 
-# Or start a live dev server (Quarto, Marimo, Jupyter)
-velocirepo serve-view overview
+# Render the view (rebuilds DuckDB, then runs render.sh)
+velocirepo render-view weekly-stars
+
+# Or start a live dev server (requires serve.sh in the view)
+velocirepo serve-view weekly-stars
 ```
 
-### Data sources
+### Supported frameworks
 
-Views can read data in two ways, controlled by the `--source` flag (or `[views].source` in config):
+| Framework | Flag | View file | render.sh runs |
+|-----------|------|-----------|----------------|
+| [Quarto](https://quarto.org) | `-f quarto` | `view.qmd` | `uv run quarto render view.qmd` |
+| [Jupyter](https://jupyter.org) | `-f jupyter` | `view.ipynb` | `uv run jupyter nbconvert ...` |
+| [Marimo](https://marimo.io) | `-f marimo` | `app.py` | `uv run marimo export html app.py` |
+| R | `-f r` | `view.R` | `Rscript view.R` |
+| [ggsql](https://ggsql.io) | `-f sql` | `view.sql` | `ggsql run view.sql` |
 
-- **`parquet`** (default): Reads from exported Parquet files in `views/_data/`. Faster queries, includes computed views like `metrics` with aggregated GitHub events. The `render-view` / `render-views` commands auto-export before rendering.
-- **`jsonl`**: Reads raw JSONL files directly via DuckDB's `read_json_auto()`. Simpler but lacks computed views.
+### Data access
 
-### Configuration
+Views connect to `velocirepo.duckdb` by default (via a relative path embedded at scaffold time). The DB is rebuilt before every render, so views always see fresh data.
 
-Add a `[views]` section to `velocirepo.toml` for global settings. Per-view overrides go in `[[views.items]]`:
+For views that need Parquet files instead, use `--source parquet` when scaffolding and call `velocirepo export` in the view's own `render.sh`.
 
-```toml
-[views]
-dir = "views"          # default: velocirepo/views
-source = "parquet"     # default data source for new views
+### Flags for `add-view`
 
-[[views.items]]
-path = "overview.py"
-venv = ".venv"         # use a specific Python venv
-
-[[views.items]]
-path = "raw-debug.qmd"
-source = "jsonl"       # this view reads raw JSONL
-```
-
-Views not listed in `[[views.items]]` still work with defaults — config entries are only needed for overrides (venv, output path, source).
+| Flag | Description |
+|------|-------------|
+| `-f, --framework` | Framework: quarto, jupyter, marimo, r, sql (required) |
+| `-s, --source` | Data source: duckdb (default) or parquet |
+| `--no-uv` | Skip pyproject.toml generation |
+| `--renv` | Scaffold renv for R views |
 
 ### Rendering
 
 ```bash
-velocirepo render-view stars         # render one view
+velocirepo render-view weekly-stars  # render one view
 velocirepo render-views              # render all views
-velocirepo render-views weekly/      # render views matching a prefix
-velocirepo render-views --no-export  # skip Parquet export step
+velocirepo render-views reports      # render views matching a prefix
 ```
 
-Output goes to `views/_output/` by default, mirroring the source tree structure.
+### Setup and CI
 
-### CI usage
+```bash
+# Install dependencies for all views (runs uv sync / renv::restore)
+velocirepo setup-views
+```
+
+In GitHub Actions:
 
 ```yaml
+- name: Setup views
+  run: velocirepo setup-views
+
 - name: Render views
   run: velocirepo render-views
-
-- name: Commit rendered output
-  run: |
-    git add views/_output/
-    git diff --staged --quiet || git commit -m "Update rendered views"
 ```
 
 ## MCP server

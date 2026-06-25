@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 
@@ -9,18 +10,18 @@ import (
 )
 
 func removeViewCmd() *cobra.Command {
-	var keepOutput bool
+	var force bool
 
 	cmd := &cobra.Command{
 		Use:     "remove-view <name>",
-		Short:   "Remove a view and its output",
+		Short:   "Remove a view directory",
 		Args:    cobra.ExactArgs(1),
 		GroupID: "view",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name := args[0]
 			viewsDir := cfg.ViewsDir()
 
-			allViews, err := views.Discover(viewsDir, cfg.Views.Items, cfg.ViewsSource())
+			allViews, err := views.Discover(viewsDir)
 			if err != nil {
 				return err
 			}
@@ -30,14 +31,19 @@ func removeViewCmd() *cobra.Command {
 				return fmt.Errorf("view %q not found in %s", name, viewsDir)
 			}
 
-			if err := os.Remove(v.Path); err != nil && !os.IsNotExist(err) {
-				return fmt.Errorf("remove source: %w", err)
+			if !force {
+				reader := bufio.NewReader(os.Stdin)
+				ok, err := confirm(os.Stdout, reader, fmt.Sprintf("Remove view '%s' at %s?", name, v.Dir))
+				if err != nil {
+					return err
+				}
+				if !ok {
+					return nil
+				}
 			}
 
-			if !keepOutput {
-				if err := os.Remove(v.Output); err != nil && !os.IsNotExist(err) {
-					fmt.Fprintf(os.Stderr, "Warning: could not remove output %s: %v\n", v.Output, err)
-				}
+			if err := os.RemoveAll(v.Dir); err != nil {
+				return fmt.Errorf("remove view directory: %w", err)
 			}
 
 			fmt.Printf("Removed view '%s'\n", name)
@@ -45,7 +51,7 @@ func removeViewCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().BoolVar(&keepOutput, "keep-output", false, "don't delete rendered output")
+	cmd.Flags().BoolVar(&force, "force", false, "skip confirmation prompt")
 
 	return cmd
 }

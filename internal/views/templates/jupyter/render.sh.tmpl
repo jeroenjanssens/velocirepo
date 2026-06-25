@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+set -euo pipefail
+cd "$(dirname "$0")"
+uv run jupyter nbconvert --execute --to html view.ipynb --output output.html

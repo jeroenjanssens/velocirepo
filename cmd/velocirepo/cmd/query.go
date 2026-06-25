@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/jeroenjanssens/velocirepo/internal/config"
@@ -16,7 +17,7 @@ import (
 )
 
 func queryCmd() *cobra.Command {
-	var jsonFlag, csvFlag, parquetFlag bool
+	var jsonFlag, csvFlag, parquetFlag, noHeader bool
 
 	cmd := &cobra.Command{
 		Use:   "query <sql>",
@@ -37,7 +38,9 @@ func queryCmd() *cobra.Command {
 			case jsonFlag:
 				return printJSON(results)
 			case csvFlag:
-				return printCSV(results, cols)
+				return printCSV(results, cols, noHeader)
+			case noHeader:
+				return printPlain(results, cols)
 			default:
 				return printTable(results, cols)
 			}
@@ -47,6 +50,7 @@ func queryCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&jsonFlag, "json", false, "output as JSON")
 	cmd.Flags().BoolVar(&csvFlag, "csv", false, "output as CSV")
 	cmd.Flags().BoolVar(&parquetFlag, "parquet", false, "output as Parquet")
+	cmd.Flags().BoolVar(&noHeader, "no-header", false, "omit column headers (plain tab-separated output)")
 
 	return cmd
 }
@@ -163,13 +167,15 @@ func printJSON(results []map[string]interface{}) error {
 	return enc.Encode(results)
 }
 
-func printCSV(results []map[string]interface{}, cols []string) error {
+func printCSV(results []map[string]interface{}, cols []string, noHeader bool) error {
 	if len(results) == 0 {
 		return nil
 	}
 
 	w := csv.NewWriter(os.Stdout)
-	w.Write(cols)
+	if !noHeader {
+		w.Write(cols)
+	}
 	for _, row := range results {
 		vals := make([]string, len(cols))
 		for i, col := range cols {
@@ -179,6 +185,21 @@ func printCSV(results []map[string]interface{}, cols []string) error {
 	}
 	w.Flush()
 	return w.Error()
+}
+
+func printPlain(results []map[string]interface{}, cols []string) error {
+	for _, row := range results {
+		vals := make([]string, len(cols))
+		for i, col := range cols {
+			vals[i] = formatValue(row[col])
+		}
+		if len(vals) == 1 {
+			fmt.Println(vals[0])
+		} else {
+			fmt.Println(strings.Join(vals, "\t"))
+		}
+	}
+	return nil
 }
 
 func formatValue(v interface{}) string {

@@ -65,6 +65,11 @@ func (h *handlers) indicatorDefs() []store.IndicatorDef {
 	return defs
 }
 
+func (h *handlers) rebuildDB() {
+	dataDir := h.cfg.DataDir()
+	_ = store.BuildDB(dataDir, h.projectInfos(), h.indicatorDefs())
+}
+
 func (h *handlers) cfgFilePath() string {
 	if h.cfg != nil && h.cfg.Dir != "" {
 		return filepath.Join(h.cfg.Dir, "velocirepo.toml")
@@ -890,27 +895,21 @@ func (h *handlers) handleMigrate(ctx context.Context, req mcp.CallToolRequest) (
 
 func (h *handlers) handleListViews(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	viewsDir := h.cfg.ViewsDir()
-	allViews, err := views.Discover(viewsDir, h.cfg.Views.Items, h.cfg.ViewsSource())
+	allViews, err := views.Discover(viewsDir)
 	if err != nil {
 		return errorResult(fmt.Sprintf("discover views: %v", err)), nil
 	}
 
 	type viewEntry struct {
-		Name      string `json:"name"`
-		Framework string `json:"framework"`
-		Source    string `json:"source"`
-		Path      string `json:"path"`
-		Output    string `json:"output"`
+		Name string `json:"name"`
+		Dir  string `json:"dir"`
 	}
 
 	entries := make([]viewEntry, len(allViews))
 	for i, v := range allViews {
 		entries[i] = viewEntry{
-			Name:      v.Name,
-			Framework: string(v.Framework),
-			Source:    v.Source,
-			Path:      v.Path,
-			Output:    v.Output,
+			Name: v.Name,
+			Dir:  v.Dir,
 		}
 	}
 
@@ -924,7 +923,7 @@ func (h *handlers) handleShowView(ctx context.Context, req mcp.CallToolRequest) 
 	}
 
 	viewsDir := h.cfg.ViewsDir()
-	allViews, err := views.Discover(viewsDir, h.cfg.Views.Items, h.cfg.ViewsSource())
+	allViews, err := views.Discover(viewsDir)
 	if err != nil {
 		return errorResult(fmt.Sprintf("discover views: %v", err)), nil
 	}
@@ -935,26 +934,13 @@ func (h *handlers) handleShowView(ctx context.Context, req mcp.CallToolRequest) 
 	}
 
 	type viewDetail struct {
-		Name      string `json:"name"`
-		Framework string `json:"framework"`
-		Source    string `json:"source"`
-		Path      string `json:"path"`
-		Output    string `json:"output"`
-		Venv      string `json:"venv,omitempty"`
-		Renderer  string `json:"renderer,omitempty"`
+		Name string `json:"name"`
+		Dir  string `json:"dir"`
 	}
 
 	detail := viewDetail{
-		Name:      v.Name,
-		Framework: string(v.Framework),
-		Source:    v.Source,
-		Path:      v.Path,
-		Output:    v.Output,
-		Venv:      v.Venv,
-	}
-
-	if ver, err := views.CheckRenderer(v.Framework, v.Venv); err == nil {
-		detail.Renderer = ver
+		Name: v.Name,
+		Dir:  v.Dir,
 	}
 
 	return jsonResult(detail), nil
@@ -975,18 +961,41 @@ func (h *handlers) handleAddView(ctx context.Context, req mcp.CallToolRequest) (
 		return errorResult(err.Error()), nil
 	}
 
-	source := req.GetString("source", h.cfg.ViewsSource())
-	if source != "parquet" && source != "jsonl" {
-		return errorResult(fmt.Sprintf("invalid source %q (use parquet or jsonl)", source)), nil
+	source := req.GetString("source", "duckdb")
+	if source != "duckdb" && source != "parquet" {
+		return errorResult(fmt.Sprintf("invalid source %q (use duckdb or parquet)", source)), nil
 	}
 
 	viewsDir := h.cfg.ViewsDir()
-	path, err := views.Scaffold(viewsDir, name, fw, source, h.cfg.DataDir())
+	viewDir := filepath.Join(viewsDir, name)
+
+	var dbPath, dataDir string
+	if source == "duckdb" {
+		absViewDir, _ := filepath.Abs(viewDir)
+		absDataDir, _ := filepath.Abs(h.cfg.DataDir())
+		dbFile := filepath.Join(absDataDir, "velocirepo.duckdb")
+		rel, _ := filepath.Rel(absViewDir, dbFile)
+		dbPath = filepath.ToSlash(rel)
+	} else {
+		absViewDir, _ := filepath.Abs(viewDir)
+		absDataDir, _ := filepath.Abs(filepath.Join(viewsDir, "_data"))
+		rel, _ := filepath.Rel(absViewDir, absDataDir)
+		dataDir = filepath.ToSlash(rel)
+	}
+
+	dir, err := views.Scaffold(views.ScaffoldOptions{
+		ViewsDir:  viewsDir,
+		Name:      name,
+		Framework: fw,
+		Source:    source,
+		DBPath:    dbPath,
+		DataDir:   dataDir,
+	})
 	if err != nil {
 		return errorResult(fmt.Sprintf("scaffold: %v", err)), nil
 	}
 
-	return textResult(fmt.Sprintf("Created view '%s' at %s", name, path)), nil
+	return textResult(fmt.Sprintf("Created view '%s' at %s", name, dir)), nil
 }
 
 func (h *handlers) handleRemoveView(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -996,7 +1005,7 @@ func (h *handlers) handleRemoveView(ctx context.Context, req mcp.CallToolRequest
 	}
 
 	viewsDir := h.cfg.ViewsDir()
-	allViews, err := views.Discover(viewsDir, h.cfg.Views.Items, h.cfg.ViewsSource())
+	allViews, err := views.Discover(viewsDir)
 	if err != nil {
 		return errorResult(fmt.Sprintf("discover views: %v", err)), nil
 	}
@@ -1006,19 +1015,8 @@ func (h *handlers) handleRemoveView(ctx context.Context, req mcp.CallToolRequest
 		return errorResult(fmt.Sprintf("view %q not found", name)), nil
 	}
 
-	if err := os.Remove(v.Path); err != nil && !os.IsNotExist(err) {
-		return errorResult(fmt.Sprintf("remove source: %v", err)), nil
-	}
-
-	keepOutput := false
-	if args := req.GetArguments(); args != nil {
-		if val, ok := args["keep_output"]; ok {
-			keepOutput, _ = val.(bool)
-		}
-	}
-
-	if !keepOutput {
-		os.Remove(v.Output)
+	if err := os.RemoveAll(v.Dir); err != nil {
+		return errorResult(fmt.Sprintf("remove view directory: %v", err)), nil
 	}
 
 	return textResult(fmt.Sprintf("Removed view '%s'", name)), nil
@@ -1031,7 +1029,7 @@ func (h *handlers) handleRenderView(ctx context.Context, req mcp.CallToolRequest
 	}
 
 	viewsDir := h.cfg.ViewsDir()
-	allViews, err := views.Discover(viewsDir, h.cfg.Views.Items, h.cfg.ViewsSource())
+	allViews, err := views.Discover(viewsDir)
 	if err != nil {
 		return errorResult(fmt.Sprintf("discover views: %v", err)), nil
 	}
@@ -1041,58 +1039,31 @@ func (h *handlers) handleRenderView(ctx context.Context, req mcp.CallToolRequest
 		return errorResult(fmt.Sprintf("no views matching %q", name)), nil
 	}
 
-	noExport := false
-	if args := req.GetArguments(); args != nil {
-		if val, ok := args["no_export"]; ok {
-			noExport, _ = val.(bool)
-		}
-	}
-
-	if !noExport && views.AnyUsesParquet(toRender) {
-		dataDir := filepath.Join(viewsDir, "_data")
-		if _, err := store.Export(store.ExportOptions{
-			DataDir:    h.cfg.DataDir(),
-			OutDir:     dataDir,
-			Format:     "parquet",
-			Projects:   h.projectInfos(),
-			Indicators: h.indicatorDefs(),
-		}); err != nil {
-			return errorResult(fmt.Sprintf("export data: %v", err)), nil
-		}
-	}
+	h.rebuildDB()
 
 	var rendered []string
 	for _, v := range toRender {
-		if _, err := views.CheckRenderer(v.Framework, v.Venv); err != nil {
-			continue
-		}
 		if err := views.Render(v); err != nil {
 			return errorResult(fmt.Sprintf("render %s: %v", v.Name, err)), nil
 		}
-		rendered = append(rendered, fmt.Sprintf("'%s' → %s", v.Name, v.Output))
+		rendered = append(rendered, v.Name)
 	}
 
-	return textResult(fmt.Sprintf("Rendered %d view(s):\n%s", len(rendered), strings.Join(rendered, "\n"))), nil
+	return textResult(fmt.Sprintf("Rendered %d view(s): %s", len(rendered), strings.Join(rendered, ", "))), nil
 }
 
 func (h *handlers) handleRenderViews(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	viewsDir := h.cfg.ViewsDir()
-	allViews, err := views.Discover(viewsDir, h.cfg.Views.Items, h.cfg.ViewsSource())
+	allViews, err := views.Discover(viewsDir)
 	if err != nil {
 		return errorResult(fmt.Sprintf("discover views: %v", err)), nil
 	}
 
 	prefix := req.GetString("prefix", "")
-	noExport := false
-	if args := req.GetArguments(); args != nil {
-		if val, ok := args["no_export"]; ok {
-			noExport, _ = val.(bool)
-		}
-	}
 
 	var toRender []views.View
 	for _, v := range allViews {
-		if prefix == "" || strings.HasPrefix(v.Name, prefix) {
+		if prefix == "" || v.Name == prefix || strings.HasPrefix(v.Name, prefix+"/") {
 			toRender = append(toRender, v)
 		}
 	}
@@ -1101,26 +1072,11 @@ func (h *handlers) handleRenderViews(ctx context.Context, req mcp.CallToolReques
 		return textResult("No views found to render"), nil
 	}
 
-	if !noExport && views.AnyUsesParquet(toRender) {
-		dataDir := filepath.Join(viewsDir, "_data")
-		if _, err := store.Export(store.ExportOptions{
-			DataDir:    h.cfg.DataDir(),
-			OutDir:     dataDir,
-			Format:     "parquet",
-			Projects:   h.projectInfos(),
-			Indicators: h.indicatorDefs(),
-		}); err != nil {
-			return errorResult(fmt.Sprintf("export data: %v", err)), nil
-		}
-	}
+	h.rebuildDB()
 
 	var rendered int
 	var errors []string
 	for _, v := range toRender {
-		if _, err := views.CheckRenderer(v.Framework, v.Venv); err != nil {
-			errors = append(errors, fmt.Sprintf("%s: %v", v.Name, err))
-			continue
-		}
 		if err := views.Render(v); err != nil {
 			errors = append(errors, fmt.Sprintf("%s: %v", v.Name, err))
 			continue
