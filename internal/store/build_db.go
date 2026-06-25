@@ -67,7 +67,7 @@ func createGitHubEventsViewRelative(db *sql.DB, absDir string) error {
 		FROM read_json('%s',
 			format='newline_delimited',
 			columns={source: 'VARCHAR', event_type: 'VARCHAR', project_id: 'VARCHAR', github_repo: 'VARCHAR', datetime: 'VARCHAR', "user": 'VARCHAR'})`,
-		escapeSQLString(glob))
+		escapeSQLString(absGlob))
 
 	if _, err := db.Exec(query); err != nil {
 		slog.Debug("github_events view creation failed, using empty view", "error", err)
@@ -87,7 +87,7 @@ func createMetricsViewRelative(db *sql.DB, absDir string) error {
 		if !entry.IsDir() || entry.Name() == "github" {
 			continue
 		}
-		g := entry.Name() + "/*/*.jsonl"
+		g := filepath.ToSlash(filepath.Join(absDir, entry.Name(), "*", "*.jsonl"))
 		globs = append(globs, "'"+escapeSQLString(g)+"'")
 	}
 
@@ -158,7 +158,7 @@ func createYouTubeIndexViewRelative(db *sql.DB, absDir string) error {
 		FROM read_json('%s',
 			format='newline_delimited',
 			columns={video_id: 'VARCHAR', title: 'VARCHAR', published_at: 'VARCHAR', channel: 'VARCHAR', duration: 'BIGINT', tags: 'JSON'})`,
-		escapeSQLString(glob))
+		escapeSQLString(absGlob))
 
 	if _, err := db.Exec(query); err != nil {
 		slog.Debug("youtube_index view creation failed, using empty view", "error", err)
