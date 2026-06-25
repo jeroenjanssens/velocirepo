@@ -10,3 +10,5 @@ plan.md
 research.md
 *.duckdb
 *.duckdb.wal
+# roborev snapshots
+/.roborev/
