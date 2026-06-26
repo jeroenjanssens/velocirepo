@@ -80,10 +80,11 @@ func TestYouTubeIndexDuckDBView(t *testing.T) {
 	dir := t.TempDir()
 	dataDir := filepath.Join(dir, "data")
 
-	entries := []source.YouTubeIndexEntry{
-		{VideoID: "abc123", Title: "Test Video", PublishedAt: "2025-06-01T10:00:00Z", Channel: "@TestChan", Duration: 330, Tags: []string{"go", "tutorial"}},
+	dur := int64(330)
+	contentEntries := []source.ContentEntry{
+		{Source: "youtube", Target: "@TestChan", ID: "abc123", Title: "Test Video", PublishedAt: "2025-06-01T10:00:00Z", Duration: &dur, Tags: []string{"go", "tutorial"}, Type: "video"},
 	}
-	if err := WriteYouTubeIndex(dataDir, "proj", entries); err != nil {
+	if err := WriteContent(dataDir, "youtube", "proj", "videos.jsonl", contentEntries); err != nil {
 		t.Fatal(err)
 	}
 

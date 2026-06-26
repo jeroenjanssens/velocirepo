@@ -34,7 +34,10 @@ func BuildDB(dataDir string, projects []ProjectInfo, indicators []IndicatorDef) 
 	if err := createMetricsViewRelative(db, absDir); err != nil {
 		return err
 	}
-	if err := createYouTubeIndexViewRelative(db, absDir); err != nil {
+	if err := createContentViewRelative(db, absDir); err != nil {
+		return err
+	}
+	if err := createYouTubeIndexView(db); err != nil {
 		return err
 	}
 	if err := createProjectsTable(db, projects); err != nil {
@@ -89,31 +92,35 @@ func globHasMatches(pattern string) bool {
 	return err == nil && len(matches) > 0
 }
 
-func createYouTubeIndexViewRelative(db *sql.DB, absDir string) error {
-	glob := "metrics/youtube/*/index.jsonl"
-	absGlob := filepath.ToSlash(filepath.Join(absDir, glob))
+func createContentViewRelative(db *sql.DB, absDir string) error {
+	glob := filepath.ToSlash(filepath.Join(absDir, "content", "*", "*", "*.jsonl"))
 
-	if !globHasMatches(absGlob) {
-		slog.Debug("no youtube index files found, creating empty view")
-		return createEmptyYouTubeIndexView(db)
+	if !globHasMatches(glob) {
+		slog.Debug("no content files found, creating empty view")
+		return createEmptyContentView(db)
 	}
 
-	query := fmt.Sprintf(`CREATE OR REPLACE VIEW youtube_index AS
+	query := fmt.Sprintf(`CREATE OR REPLACE VIEW content AS
 		SELECT
-			video_id,
+			source,
+			target,
+			id,
 			title,
+			description,
 			CAST(published_at AS TIMESTAMP) AS published_at,
-			channel,
+			url,
 			duration,
-			tags
+			tags,
+			type,
+			metadata
 		FROM read_json('%s',
 			format='newline_delimited',
-			columns={video_id: 'VARCHAR', title: 'VARCHAR', published_at: 'VARCHAR', channel: 'VARCHAR', duration: 'BIGINT', tags: 'JSON'})`,
-		escapeSQLString(absGlob))
+			columns={source: 'VARCHAR', target: 'VARCHAR', id: 'VARCHAR', title: 'VARCHAR', description: 'VARCHAR', published_at: 'VARCHAR', url: 'VARCHAR', duration: 'BIGINT', tags: 'JSON', type: 'VARCHAR', metadata: 'JSON'})`,
+		escapeSQLString(glob))
 
 	if _, err := db.Exec(query); err != nil {
-		slog.Debug("youtube_index view creation failed, using empty view", "error", err)
-		return createEmptyYouTubeIndexView(db)
+		slog.Debug("content view creation failed, using empty view", "error", err)
+		return createEmptyContentView(db)
 	}
 	return nil
 }

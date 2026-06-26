@@ -41,6 +41,7 @@ func Export(opts ExportOptions) ([]string, error) {
 	tables := []table{
 		{"metrics", buildExportQuery("metrics", opts)},
 		{"events", buildExportQuery("events", opts)},
+		{"content", buildExportQuery("content", opts)},
 		{"youtube_index", buildExportQuery("youtube_index", opts)},
 		{"indicators", buildExportQuery("indicators", opts)},
 		{"projects", buildExportQuery("projects", opts)},
@@ -89,14 +90,14 @@ func buildExportQuery(table string, opts ExportOptions) string {
 		if table == "projects" {
 			col = "id"
 		}
-		if table == "youtube_index" {
+		if table == "youtube_index" || table == "content" {
 			col = ""
 		}
 		if col != "" {
 			conditions = append(conditions, fmt.Sprintf("%s = '%s'", col, escapeSQLString(opts.Project)))
 		}
 	}
-	if opts.Source != "" && (table == "metrics" || table == "indicators") {
+	if opts.Source != "" && (table == "metrics" || table == "indicators" || table == "content") {
 		conditions = append(conditions, fmt.Sprintf("source = '%s'", escapeSQLString(opts.Source)))
 	}
 
@@ -110,6 +111,8 @@ func buildExportQuery(table string, opts ExportOptions) string {
 		query += " ORDER BY project, source, metric, date"
 	case "events":
 		query += " ORDER BY project, type, datetime"
+	case "content":
+		query += " ORDER BY source, target, published_at"
 	case "youtube_index":
 		query += " ORDER BY channel, published_at"
 	case "indicators":
@@ -126,7 +129,7 @@ func matchesSource(table, source string) bool {
 	case "github":
 		return table == "events"
 	case "youtube":
-		return table == "metrics" || table == "youtube_index"
+		return table == "metrics" || table == "youtube_index" || table == "content"
 	case "projects":
 		return table == "projects"
 	default:

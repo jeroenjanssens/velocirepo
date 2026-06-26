@@ -76,6 +76,7 @@ func ValidateData(dataDir string, projectIDs map[string]bool) (*ValidationResult
 
 	validateCategory(filepath.Join(dataDir, "metrics"), projectIDs, false, result)
 	validateCategory(filepath.Join(dataDir, "events"), projectIDs, true, result)
+	validateContentCategory(filepath.Join(dataDir, "content"), projectIDs, result)
 
 	return result, nil
 }
@@ -652,6 +653,179 @@ func regroupEventsFile(path string) (int, error) {
 	}
 
 	return moved, nil
+}
+
+func validateContentCategory(categoryDir string, projectIDs map[string]bool, result *ValidationResult) {
+	sourceDirs, err := os.ReadDir(categoryDir)
+	if err != nil {
+		return
+	}
+
+	for _, sourceEntry := range sourceDirs {
+		if !sourceEntry.IsDir() {
+			continue
+		}
+		sourceName := sourceEntry.Name()
+		sourcePath := filepath.Join(categoryDir, sourceName)
+
+		projDirs, err := os.ReadDir(sourcePath)
+		if err != nil {
+			continue
+		}
+
+		for _, projEntry := range projDirs {
+			if !projEntry.IsDir() {
+				continue
+			}
+			projID := projEntry.Name()
+			projPath := filepath.Join(sourcePath, projID)
+
+			if projectIDs != nil && !projectIDs[projID] {
+				result.Issues = append(result.Issues, Issue{
+					Type:    IssueOrphanDir,
+					Path:    projPath,
+					Message: fmt.Sprintf("directory for unknown project %q (source: %s)", projID, sourceName),
+					Fixable: true,
+				})
+				continue
+			}
+
+			validateContentDir(projPath, sourceName, result)
+		}
+	}
+}
+
+func validateContentDir(dir, sourceName string, result *ValidationResult) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
+		path := filepath.Join(dir, name)
+
+		if !strings.HasSuffix(name, ".jsonl") {
+			result.Issues = append(result.Issues, Issue{
+				Type:    IssueUnexpectedFile,
+				Path:    path,
+				Message: fmt.Sprintf("file %q is not a .jsonl file", name),
+				Fixable: false,
+			})
+			continue
+		}
+
+		validateContentFile(path, sourceName, result)
+	}
+}
+
+func validateContentFile(path, sourceName string, result *ValidationResult) {
+	f, err := os.Open(path)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+
+	result.FilesRead++
+
+	scanner := bufio.NewScanner(f)
+	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
+
+	seen := make(map[string]int)
+	lineNum := 0
+
+	for scanner.Scan() {
+		lineNum++
+		result.LinesRead++
+
+		var e source.ContentEntry
+		if err := json.Unmarshal(scanner.Bytes(), &e); err != nil {
+			result.Issues = append(result.Issues, Issue{
+				Type:    IssueMalformedJSON,
+				Path:    path,
+				Line:    lineNum,
+				Message: fmt.Sprintf("line %d: %v", lineNum, err),
+				Fixable: true,
+			})
+			continue
+		}
+
+		result.RecordCount++
+
+		if e.ID == "" {
+			result.Issues = append(result.Issues, Issue{
+				Type:    IssueEmptyField,
+				Path:    path,
+				Line:    lineNum,
+				Message: fmt.Sprintf("line %d: empty id field", lineNum),
+			})
+		}
+		if e.Title == "" {
+			result.Issues = append(result.Issues, Issue{
+				Type:    IssueEmptyField,
+				Path:    path,
+				Line:    lineNum,
+				Message: fmt.Sprintf("line %d: empty title field", lineNum),
+			})
+		}
+		if e.Source == "" {
+			result.Issues = append(result.Issues, Issue{
+				Type:    IssueEmptyField,
+				Path:    path,
+				Line:    lineNum,
+				Message: fmt.Sprintf("line %d: empty source field", lineNum),
+			})
+		} else if e.Source != sourceName {
+			result.Issues = append(result.Issues, Issue{
+				Type:    IssueDateMismatch,
+				Path:    path,
+				Line:    lineNum,
+				Message: fmt.Sprintf("line %d: source %q does not match directory %q", lineNum, e.Source, sourceName),
+			})
+		}
+		if e.Target == "" {
+			result.Issues = append(result.Issues, Issue{
+				Type:    IssueEmptyField,
+				Path:    path,
+				Line:    lineNum,
+				Message: fmt.Sprintf("line %d: empty target field", lineNum),
+			})
+		}
+		if e.PublishedAt == "" {
+			result.Issues = append(result.Issues, Issue{
+				Type:    IssueEmptyField,
+				Path:    path,
+				Line:    lineNum,
+				Message: fmt.Sprintf("line %d: empty published_at field", lineNum),
+			})
+		} else if _, err := time.Parse(time.RFC3339, e.PublishedAt); err != nil {
+			if _, err2 := time.Parse("2006-01-02T15:04:05Z", e.PublishedAt); err2 != nil {
+				result.Issues = append(result.Issues, Issue{
+					Type:    IssueInvalidDatetime,
+					Path:    path,
+					Line:    lineNum,
+					Message: fmt.Sprintf("line %d: invalid published_at %q", lineNum, e.PublishedAt),
+				})
+			}
+		}
+
+		if e.ID != "" {
+			if firstLine, exists := seen[e.ID]; exists {
+				result.Issues = append(result.Issues, Issue{
+					Type:    IssueDuplicate,
+					Path:    path,
+					Line:    lineNum,
+					Message: fmt.Sprintf("line %d: duplicate id %q (first at line %d)", lineNum, e.ID, firstLine),
+					Fixable: true,
+				})
+			} else {
+				seen[e.ID] = lineNum
+			}
+		}
+	}
 }
 
 func writeLines(path string, lines [][]byte) error {
