@@ -24,17 +24,21 @@ type YouTube struct {
 	Target  string
 	BaseURL string
 
-	indexEntries []YouTubeIndexEntry
+	contentEntries []ContentEntry
 }
 
 func (y *YouTube) Name() string { return "youtube" }
 
-func (y *YouTube) IndexEntries() []YouTubeIndexEntry {
-	return y.indexEntries
+func (y *YouTube) ContentEntries() []ContentEntry {
+	return y.contentEntries
+}
+
+func (y *YouTube) ContentFilename() string {
+	return "videos.jsonl"
 }
 
 func (y *YouTube) Fetch(ctx context.Context, opts FetchOptions) ([]Record, error) {
-	y.indexEntries = nil
+	y.contentEntries = nil
 
 	targetType := detectYouTubeType(y.Target)
 	switch targetType {
@@ -233,13 +237,17 @@ func (y *YouTube) fetchVideos(ctx context.Context, opts FetchOptions, videoIDs [
 				})
 			}
 
-			y.indexEntries = append(y.indexEntries, YouTubeIndexEntry{
-				VideoID:     item.ID,
+			dur := parseISO8601Duration(item.ContentDetails.Duration)
+			y.contentEntries = append(y.contentEntries, ContentEntry{
+				Source:      "youtube",
+				Target:      y.Target,
+				ID:          item.ID,
 				Title:       item.Snippet.Title,
 				PublishedAt: item.Snippet.PublishedAt,
-				Channel:     y.Target,
-				Duration:    parseISO8601Duration(item.ContentDetails.Duration),
+				URL:         "https://youtube.com/watch?v=" + item.ID,
+				Duration:    &dur,
 				Tags:        item.Snippet.Tags,
+				Type:        "video",
 			})
 		}
 	}

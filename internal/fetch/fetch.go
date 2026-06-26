@@ -260,9 +260,9 @@ func All(ctx context.Context, cfg *config.Config, tokens Tokens, opts Options) (
 					return nil
 				}
 
-				if yt, ok := job.src.(*source.YouTube); ok {
-					if entries := yt.IndexEntries(); len(entries) > 0 {
-						store.WriteYouTubeIndex(dataDir, job.projectID, entries)
+				if cp, ok := job.src.(source.ContentProvider); ok {
+					if entries := cp.ContentEntries(); len(entries) > 0 {
+						store.WriteContent(dataDir, job.sourceName, job.projectID, cp.ContentFilename(), entries)
 					}
 				}
 
@@ -377,9 +377,9 @@ func Source(ctx context.Context, cfg *config.Config, tokens Tokens, sourceName s
 				continue
 			}
 
-			if yt, ok := src.(*source.YouTube); ok {
-				if entries := yt.IndexEntries(); len(entries) > 0 {
-					store.WriteYouTubeIndex(dataDir, id, entries)
+			if cp, ok := src.(source.ContentProvider); ok {
+				if entries := cp.ContentEntries(); len(entries) > 0 {
+					store.WriteContent(dataDir, sourceName, id, cp.ContentFilename(), entries)
 				}
 			}
 

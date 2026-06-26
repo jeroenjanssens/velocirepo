@@ -110,25 +110,31 @@ func TestYouTubeFetchChannel(t *testing.T) {
 		}
 	}
 
-	// Check index entries
-	entries := yt.IndexEntries()
+	// Check content entries
+	entries := yt.ContentEntries()
 	if len(entries) != 2 {
-		t.Fatalf("expected 2 index entries, got %d", len(entries))
+		t.Fatalf("expected 2 content entries, got %d", len(entries))
 	}
-	if entries[0].VideoID != "vid1" || entries[0].Title != "Video One" {
-		t.Errorf("unexpected index entry 0: %+v", entries[0])
+	if entries[0].ID != "vid1" || entries[0].Title != "Video One" {
+		t.Errorf("unexpected content entry 0: %+v", entries[0])
 	}
-	if entries[0].Duration != 330 {
-		t.Errorf("expected duration 330, got %d", entries[0].Duration)
+	if entries[0].Duration == nil || *entries[0].Duration != 330 {
+		t.Errorf("expected duration 330, got %v", entries[0].Duration)
 	}
 	if len(entries[0].Tags) != 2 || entries[0].Tags[0] != "go" {
 		t.Errorf("expected tags [go, tutorial], got %v", entries[0].Tags)
 	}
-	if entries[1].Channel != "@TestChannel" {
-		t.Errorf("expected channel @TestChannel, got %s", entries[1].Channel)
+	if entries[1].Target != "@TestChannel" {
+		t.Errorf("expected target @TestChannel, got %s", entries[1].Target)
 	}
-	if entries[1].Duration != 600 {
-		t.Errorf("expected duration 600, got %d", entries[1].Duration)
+	if entries[1].Duration == nil || *entries[1].Duration != 600 {
+		t.Errorf("expected duration 600, got %v", entries[1].Duration)
+	}
+	if entries[0].Source != "youtube" || entries[0].Type != "video" {
+		t.Errorf("expected source=youtube type=video, got %+v", entries[0])
+	}
+	if entries[0].URL != "https://youtube.com/watch?v=vid1" {
+		t.Errorf("expected URL for vid1, got %s", entries[0].URL)
 	}
 }
 
@@ -180,9 +186,9 @@ func TestYouTubeFetchSingleVideo(t *testing.T) {
 		t.Errorf("expected video_id tag, got %v", records[0].Tags)
 	}
 
-	entries := yt.IndexEntries()
+	entries := yt.ContentEntries()
 	if len(entries) != 1 {
-		t.Fatalf("expected 1 index entry, got %d", len(entries))
+		t.Fatalf("expected 1 content entry, got %d", len(entries))
 	}
 	if entries[0].Title != "Never Gonna Give You Up" {
 		t.Errorf("unexpected title: %s", entries[0].Title)

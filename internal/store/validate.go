@@ -138,11 +138,6 @@ func validateRecordsDir(dir, sourceName, projectID string, result *ValidationRes
 		name := entry.Name()
 		path := filepath.Join(dir, name)
 
-		if name == "index.jsonl" && sourceName == "youtube" {
-			validateYouTubeIndex(path, result)
-			continue
-		}
-
 		fileDateRange := extractDateRange(name)
 		if fileDateRange == "" {
 			result.Issues = append(result.Issues, Issue{
@@ -330,35 +325,6 @@ func validateEventsFile(path, fileDateRange string, result *ValidationResult) {
 	})
 }
 
-func validateYouTubeIndex(path string, result *ValidationResult) {
-	f, err := os.Open(path)
-	if err != nil {
-		return
-	}
-	defer f.Close()
-
-	result.FilesRead++
-
-	scanner := bufio.NewScanner(f)
-	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
-
-	lineNum := 0
-	for scanner.Scan() {
-		lineNum++
-		result.LinesRead++
-
-		var e source.YouTubeIndexEntry
-		if err := json.Unmarshal(scanner.Bytes(), &e); err != nil {
-			result.Issues = append(result.Issues, Issue{
-				Type:    IssueMalformedJSON,
-				Path:    path,
-				Line:    lineNum,
-				Message: fmt.Sprintf("line %d: %v", lineNum, err),
-				Fixable: true,
-			})
-		}
-	}
-}
 
 func extractDateRange(filename string) string {
 	if m := dailyPattern.FindStringSubmatch(filename); m != nil {
