@@ -384,7 +384,11 @@ func migrate4to5(dataDir string) error {
 
 		w := bufio.NewWriter(tmp)
 		for _, e := range entries {
-			dur := e.Duration
+			var dur *int64
+			if e.Duration != 0 {
+				d := e.Duration
+				dur = &d
+			}
 			ce := contentEntry5{
 				Source:      "youtube",
 				Target:      e.Channel,
@@ -392,7 +396,7 @@ func migrate4to5(dataDir string) error {
 				Title:       e.Title,
 				PublishedAt: e.PublishedAt,
 				URL:         "https://youtube.com/watch?v=" + e.VideoID,
-				Duration:    &dur,
+				Duration:    dur,
 				Tags:        e.Tags,
 				Type:        "video",
 			}

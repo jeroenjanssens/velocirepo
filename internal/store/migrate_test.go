@@ -132,7 +132,8 @@ func TestMigrate4to5YouTubeIndex(t *testing.T) {
 	os.MkdirAll(youtubeDir, 0755)
 	os.WriteFile(filepath.Join(youtubeDir, "index.jsonl"),
 		[]byte(`{"video_id":"abc123","title":"Test Video","published_at":"2025-06-01T10:00:00Z","channel":"@TestChan","duration":330,"tags":["go","tutorial"]}`+"\n"+
-			`{"video_id":"def456","title":"Second Video","published_at":"2025-07-01T10:00:00Z","channel":"@TestChan","duration":600}`+"\n"), 0644)
+			`{"video_id":"def456","title":"Second Video","published_at":"2025-07-01T10:00:00Z","channel":"@TestChan","duration":600}`+"\n"+
+			`{"video_id":"ghi789","title":"Livestream","published_at":"2025-08-01T10:00:00Z","channel":"@TestChan","duration":0}`+"\n"), 0644)
 
 	applied, err := Migrate(dir)
 	if err != nil {
@@ -172,6 +173,12 @@ func TestMigrate4to5YouTubeIndex(t *testing.T) {
 	}
 	if !contains(content, `"duration":330`) {
 		t.Error("expected duration=330 in migrated content")
+	}
+	if !contains(content, `"id":"ghi789"`) {
+		t.Error("expected id=ghi789 in migrated content")
+	}
+	if contains(content, `"duration":0`) {
+		t.Error("zero duration should be omitted, not written as 0")
 	}
 }
 
