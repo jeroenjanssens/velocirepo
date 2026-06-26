@@ -255,7 +255,7 @@ jobs:
         run: |
           cat > homebrew-tap/Formula/velocirepo.rb << 'FORMULA'
           class Velocirepo < Formula
-            desc "Track your project's pulse across package registries, GitHub, and the web"
+            desc "Track your open-source project's pulse across package registries, GitHub, and the web"
             homepage "https://github.com/jeroenjanssens/velocirepo"
             version "VERSION_PLACEHOLDER"
             license "MIT"
@@ -349,7 +349,7 @@ jobs:
           cat > scoop-bucket/velocirepo.json << 'MANIFEST'
           {
             "version": "VERSION_PLACEHOLDER",
-            "description": "Track your project's pulse across package registries, GitHub, and the web",
+            "description": "Track your open-source project's pulse across package registries, GitHub, and the web",
             "homepage": "https://github.com/jeroenjanssens/velocirepo",
             "license": "MIT",
             "architecture": {

@@ -1,6 +1,6 @@
 # velocirepo
 
-Track your project's pulse across package registries, GitHub, and the web.
+Track your open-source project's pulse across package registries, GitHub, and the web.
 
 ## Table of contents
 
