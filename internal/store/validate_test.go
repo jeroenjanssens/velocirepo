@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/jeroenjanssens/velocirepo/internal/source"
@@ -39,6 +40,21 @@ func writeTestRaw(t *testing.T, path string, lines []string) {
 	for _, line := range lines {
 		f.WriteString(line + "\n")
 	}
+}
+
+func readRawLines(t *testing.T, path string) []string {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var lines []string
+	for _, line := range strings.Split(strings.TrimSpace(string(data)), "\n") {
+		if line != "" {
+			lines = append(lines, line)
+		}
+	}
+	return lines
 }
 
 func writeTestEvents(t *testing.T, path string, events []source.Event) {
@@ -424,6 +440,51 @@ func TestFixOrphanDirs(t *testing.T) {
 
 	if _, err := os.Stat(orphanPath); !os.IsNotExist(err) {
 		t.Error("expected orphan dir to be removed")
+	}
+}
+
+func TestFixSourceMismatches(t *testing.T) {
+	dir := t.TempDir()
+	dataDir := filepath.Join(dir, "data")
+
+	// File at .../content/youtube/myproj/videos.jsonl → sourceName = "youtube"
+	path := filepath.Join(dataDir, "content", "youtube", "myproj", "videos.jsonl")
+
+	writeTestRaw(t, path, []string{
+		`{"source":"github","id":"v1","project_id":"myproj","name":"Video 1"}`,
+		`{"source":"youtube","id":"v2","project_id":"myproj","name":"Video 2"}`,
+		`{"id":"v3","project_id":"myproj","name":"Video 3"}`,
+	})
+
+	result := FixSourceMismatches([]string{path})
+	if result.Fixed != 1 {
+		t.Errorf("expected 1 fixed, got %d", result.Fixed)
+	}
+
+	lines := readRawLines(t, path)
+	if len(lines) != 3 {
+		t.Fatalf("expected 3 lines, got %d", len(lines))
+	}
+
+	// First record: source rewritten from "github" to "youtube"
+	var rec0 map[string]interface{}
+	json.Unmarshal([]byte(lines[0]), &rec0)
+	if rec0["source"] != "youtube" {
+		t.Errorf("expected source youtube, got %v", rec0["source"])
+	}
+
+	// Second record: already correct, unchanged
+	var rec1 map[string]interface{}
+	json.Unmarshal([]byte(lines[1]), &rec1)
+	if rec1["source"] != "youtube" {
+		t.Errorf("expected source youtube, got %v", rec1["source"])
+	}
+
+	// Third record: empty source should NOT be rewritten
+	var rec2 map[string]interface{}
+	json.Unmarshal([]byte(lines[2]), &rec2)
+	if _, ok := rec2["source"]; ok {
+		t.Errorf("expected no source field, got %v", rec2["source"])
 	}
 }
 

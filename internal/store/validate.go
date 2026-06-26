@@ -476,7 +476,7 @@ func fixSourceInFile(path string) (int, error) {
 			json.Unmarshal(s, &src)
 		}
 
-		if src != sourceName {
+		if src != "" && src != sourceName {
 			raw["source"], _ = json.Marshal(sourceName)
 			rewritten, err := json.Marshal(raw)
 			if err != nil {
