@@ -3,6 +3,8 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"os"
+	"sort"
 
 	"github.com/jeroenjanssens/velocirepo/internal/config"
 	"github.com/jeroenjanssens/velocirepo/internal/fetch"
@@ -44,6 +46,29 @@ func renderFetchResults(results []fetch.Result) {
 		default:
 			ui.FetchDone(r.Source, r.ProjectID, r.Records, r.Duration)
 		}
+	}
+
+	var failures []fetch.Result
+	for _, r := range results {
+		if r.Error != "" {
+			failures = append(failures, r)
+		}
+	}
+	if len(failures) == 0 {
+		return
+	}
+
+	sort.Slice(failures, func(i, j int) bool {
+		if failures[i].Source != failures[j].Source {
+			return failures[i].Source < failures[j].Source
+		}
+		return failures[i].ProjectID < failures[j].ProjectID
+	})
+
+	fmt.Fprintln(os.Stderr)
+	ui.Warnf("%d failed:", len(failures))
+	for _, f := range failures {
+		ui.Errorf("[%s/%s] %s", f.ProjectID, f.Source, f.Error)
 	}
 }
 
