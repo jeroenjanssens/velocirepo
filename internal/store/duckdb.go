@@ -115,10 +115,16 @@ func openLiveDB(dataDir string, projects []ProjectInfo, indicators []IndicatorDe
 }
 
 func createMetricsView(db *sql.DB, absDir string) error {
-	entries, err := os.ReadDir(absDir)
-	if err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("read data dir: %w", err)
+	query := metricsViewSQL(absDir)
+	if _, err := db.Exec(query); err != nil {
+		slog.Debug("metrics view creation failed, using empty view", "error", err)
+		return createEmptyMetricsView(db)
 	}
+	return nil
+}
+
+func metricsViewSQL(absDir string) string {
+	entries, _ := os.ReadDir(absDir)
 
 	var globs []string
 	for _, entry := range entries {
@@ -129,7 +135,7 @@ func createMetricsView(db *sql.DB, absDir string) error {
 		globs = append(globs, "'"+escapeSQLString(g)+"'")
 	}
 
-	githubAgg := `SELECT
+	const githubAgg = `SELECT
 			project,
 			'github' AS source,
 			github_repo AS target,
@@ -148,32 +154,25 @@ func createMetricsView(db *sql.DB, absDir string) error {
 		FROM github_events
 		GROUP BY project, github_repo, event_type, CAST(datetime AS DATE)`
 
-	var query string
-	if len(globs) > 0 {
-		globList := strings.Join(globs, ", ")
-		query = fmt.Sprintf(`CREATE OR REPLACE VIEW metrics AS
-			SELECT
-				project_id AS project,
-				source,
-				target,
-				metric,
-				CAST(date AS DATE) AS date,
-				CAST(value AS BIGINT) AS value,
-				tags
-			FROM read_json([%s],
-				format='newline_delimited',
-				columns={source: 'VARCHAR', metric: 'VARCHAR', project_id: 'VARCHAR', target: 'VARCHAR', date: 'VARCHAR', value: 'BIGINT', tags: 'JSON'})
-			UNION ALL
-			%s`, globList, githubAgg)
-	} else {
-		query = fmt.Sprintf(`CREATE OR REPLACE VIEW metrics AS %s`, githubAgg)
+	if len(globs) == 0 {
+		return fmt.Sprintf(`CREATE OR REPLACE VIEW metrics AS %s`, githubAgg)
 	}
 
-	if _, err := db.Exec(query); err != nil {
-		slog.Debug("metrics view creation failed, using empty view", "error", err)
-		return createEmptyMetricsView(db)
-	}
-	return nil
+	globList := strings.Join(globs, ", ")
+	return fmt.Sprintf(`CREATE OR REPLACE VIEW metrics AS
+		SELECT
+			project_id AS project,
+			source,
+			target,
+			metric,
+			CAST(date AS DATE) AS date,
+			CAST(value AS BIGINT) AS value,
+			tags
+		FROM read_json([%s],
+			format='newline_delimited',
+			columns={source: 'VARCHAR', metric: 'VARCHAR', project_id: 'VARCHAR', target: 'VARCHAR', date: 'VARCHAR', value: 'BIGINT', tags: 'JSON'})
+		UNION ALL
+		%s`, globList, githubAgg)
 }
 
 func createEmptyMetricsView(db *sql.DB) error {

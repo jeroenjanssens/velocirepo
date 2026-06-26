@@ -77,60 +77,7 @@ func createGitHubEventsViewRelative(db *sql.DB, absDir string) error {
 }
 
 func createMetricsViewRelative(db *sql.DB, absDir string) error {
-	entries, err := os.ReadDir(absDir)
-	if err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("read data dir: %w", err)
-	}
-
-	var globs []string
-	for _, entry := range entries {
-		if !entry.IsDir() || entry.Name() == "github" {
-			continue
-		}
-		g := filepath.ToSlash(filepath.Join(absDir, entry.Name(), "*", "*.jsonl"))
-		globs = append(globs, "'"+escapeSQLString(g)+"'")
-	}
-
-	githubAgg := `SELECT
-			project,
-			'github' AS source,
-			github_repo AS target,
-			CASE event_type
-				WHEN 'star' THEN 'daily_stars'
-				WHEN 'fork' THEN 'daily_forks'
-				WHEN 'issue_open' THEN 'daily_issues_opened'
-				WHEN 'issue_close' THEN 'daily_issues_closed'
-				WHEN 'pr_open' THEN 'daily_prs_opened'
-				WHEN 'pr_merge' THEN 'daily_prs_merged'
-				ELSE 'daily_' || event_type
-			END AS metric,
-			CAST(datetime AS DATE) AS date,
-			COUNT(*) AS value,
-			NULL::JSON AS tags
-		FROM github_events
-		GROUP BY project, github_repo, event_type, CAST(datetime AS DATE)`
-
-	var query string
-	if len(globs) > 0 {
-		globList := strings.Join(globs, ", ")
-		query = fmt.Sprintf(`CREATE OR REPLACE VIEW metrics AS
-			SELECT
-				project_id AS project,
-				source,
-				target,
-				metric,
-				CAST(date AS DATE) AS date,
-				CAST(value AS BIGINT) AS value,
-				tags
-			FROM read_json([%s],
-				format='newline_delimited',
-				columns={source: 'VARCHAR', metric: 'VARCHAR', project_id: 'VARCHAR', target: 'VARCHAR', date: 'VARCHAR', value: 'BIGINT', tags: 'JSON'})
-			UNION ALL
-			%s`, globList, githubAgg)
-	} else {
-		query = fmt.Sprintf(`CREATE OR REPLACE VIEW metrics AS %s`, githubAgg)
-	}
-
+	query := metricsViewSQL(absDir)
 	if _, err := db.Exec(query); err != nil {
 		slog.Debug("metrics view creation failed, using empty view", "error", err)
 		return createEmptyMetricsView(db)

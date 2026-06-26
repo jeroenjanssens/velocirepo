@@ -31,93 +31,52 @@ func (g *GitHubTraffic) Fetch(ctx context.Context, opts FetchOptions) ([]Record,
 		return nil, fmt.Errorf("invalid github repo: %q", g.Repo)
 	}
 
+	type endpoint struct {
+		path        string
+		countMetric string
+		uniqMetric  string
+	}
+	endpoints := []endpoint{
+		{"traffic/views?per=day", "daily_views", "daily_unique_views"},
+		{"traffic/clones?per=day", "daily_clones", "daily_unique_clones"},
+	}
+
 	var all []Record
+	for _, ep := range endpoints {
+		url := fmt.Sprintf("%s/repos/%s/%s/%s", g.baseURL(), owner, repo, ep.path)
 
-	views, err := g.fetchViews(ctx, owner, repo, opts)
-	if err != nil {
-		return nil, fmt.Errorf("views: %w", err)
-	}
-	all = append(all, views...)
+		var result trafficResponse
+		if err := g.get(ctx, url, &result); err != nil {
+			return nil, fmt.Errorf("%s: %w", ep.countMetric, err)
+		}
 
-	clones, err := g.fetchClones(ctx, owner, repo, opts)
-	if err != nil {
-		return nil, fmt.Errorf("clones: %w", err)
+		for _, item := range result.Items {
+			t, err := time.Parse(time.RFC3339, item.Timestamp)
+			if err != nil {
+				continue
+			}
+			if !inDateRange(t, opts.StartDate, opts.EndDate) {
+				continue
+			}
+			date := t.Format("2006-01-02")
+			all = append(all, Record{
+				Metric:    ep.countMetric,
+				ProjectID: opts.ProjectID,
+				Target:    g.Repo,
+				Date:      date,
+				Value:     item.Count,
+			})
+			all = append(all, Record{
+				Metric:    ep.uniqMetric,
+				ProjectID: opts.ProjectID,
+				Target:    g.Repo,
+				Date:      date,
+				Value:     item.Uniques,
+			})
+		}
 	}
-	all = append(all, clones...)
 
 	return all, nil
-}
-
-func (g *GitHubTraffic) fetchViews(ctx context.Context, owner, repo string, opts FetchOptions) ([]Record, error) {
-	url := fmt.Sprintf("%s/repos/%s/%s/traffic/views?per=day", g.baseURL(), owner, repo)
-
-	var result trafficResponse
-	if err := g.get(ctx, url, &result); err != nil {
-		return nil, err
-	}
-
-	var records []Record
-	for _, item := range result.Items {
-		t, err := time.Parse(time.RFC3339, item.Timestamp)
-		if err != nil {
-			continue
-		}
-		if t.Before(opts.StartDate) || !t.Before(opts.EndDate.AddDate(0, 0, 1)) {
-			continue
-		}
-		date := t.Format("2006-01-02")
-		records = append(records, Record{
-			Metric:    "daily_views",
-			ProjectID: opts.ProjectID,
-			Target:    g.Repo,
-			Date:      date,
-			Value:     item.Count,
-		})
-		records = append(records, Record{
-			Metric:    "daily_unique_views",
-			ProjectID: opts.ProjectID,
-			Target:    g.Repo,
-			Date:      date,
-			Value:     item.Uniques,
-		})
-	}
-	return records, nil
-}
-
-func (g *GitHubTraffic) fetchClones(ctx context.Context, owner, repo string, opts FetchOptions) ([]Record, error) {
-	url := fmt.Sprintf("%s/repos/%s/%s/traffic/clones?per=day", g.baseURL(), owner, repo)
-
-	var result trafficResponse
-	if err := g.get(ctx, url, &result); err != nil {
-		return nil, err
-	}
-
-	var records []Record
-	for _, item := range result.Items {
-		t, err := time.Parse(time.RFC3339, item.Timestamp)
-		if err != nil {
-			continue
-		}
-		if t.Before(opts.StartDate) || !t.Before(opts.EndDate.AddDate(0, 0, 1)) {
-			continue
-		}
-		date := t.Format("2006-01-02")
-		records = append(records, Record{
-			Metric:    "daily_clones",
-			ProjectID: opts.ProjectID,
-			Target:    g.Repo,
-			Date:      date,
-			Value:     item.Count,
-		})
-		records = append(records, Record{
-			Metric:    "daily_unique_clones",
-			ProjectID: opts.ProjectID,
-			Target:    g.Repo,
-			Date:      date,
-			Value:     item.Uniques,
-		})
-	}
-	return records, nil
 }
 
 type trafficResponse struct {

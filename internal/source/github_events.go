@@ -113,7 +113,7 @@ func (g *GitHubEvents) fetchStargazers(ctx context.Context, owner, repo string, 
 				done = true
 				break
 			}
-			if !t.Before(opts.EndDate.AddDate(0, 0, 1)) {
+			if !inDateRange(t, opts.StartDate, opts.EndDate) {
 				continue
 			}
 			events = append(events, GitHubEvent{
@@ -187,7 +187,7 @@ func (g *GitHubEvents) fetchForks(ctx context.Context, owner, repo string, opts 
 				done = true
 				break
 			}
-			if !t.Before(opts.EndDate.AddDate(0, 0, 1)) {
+			if !inDateRange(t, opts.StartDate, opts.EndDate) {
 				continue
 			}
 			events = append(events, GitHubEvent{
@@ -269,7 +269,7 @@ func (g *GitHubEvents) fetchIssues(ctx context.Context, owner, repo string, opts
 				user = node.Author.Login
 			}
 
-			if !t.Before(opts.EndDate.AddDate(0, 0, 1)) {
+			if !inDateRange(t, opts.StartDate, opts.EndDate) {
 				continue
 			}
 			events = append(events, GitHubEvent{
@@ -282,7 +282,7 @@ func (g *GitHubEvents) fetchIssues(ctx context.Context, owner, repo string, opts
 
 			if node.ClosedAt != nil {
 				ct, err := time.Parse(time.RFC3339, *node.ClosedAt)
-				if err == nil && !ct.Before(opts.StartDate) && ct.Before(opts.EndDate.AddDate(0, 0, 1)) {
+				if err == nil && inDateRange(ct, opts.StartDate, opts.EndDate) {
 					events = append(events, GitHubEvent{
 						EventType:  "issue_close",
 						ProjectID:  opts.ProjectID,
@@ -366,7 +366,7 @@ func (g *GitHubEvents) fetchPullRequests(ctx context.Context, owner, repo string
 				user = node.Author.Login
 			}
 
-			if !t.Before(opts.EndDate.AddDate(0, 0, 1)) {
+			if !inDateRange(t, opts.StartDate, opts.EndDate) {
 				continue
 			}
 			events = append(events, GitHubEvent{
@@ -379,7 +379,7 @@ func (g *GitHubEvents) fetchPullRequests(ctx context.Context, owner, repo string
 
 			if node.MergedAt != nil {
 				mt, err := time.Parse(time.RFC3339, *node.MergedAt)
-				if err == nil && !mt.Before(opts.StartDate) && mt.Before(opts.EndDate.AddDate(0, 0, 1)) {
+				if err == nil && inDateRange(mt, opts.StartDate, opts.EndDate) {
 					events = append(events, GitHubEvent{
 						EventType:  "pr_merge",
 						ProjectID:  opts.ProjectID,

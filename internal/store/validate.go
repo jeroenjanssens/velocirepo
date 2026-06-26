@@ -152,7 +152,15 @@ func validateRecordsDir(dir, sourceName, projectID string, result *ValidationRes
 	}
 }
 
-func validateRecordsFile(path, sourceName, projectID, fileDateRange string, result *ValidationResult) {
+// lineValidator parses a single JSONL line and returns:
+//   - date: the record's date string (for date-mismatch checking)
+//   - key: a dedup key (for duplicate detection)
+//   - issues: any field-level validation issues found
+//
+// Returning an empty date signals a parse failure (the caller handles malformed JSON).
+type lineValidator func(line []byte, path string, lineNum int) (date string, key string, issues []Issue)
+
+func validateJSONLFile(path, fileDateRange string, result *ValidationResult, validate lineValidator) {
 	f, err := os.Open(path)
 	if err != nil {
 		return
@@ -170,81 +178,84 @@ func validateRecordsFile(path, sourceName, projectID, fileDateRange string, resu
 	for scanner.Scan() {
 		lineNum++
 		result.LinesRead++
-		line := scanner.Bytes()
 
-		var r source.Record
-		if err := json.Unmarshal(line, &r); err != nil {
-			result.Issues = append(result.Issues, Issue{
-				Type:    IssueMalformedJSON,
-				Path:    path,
-				Line:    lineNum,
-				Message: fmt.Sprintf("line %d: %v", lineNum, err),
-				Fixable: true,
-			})
+		date, key, issues := validate(scanner.Bytes(), path, lineNum)
+		result.Issues = append(result.Issues, issues...)
+		if date == "" && key == "" {
 			continue
 		}
 
 		result.RecordCount++
 
-		if r.Metric == "" {
-			result.Issues = append(result.Issues, Issue{
-				Type:    IssueEmptyField,
-				Path:    path,
-				Line:    lineNum,
-				Message: fmt.Sprintf("line %d: empty metric field", lineNum),
-				Fixable: false,
-			})
+		if date != "" {
+			if !dateMatchesFile(date, fileDateRange) {
+				result.Issues = append(result.Issues, Issue{
+					Type:    IssueDateMismatch,
+					Path:    path,
+					Line:    lineNum,
+					Message: fmt.Sprintf("line %d: date %s does not belong in file %s", lineNum, date, filepath.Base(path)),
+					Fixable: true,
+				})
+			}
 		}
 
-		if r.ProjectID == "" {
-			result.Issues = append(result.Issues, Issue{
-				Type:    IssueEmptyField,
-				Path:    path,
-				Line:    lineNum,
-				Message: fmt.Sprintf("line %d: empty project_id field", lineNum),
-				Fixable: false,
-			})
-		}
-
-		if !datePattern.MatchString(r.Date) {
-			result.Issues = append(result.Issues, Issue{
-				Type:    IssueInvalidDate,
-				Path:    path,
-				Line:    lineNum,
-				Message: fmt.Sprintf("line %d: invalid date %q", lineNum, r.Date),
-				Fixable: false,
-			})
-		} else if _, err := time.Parse("2006-01-02", r.Date); err != nil {
-			result.Issues = append(result.Issues, Issue{
-				Type:    IssueInvalidDate,
-				Path:    path,
-				Line:    lineNum,
-				Message: fmt.Sprintf("line %d: unparseable date %q", lineNum, r.Date),
-				Fixable: false,
-			})
-		} else if !dateMatchesFile(r.Date, fileDateRange) {
-			result.Issues = append(result.Issues, Issue{
-				Type:    IssueDateMismatch,
-				Path:    path,
-				Line:    lineNum,
-				Message: fmt.Sprintf("line %d: record date %s does not belong in file %s", lineNum, r.Date, filepath.Base(path)),
-				Fixable: true,
-			})
-		}
-
-		key := dedupKey(r)
-		if firstLine, exists := seen[key]; exists {
-			result.Issues = append(result.Issues, Issue{
-				Type:    IssueDuplicate,
-				Path:    path,
-				Line:    lineNum,
-				Message: fmt.Sprintf("line %d: duplicate of line %d (%s/%s/%s)", lineNum, firstLine, r.Source, r.Metric, r.Date),
-				Fixable: true,
-			})
-		} else {
-			seen[key] = lineNum
+		if key != "" {
+			if firstLine, exists := seen[key]; exists {
+				result.Issues = append(result.Issues, Issue{
+					Type:    IssueDuplicate,
+					Path:    path,
+					Line:    lineNum,
+					Message: fmt.Sprintf("line %d: duplicate of line %d", lineNum, firstLine),
+					Fixable: true,
+				})
+			} else {
+				seen[key] = lineNum
+			}
 		}
 	}
+}
+
+func validateRecordsFile(path, sourceName, projectID, fileDateRange string, result *ValidationResult) {
+	validateJSONLFile(path, fileDateRange, result, func(line []byte, p string, lineNum int) (string, string, []Issue) {
+		var r source.Record
+		if err := json.Unmarshal(line, &r); err != nil {
+			return "", "", []Issue{{
+				Type: IssueMalformedJSON, Path: p, Line: lineNum,
+				Message: fmt.Sprintf("line %d: %v", lineNum, err), Fixable: true,
+			}}
+		}
+
+		var issues []Issue
+		if r.Metric == "" {
+			issues = append(issues, Issue{
+				Type: IssueEmptyField, Path: p, Line: lineNum,
+				Message: fmt.Sprintf("line %d: empty metric field", lineNum),
+			})
+		}
+		if r.ProjectID == "" {
+			issues = append(issues, Issue{
+				Type: IssueEmptyField, Path: p, Line: lineNum,
+				Message: fmt.Sprintf("line %d: empty project_id field", lineNum),
+			})
+		}
+
+		date := r.Date
+		if !datePattern.MatchString(date) {
+			issues = append(issues, Issue{
+				Type: IssueInvalidDate, Path: p, Line: lineNum,
+				Message: fmt.Sprintf("line %d: invalid date %q", lineNum, date),
+			})
+			date = ""
+		} else if _, err := time.Parse("2006-01-02", date); err != nil {
+			issues = append(issues, Issue{
+				Type: IssueInvalidDate, Path: p, Line: lineNum,
+				Message: fmt.Sprintf("line %d: unparseable date %q", lineNum, date),
+			})
+			date = ""
+		}
+
+		return date, dedupKey(r), issues
+	})
 }
 
 func validateGitHubDir(dir string, result *ValidationResult) {
@@ -276,94 +287,41 @@ func validateGitHubDir(dir string, result *ValidationResult) {
 }
 
 func validateGitHubEventsFile(path, fileDateRange string, result *ValidationResult) {
-	f, err := os.Open(path)
-	if err != nil {
-		return
-	}
-	defer f.Close()
-
-	result.FilesRead++
-
-	scanner := bufio.NewScanner(f)
-	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
-
-	seen := make(map[string]int)
-	lineNum := 0
-
-	for scanner.Scan() {
-		lineNum++
-		result.LinesRead++
-		line := scanner.Bytes()
-
+	validateJSONLFile(path, fileDateRange, result, func(line []byte, p string, lineNum int) (string, string, []Issue) {
 		var e source.GitHubEvent
 		if err := json.Unmarshal(line, &e); err != nil {
-			result.Issues = append(result.Issues, Issue{
-				Type:    IssueMalformedJSON,
-				Path:    path,
-				Line:    lineNum,
-				Message: fmt.Sprintf("line %d: %v", lineNum, err),
-				Fixable: true,
-			})
-			continue
+			return "", "", []Issue{{
+				Type: IssueMalformedJSON, Path: p, Line: lineNum,
+				Message: fmt.Sprintf("line %d: %v", lineNum, err), Fixable: true,
+			}}
 		}
 
-		result.RecordCount++
+		var issues []Issue
+		if e.EventType == "" {
+			issues = append(issues, Issue{
+				Type: IssueEmptyField, Path: p, Line: lineNum,
+				Message: fmt.Sprintf("line %d: empty event_type field", lineNum),
+			})
+		}
 
 		if len(e.Datetime) < 10 {
-			result.Issues = append(result.Issues, Issue{
-				Type:    IssueInvalidDatetime,
-				Path:    path,
-				Line:    lineNum,
+			issues = append(issues, Issue{
+				Type: IssueInvalidDatetime, Path: p, Line: lineNum,
 				Message: fmt.Sprintf("line %d: datetime too short: %q", lineNum, e.Datetime),
-				Fixable: false,
 			})
-			continue
+			return "", dedupEventKey(e), issues
 		}
 
 		if _, err := time.Parse(time.RFC3339, e.Datetime); err != nil {
-			result.Issues = append(result.Issues, Issue{
-				Type:    IssueInvalidDatetime,
-				Path:    path,
-				Line:    lineNum,
+			issues = append(issues, Issue{
+				Type: IssueInvalidDatetime, Path: p, Line: lineNum,
 				Message: fmt.Sprintf("line %d: invalid datetime %q", lineNum, e.Datetime),
-				Fixable: false,
 			})
-		} else {
-			eventDate := e.Datetime[:10]
-			if !dateMatchesFile(eventDate, fileDateRange) {
-				result.Issues = append(result.Issues, Issue{
-					Type:    IssueDateMismatch,
-					Path:    path,
-					Line:    lineNum,
-					Message: fmt.Sprintf("line %d: event date %s does not belong in file %s", lineNum, eventDate, filepath.Base(path)),
-					Fixable: true,
-				})
-			}
+			return "", dedupEventKey(e), issues
 		}
 
-		if e.EventType == "" {
-			result.Issues = append(result.Issues, Issue{
-				Type:    IssueEmptyField,
-				Path:    path,
-				Line:    lineNum,
-				Message: fmt.Sprintf("line %d: empty event_type field", lineNum),
-				Fixable: false,
-			})
-		}
-
-		key := dedupEventKey(e)
-		if firstLine, exists := seen[key]; exists {
-			result.Issues = append(result.Issues, Issue{
-				Type:    IssueDuplicate,
-				Path:    path,
-				Line:    lineNum,
-				Message: fmt.Sprintf("line %d: duplicate of line %d", lineNum, firstLine),
-				Fixable: true,
-			})
-		} else {
-			seen[key] = lineNum
-		}
-	}
+		return e.Datetime[:10], dedupEventKey(e), issues
+	})
 }
 
 func validateYouTubeIndex(path string, result *ValidationResult) {

@@ -57,7 +57,15 @@ For custom badges, provide --query and --label.`,
 					color = "#007ec6"
 				}
 
-				return renderBadge(label, msg, color, labelColor, style, height, radius, output)
+				return writeBadge(badge.Options{
+					Label:      label,
+					Message:    msg,
+					Color:      color,
+					LabelColor: labelColor,
+					Style:      badge.Style(style),
+					Height:     height,
+					Radius:     radius,
+				}, output)
 			}
 
 			preset, ok := badge.Presets[badgeType]
@@ -82,7 +90,15 @@ For custom badges, provide --query and --label.`,
 				color = preset.Color
 			}
 
-			return renderBadge(label, msg, color, labelColor, style, height, radius, output)
+			return writeBadge(badge.Options{
+				Label:      label,
+				Message:    msg,
+				Color:      color,
+				LabelColor: labelColor,
+				Style:      badge.Style(style),
+				Height:     height,
+				Radius:     radius,
+			}, output)
 		},
 	}
 
@@ -123,17 +139,7 @@ func queryBadgeValue(query string) (string, error) {
 	return "0", nil
 }
 
-func renderBadge(label, msg, color, labelColor, style string, height, radius int, output string) error {
-	opts := badge.Options{
-		Label:      label,
-		Message:    msg,
-		Color:      color,
-		LabelColor: labelColor,
-		Style:      badge.Style(style),
-		Height:     height,
-		Radius:     radius,
-	}
-
+func writeBadge(opts badge.Options, output string) error {
 	svg := badge.Render(opts)
 
 	if output == "" {

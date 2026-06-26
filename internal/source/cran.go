@@ -69,7 +69,7 @@ func (c *CRAN) Fetch(ctx context.Context, opts FetchOptions) ([]Record, error) {
 		if err != nil {
 			continue
 		}
-		if entryDate.Before(opts.StartDate) || !entryDate.Before(opts.EndDate.AddDate(0, 0, 1)) {
+		if !inDateRange(entryDate, opts.StartDate, opts.EndDate) {
 			continue
 		}
 		records = append(records, Record{
