@@ -23,6 +23,9 @@ func SourceCategory(sourceName string) string {
 	return "metrics"
 }
 
+// Aggregate concatenates daily→monthly→yearly for all projects. Errors for
+// individual projects are logged but not propagated; category directories that
+// don't exist yet are silently skipped.
 func Aggregate(dataDir string, now time.Time) error {
 	aggregateCategory(filepath.Join(dataDir, "metrics"), now, false)
 	aggregateCategory(filepath.Join(dataDir, "events"), now, true)

@@ -447,13 +447,8 @@ func FixDateMismatches(paths []string) *FixResult {
 }
 
 func isEventPath(path string) bool {
-	parts := strings.Split(filepath.ToSlash(path), "/")
-	for _, p := range parts {
-		if p == "events" {
-			return true
-		}
-	}
-	return false
+	normalized := filepath.ToSlash(path)
+	return strings.Contains(normalized, "data/events/")
 }
 
 func FixOrphanDirs(paths []string) *FixResult {

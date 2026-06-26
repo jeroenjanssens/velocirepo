@@ -101,12 +101,8 @@ func (p Project) SourceNames() []string {
 	return names
 }
 
-var eventSourceNames = map[string]bool{
-	"github": true,
-}
-
 func SourceDirPath(sourceName string) string {
-	if eventSourceNames[sourceName] {
+	if store.EventSources[sourceName] {
 		return "events/" + sourceName
 	}
 	return "metrics/" + sourceName
