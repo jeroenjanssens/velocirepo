@@ -90,8 +90,11 @@ func buildExportQuery(table string, opts ExportOptions) string {
 		if table == "projects" {
 			col = "id"
 		}
-		if table == "youtube_index" || table == "content" {
-			col = ""
+		if table == "youtube_index" {
+			col = "channel"
+		}
+		if table == "content" {
+			col = "target"
 		}
 		if col != "" {
 			conditions = append(conditions, fmt.Sprintf("%s = '%s'", col, escapeSQLString(opts.Project)))
@@ -133,6 +136,6 @@ func matchesSource(table, source string) bool {
 	case "projects":
 		return table == "projects"
 	default:
-		return table == "metrics"
+		return table == "metrics" || table == "content"
 	}
 }
