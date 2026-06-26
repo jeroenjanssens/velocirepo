@@ -230,36 +230,7 @@ func projectAddInteractive(cfgPath string, id string) error {
 }
 
 func listSources(p config.Project) []string {
-	var sources []string
-	if !p.GitHubEvents.IsEmpty() {
-		sources = append(sources, "github")
-	}
-	if !p.GitHubTraffic.IsEmpty() {
-		sources = append(sources, "github-traffic")
-	}
-	if !p.PyPI.IsEmpty() {
-		sources = append(sources, "pypi")
-	}
-	if !p.CRAN.IsEmpty() {
-		sources = append(sources, "cran")
-	}
-	if !p.Homebrew.IsEmpty() {
-		sources = append(sources, "homebrew")
-	}
-	if !p.Plausible.IsEmpty() {
-		sources = append(sources, "plausible")
-	}
-	if !p.OpenVSX.IsEmpty() {
-		sources = append(sources, "openvsx")
-	}
-	if !p.YouTube.IsEmpty() {
-		sources = append(sources, "youtube")
-	}
-	return sources
-}
-
-func sourceDataDir(src string) string {
-	return src
+	return p.SourceNames()
 }
 
 func toStringList(s string) config.StringList {

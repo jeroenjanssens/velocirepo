@@ -41,9 +41,8 @@ func renameProjectCmd() *cobra.Command {
 
 			if !noMoveData {
 				dataDir := cfg.DataDir()
-				sources := []string{"github", "github-traffic", "pypi", "cran", "homebrew", "plausible", "openvsx", "youtube"}
 				var moved []string
-				for _, src := range sources {
+				for _, src := range config.SourceDirNames() {
 					oldDir := filepath.Join(dataDir, src, oldID)
 					newDir := filepath.Join(dataDir, src, newID)
 					if _, err := os.Stat(oldDir); err == nil {

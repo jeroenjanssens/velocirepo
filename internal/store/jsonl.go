@@ -253,6 +253,7 @@ func groupEventsByDate(events []source.GitHubEvent) map[string][]source.GitHubEv
 type DirStats struct {
 	LastDate string
 	Records  int
+	Size     int64
 }
 
 func ScanProjectDir(dir string) DirStats {
@@ -269,6 +270,10 @@ func ScanProjectDir(dir string) DirStats {
 		path := filepath.Join(dir, e.Name())
 		recs, _ := ReadRecords(path)
 		stats.Records += len(recs)
+
+		if info, err := e.Info(); err == nil {
+			stats.Size += info.Size()
+		}
 
 		datePart := strings.TrimSuffix(e.Name(), ".jsonl")
 		if datePart > stats.LastDate {

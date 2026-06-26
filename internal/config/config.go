@@ -72,6 +72,38 @@ type Project struct {
 	YouTube       StringList `toml:"youtube"`
 }
 
+type SourceEntry struct {
+	Name   string
+	Values StringList
+}
+
+func (p Project) Sources() []SourceEntry {
+	return []SourceEntry{
+		{"github", p.GitHubEvents},
+		{"github-traffic", p.GitHubTraffic},
+		{"pypi", p.PyPI},
+		{"cran", p.CRAN},
+		{"homebrew", p.Homebrew},
+		{"plausible", p.Plausible},
+		{"openvsx", p.OpenVSX},
+		{"youtube", p.YouTube},
+	}
+}
+
+func (p Project) SourceNames() []string {
+	var names []string
+	for _, s := range p.Sources() {
+		if !s.Values.IsEmpty() {
+			names = append(names, s.Name)
+		}
+	}
+	return names
+}
+
+func SourceDirNames() []string {
+	return []string{"github", "github-traffic", "pypi", "cran", "homebrew", "plausible", "openvsx", "youtube"}
+}
+
 type DataConfig struct {
 	Dir string `toml:"dir"`
 }

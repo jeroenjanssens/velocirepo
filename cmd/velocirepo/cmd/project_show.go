@@ -3,9 +3,7 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/jeroenjanssens/velocirepo/internal/store"
 	"github.com/spf13/cobra"
@@ -43,16 +41,16 @@ func showProjectCmd() *cobra.Command {
 			var totalSize int64
 
 			for _, src := range sources {
-				dir := filepath.Join(dataDir, sourceDataDir(src), id)
-				lastDate, records, size := scanSourceDir(dir)
+				dir := filepath.Join(dataDir, src, id)
+				ds := store.ScanProjectDir(dir)
 				stats = append(stats, sourceStats{
 					Source:    src,
-					LastDate:  lastDate,
-					Records:   records,
-					SizeBytes: size,
+					LastDate:  ds.LastDate,
+					Records:   ds.Records,
+					SizeBytes: ds.Size,
 				})
-				totalRecords += records
-				totalSize += size
+				totalRecords += ds.Records
+				totalSize += ds.Size
 			}
 
 			if jsonOutput {
@@ -137,36 +135,6 @@ func showProjectCmd() *cobra.Command {
 	return cmd
 }
 
-
-func scanSourceDir(dir string) (lastDate string, records int, size int64) {
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return "", 0, 0
-	}
-
-	for _, e := range entries {
-		if e.IsDir() || !strings.HasSuffix(e.Name(), ".jsonl") {
-			continue
-		}
-		info, err := e.Info()
-		if err != nil {
-			continue
-		}
-		size += info.Size()
-
-		// Count records
-		path := filepath.Join(dir, e.Name())
-		recs, _ := store.ReadRecords(path)
-		records += len(recs)
-
-		// Track last date from filename
-		datePart := strings.TrimSuffix(e.Name(), ".jsonl")
-		if datePart > lastDate {
-			lastDate = datePart
-		}
-	}
-	return lastDate, records, size
-}
 
 func formatSize(bytes int64) string {
 	if bytes < 1024 {

@@ -79,36 +79,10 @@ func ValidateSource(ctx context.Context, opts ValidationOptions, sourceType stri
 func ValidateProject(ctx context.Context, opts ValidationOptions, id string, project Project) []ValidationResult {
 	var results []ValidationResult
 
-	type sourceEntry struct {
-		name  string
-		value string
-	}
-
-	var entries []sourceEntry
-	for _, v := range project.GitHubEvents {
-		entries = append(entries, sourceEntry{"github", v})
-	}
-	for _, v := range project.GitHubTraffic {
-		entries = append(entries, sourceEntry{"github-traffic", v})
-	}
-	for _, v := range project.PyPI {
-		entries = append(entries, sourceEntry{"pypi", v})
-	}
-	for _, v := range project.CRAN {
-		entries = append(entries, sourceEntry{"cran", v})
-	}
-	for _, v := range project.Homebrew {
-		entries = append(entries, sourceEntry{"homebrew", v})
-	}
-	for _, v := range project.OpenVSX {
-		entries = append(entries, sourceEntry{"openvsx", v})
-	}
-	for _, v := range project.YouTube {
-		entries = append(entries, sourceEntry{"youtube", v})
-	}
-
-	for _, e := range entries {
-		results = append(results, ValidateSource(ctx, opts, e.name, e.value))
+	for _, s := range project.Sources() {
+		for _, v := range s.Values {
+			results = append(results, ValidateSource(ctx, opts, s.Name, v))
+		}
 	}
 
 	return results

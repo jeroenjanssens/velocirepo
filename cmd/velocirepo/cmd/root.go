@@ -16,7 +16,6 @@ import (
 var (
 	cfgFile string
 	verbose bool
-	quiet   bool
 	cfg     *config.Config
 )
 
@@ -53,7 +52,6 @@ func newRootCmd() *cobra.Command {
 
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default: walk up for velocirepo.toml)")
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "enable debug logging")
-	rootCmd.PersistentFlags().BoolVarP(&quiet, "quiet", "q", false, "suppress info messages")
 
 	rootCmd.AddGroup(
 		&cobra.Group{ID: "fetch", Title: "Fetching:"},
@@ -67,14 +65,9 @@ func newRootCmd() *cobra.Command {
 
 	// Fetching
 	rootCmd.AddCommand(fetchAllCmd())
-	rootCmd.AddCommand(fetchGitHubCmd())
-	rootCmd.AddCommand(fetchGitHubTrafficCmd())
-	rootCmd.AddCommand(fetchPyPICmd())
-	rootCmd.AddCommand(fetchCRANCmd())
-	rootCmd.AddCommand(fetchHomebrewCmd())
-	rootCmd.AddCommand(fetchPlausibleCmd())
-	rootCmd.AddCommand(fetchOpenVSXCmd())
-	rootCmd.AddCommand(fetchYouTubeCmd())
+	for _, def := range fetchSources {
+		rootCmd.AddCommand(makeFetchCmd(def))
+	}
 
 	// Querying
 	rootCmd.AddCommand(queryCmd())

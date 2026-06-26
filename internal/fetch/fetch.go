@@ -150,11 +150,7 @@ func All(ctx context.Context, cfg *config.Config, tokens Tokens, opts Options) (
 	}
 
 	var results []Result
-
-	type resultEntry struct {
-		result Result
-	}
-	resultsCh := make(chan resultEntry, len(jobs))
+	resultsCh := make(chan Result, len(jobs))
 
 	g, gctx := errgroup.WithContext(ctx)
 	g.SetLimit(4)
@@ -165,22 +161,22 @@ func All(ctx context.Context, cfg *config.Config, tokens Tokens, opts Options) (
 			started := time.Now()
 			startDate, err := resolveStartDate(dataDir, job.sourceName, job.projectID, opts.StartDate)
 			if err != nil {
-				resultsCh <- resultEntry{Result{
+				resultsCh <- Result{
 					Source:    job.sourceName,
 					ProjectID: job.projectID,
 					Duration:  time.Since(started),
 					Error:     fmt.Sprintf("resolve start date: %v", err),
-				}}
+				}
 				return nil
 			}
 
 			if !startDate.Before(endDate.AddDate(0, 0, 1)) {
-				resultsCh <- resultEntry{Result{
+				resultsCh <- Result{
 					Source:    job.sourceName,
 					ProjectID: job.projectID,
 					Duration:  time.Since(started),
 					Skipped:   "already up to date",
-				}}
+				}
 				return nil
 			}
 
@@ -191,43 +187,43 @@ func All(ctx context.Context, cfg *config.Config, tokens Tokens, opts Options) (
 					EndDate:   endDate,
 				})
 				if err != nil {
-					resultsCh <- resultEntry{Result{
+					resultsCh <- Result{
 						Source:    job.sourceName,
 						ProjectID: job.projectID,
 						Duration:  time.Since(started),
 						Error:     err.Error(),
-					}}
+					}
 					return nil
 				}
 
 				if len(events) == 0 {
-					resultsCh <- resultEntry{Result{
+					resultsCh <- Result{
 						Source:    job.sourceName,
 						ProjectID: job.projectID,
 						Duration:  time.Since(started),
 						Skipped:   "no new events",
-					}}
+					}
 					return nil
 				}
 
 				if err := store.WriteGitHubEvents(dataDir, job.sourceName, job.projectID, events); err != nil {
-					resultsCh <- resultEntry{Result{
+					resultsCh <- Result{
 						Source:    job.sourceName,
 						ProjectID: job.projectID,
 						Duration:  time.Since(started),
 						Error:     fmt.Sprintf("write: %v", err),
-					}}
+					}
 					return nil
 				}
 
-				resultsCh <- resultEntry{Result{
+				resultsCh <- Result{
 					Source:    job.sourceName,
 					ProjectID: job.projectID,
 					Records:   len(events),
 					StartDate: startDate.Format("2006-01-02"),
 					EndDate:   endDate.Format("2006-01-02"),
 					Duration:  time.Since(started),
-				}}
+				}
 			} else {
 				records, err := job.src.Fetch(gctx, source.FetchOptions{
 					ProjectID: job.projectID,
@@ -235,32 +231,32 @@ func All(ctx context.Context, cfg *config.Config, tokens Tokens, opts Options) (
 					EndDate:   endDate,
 				})
 				if err != nil {
-					resultsCh <- resultEntry{Result{
+					resultsCh <- Result{
 						Source:    job.sourceName,
 						ProjectID: job.projectID,
 						Duration:  time.Since(started),
 						Error:     err.Error(),
-					}}
+					}
 					return nil
 				}
 
 				if len(records) == 0 {
-					resultsCh <- resultEntry{Result{
+					resultsCh <- Result{
 						Source:    job.sourceName,
 						ProjectID: job.projectID,
 						Duration:  time.Since(started),
 						Skipped:   "no new records",
-					}}
+					}
 					return nil
 				}
 
 				if err := store.WriteRecords(dataDir, job.sourceName, job.projectID, records); err != nil {
-					resultsCh <- resultEntry{Result{
+					resultsCh <- Result{
 						Source:    job.sourceName,
 						ProjectID: job.projectID,
 						Duration:  time.Since(started),
 						Error:     fmt.Sprintf("write: %v", err),
-					}}
+					}
 					return nil
 				}
 
@@ -270,14 +266,14 @@ func All(ctx context.Context, cfg *config.Config, tokens Tokens, opts Options) (
 					}
 				}
 
-				resultsCh <- resultEntry{Result{
+				resultsCh <- Result{
 					Source:    job.sourceName,
 					ProjectID: job.projectID,
 					Records:   len(records),
 					StartDate: startDate.Format("2006-01-02"),
 					EndDate:   endDate.Format("2006-01-02"),
 					Duration:  time.Since(started),
-				}}
+				}
 			}
 
 			return nil
@@ -287,8 +283,8 @@ func All(ctx context.Context, cfg *config.Config, tokens Tokens, opts Options) (
 	g.Wait()
 	close(resultsCh)
 
-	for entry := range resultsCh {
-		results = append(results, entry.result)
+	for r := range resultsCh {
+		results = append(results, r)
 	}
 
 	if !opts.NoConcatenate {
