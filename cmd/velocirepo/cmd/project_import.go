@@ -84,7 +84,7 @@ func importProjectsCmd() *cobra.Command {
 				return nil
 			}
 
-			existing := cfg.ResolveProjects()
+			existing := cfg.Projects
 			var toAdd []fetch.ImportEntry
 			var skipped int
 			for _, p := range projects {

@@ -26,11 +26,10 @@ func renameProjectCmd() *cobra.Command {
 				return fmt.Errorf("invalid project ID %q: must be lowercase alphanumeric with hyphens", newID)
 			}
 
-			projects := cfg.ResolveProjects()
-			if _, exists := projects[oldID]; !exists {
-				return fmt.Errorf("project %q not found in config", oldID)
+			if _, err := cfg.GetProject(oldID); err != nil {
+				return err
 			}
-			if _, exists := projects[newID]; exists {
+			if _, err := cfg.GetProject(newID); err == nil {
 				return fmt.Errorf("project %q already exists in config", newID)
 			}
 

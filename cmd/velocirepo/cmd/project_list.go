@@ -20,7 +20,7 @@ func listProjectsCmd() *cobra.Command {
 		GroupID: "project",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out := cmd.OutOrStdout()
-			projects := cfg.ResolveProjects()
+			projects := cfg.Projects
 
 			if quietOutput {
 				for id := range projects {

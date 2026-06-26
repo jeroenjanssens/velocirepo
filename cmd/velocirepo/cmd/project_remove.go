@@ -23,9 +23,8 @@ func removeProjectCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id := args[0]
 
-			projects := cfg.ResolveProjects()
-			if _, exists := projects[id]; !exists {
-				return fmt.Errorf("project %q not found in config", id)
+			if _, err := cfg.GetProject(id); err != nil {
+				return err
 			}
 
 			if !force {

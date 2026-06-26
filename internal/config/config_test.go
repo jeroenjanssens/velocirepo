@@ -35,12 +35,11 @@ pypi = "my-project"
 		t.Errorf("DataDir() = %q, want %q", cfg.DataDir(), filepath.Join(dir, "metrics"))
 	}
 
-	projects := cfg.ResolveProjects()
-	if len(projects) != 1 {
-		t.Fatalf("ResolveProjects() returned %d projects, want 1", len(projects))
+	if len(cfg.Projects) != 1 {
+		t.Fatalf("Projects has %d entries, want 1", len(cfg.Projects))
 	}
 
-	p, ok := projects["my-project"]
+	p, ok := cfg.Projects["my-project"]
 	if !ok {
 		t.Fatal("expected project with id 'my-project'")
 	}
@@ -78,16 +77,15 @@ cran = "beta"
 		t.Fatalf("Load failed: %v", err)
 	}
 
-	projects := cfg.ResolveProjects()
-	if len(projects) != 2 {
-		t.Fatalf("ResolveProjects() returned %d projects, want 2", len(projects))
+	if len(cfg.Projects) != 2 {
+		t.Fatalf("Projects has %d entries, want 2", len(cfg.Projects))
 	}
 
-	if projects["alpha"].Name != "Alpha" {
-		t.Errorf("alpha.Name = %q, want %q", projects["alpha"].Name, "Alpha")
+	if cfg.Projects["alpha"].Name != "Alpha" {
+		t.Errorf("alpha.Name = %q, want %q", cfg.Projects["alpha"].Name, "Alpha")
 	}
-	if projects["beta"].CRAN.First() != "beta" {
-		t.Errorf("beta.CRAN = %q, want %q", projects["beta"].CRAN.First(), "beta")
+	if cfg.Projects["beta"].CRAN.First() != "beta" {
+		t.Errorf("beta.CRAN = %q, want %q", cfg.Projects["beta"].CRAN.First(), "beta")
 	}
 }
 
@@ -110,7 +108,7 @@ cran = "single-pkg"
 		t.Fatalf("Load failed: %v", err)
 	}
 
-	proj := cfg.ResolveProjects()["my-org"]
+	proj := cfg.Projects["my-org"]
 	if len(proj.GitHubEvents) != 2 {
 		t.Fatalf("GitHubEvents has %d entries, want 2", len(proj.GitHubEvents))
 	}
@@ -175,9 +173,8 @@ github = "org/found"
 		t.Fatalf("Load with discovery failed: %v", err)
 	}
 
-	projects := cfg.ResolveProjects()
-	if projects["found"].Name != "Found" {
-		t.Errorf("Name = %q, want %q", projects["found"].Name, "Found")
+	if cfg.Projects["found"].Name != "Found" {
+		t.Errorf("Name = %q, want %q", cfg.Projects["found"].Name, "Found")
 	}
 }
 
@@ -199,9 +196,8 @@ github = "org/envtest"
 		t.Fatalf("Load with env var failed: %v", err)
 	}
 
-	projects := cfg.ResolveProjects()
-	if projects["envtest"].Name != "EnvTest" {
-		t.Errorf("Name = %q, want %q", projects["envtest"].Name, "EnvTest")
+	if cfg.Projects["envtest"].Name != "EnvTest" {
+		t.Errorf("Name = %q, want %q", cfg.Projects["envtest"].Name, "EnvTest")
 	}
 }
 
@@ -242,8 +238,7 @@ dir = "data"
 		t.Fatalf("Load failed: %v", err)
 	}
 
-	projects := cfg.ResolveProjects()
-	if projects != nil {
-		t.Errorf("expected nil projects, got %v", projects)
+	if len(cfg.Projects) != 0 {
+		t.Errorf("expected empty projects, got %v", cfg.Projects)
 	}
 }

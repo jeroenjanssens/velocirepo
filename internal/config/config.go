@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/BurntSushi/toml"
+	"github.com/jeroenjanssens/velocirepo/internal/store"
 )
 
 // StringList is a TOML type that accepts either a single string or an array of strings.
@@ -156,11 +157,52 @@ func (c *Config) DataDir() string {
 	return filepath.Join(c.Dir, dir)
 }
 
-func (c *Config) ResolveProjects() map[string]Project {
-	if len(c.Projects) > 0 {
-		return c.Projects
+func (c *Config) GetProject(id string) (Project, error) {
+	p, ok := c.Projects[id]
+	if !ok {
+		return Project{}, fmt.Errorf("project %q not found in config", id)
 	}
-	return nil
+	return p, nil
+}
+
+func (c *Config) ProjectInfos() []store.ProjectInfo {
+	if len(c.Projects) == 0 {
+		return nil
+	}
+	infos := make([]store.ProjectInfo, 0, len(c.Projects))
+	for id, p := range c.Projects {
+		infos = append(infos, store.ProjectInfo{
+			ID:          id,
+			Name:        p.Name,
+			Description: p.Description,
+			Color:       p.Color,
+			Tags:        []string(p.Tags),
+			Website:     p.Website,
+			Logo:        p.Logo,
+		})
+	}
+	return infos
+}
+
+func (c *Config) IndicatorDefs() []store.IndicatorDef {
+	if len(c.Indicators) == 0 {
+		return store.DefaultIndicators
+	}
+
+	includeDefaults := c.Settings.IncludeDefaultIndicators == nil || *c.Settings.IncludeDefaultIndicators
+
+	var defs []store.IndicatorDef
+	if includeDefaults {
+		defs = append(defs, store.DefaultIndicators...)
+	}
+	for name, ind := range c.Indicators {
+		defs = append(defs, store.IndicatorDef{
+			Name:        name,
+			Description: ind.Description,
+			Query:       ind.Query,
+		})
+	}
+	return defs
 }
 
 func Load(path string) (*Config, error) {

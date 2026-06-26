@@ -19,15 +19,15 @@ func validateProjectsCmd() *cobra.Command {
 		Short:   "Verify that configured sources are reachable",
 		GroupID: "project",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			projects := cfg.ResolveProjects()
-			if projects == nil {
+			projects := cfg.Projects
+			if len(projects) == 0 {
 				return fmt.Errorf("no projects configured")
 			}
 
 			if projectFilter != "" {
-				p, ok := projects[projectFilter]
-				if !ok {
-					return fmt.Errorf("project %q not found in config", projectFilter)
+				p, err := cfg.GetProject(projectFilter)
+				if err != nil {
+					return err
 				}
 				projects = map[string]config.Project{projectFilter: p}
 			}

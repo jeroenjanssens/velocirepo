@@ -20,10 +20,9 @@ func showProjectCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id := args[0]
 
-			projects := cfg.ResolveProjects()
-			proj, exists := projects[id]
-			if !exists {
-				return fmt.Errorf("project %q not found in config", id)
+			proj, err := cfg.GetProject(id)
+			if err != nil {
+				return err
 			}
 
 			dataDir := cfg.DataDir()

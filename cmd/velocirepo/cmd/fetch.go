@@ -14,14 +14,14 @@ var (
 	fetchProject   string
 	fetchStartDate string
 	fetchEndDate   string
-	noAggregate    bool
+	noConcatenate  bool
 )
 
 func addFetchFlags(cmd *cobra.Command) {
 	cmd.Flags().StringVar(&fetchProject, "project", "", "fetch only this project ID")
 	cmd.Flags().StringVar(&fetchStartDate, "start-date", "", "start date (YYYY-MM-DD)")
 	cmd.Flags().StringVar(&fetchEndDate, "end-date", "", "end date (YYYY-MM-DD, default: yesterday)")
-	cmd.Flags().BoolVar(&noAggregate, "no-concatenate", false, "skip concatenation after fetch")
+	cmd.Flags().BoolVar(&noConcatenate, "no-concatenate", false, "skip concatenation after fetch")
 	cmd.GroupID = "fetch"
 }
 
@@ -30,7 +30,7 @@ func fetchOpts() fetch.Options {
 		Project:       fetchProject,
 		StartDate:     fetchStartDate,
 		EndDate:       fetchEndDate,
-		NoConcatenate: noAggregate,
+		NoConcatenate: noConcatenate,
 	}
 }
 

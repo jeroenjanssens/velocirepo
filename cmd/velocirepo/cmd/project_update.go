@@ -22,9 +22,8 @@ func updateProjectCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id := args[0]
 
-			projects := cfg.ResolveProjects()
-			proj, exists := projects[id]
-			if !exists {
+			proj, err := cfg.GetProject(id)
+			if err != nil {
 				return fmt.Errorf("project %q not found in config (use 'add-project' to create)", id)
 			}
 

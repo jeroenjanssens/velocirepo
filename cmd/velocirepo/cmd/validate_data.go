@@ -22,9 +22,9 @@ func validateDataCmd() *cobra.Command {
 			dataDir := cfg.DataDir()
 
 			var projectIDs map[string]bool
-			if projects := cfg.ResolveProjects(); projects != nil {
-				projectIDs = make(map[string]bool, len(projects))
-				for id := range projects {
+			if len(cfg.Projects) > 0 {
+				projectIDs = make(map[string]bool, len(cfg.Projects))
+				for id := range cfg.Projects {
 					projectIDs[id] = true
 				}
 			}

@@ -25,44 +25,11 @@ type handlers struct {
 }
 
 func (h *handlers) projectInfos() []store.ProjectInfo {
-	projects := h.cfg.ResolveProjects()
-	if projects == nil {
-		return nil
-	}
-	infos := make([]store.ProjectInfo, 0, len(projects))
-	for id, p := range projects {
-		infos = append(infos, store.ProjectInfo{
-			ID:          id,
-			Name:        p.Name,
-			Description: p.Description,
-			Color:       p.Color,
-			Tags:        []string(p.Tags),
-			Website:     p.Website,
-			Logo:        p.Logo,
-		})
-	}
-	return infos
+	return h.cfg.ProjectInfos()
 }
 
 func (h *handlers) indicatorDefs() []store.IndicatorDef {
-	if len(h.cfg.Indicators) == 0 {
-		return store.DefaultIndicators
-	}
-
-	includeDefaults := h.cfg.Settings.IncludeDefaultIndicators == nil || *h.cfg.Settings.IncludeDefaultIndicators
-
-	var defs []store.IndicatorDef
-	if includeDefaults {
-		defs = append(defs, store.DefaultIndicators...)
-	}
-	for name, ind := range h.cfg.Indicators {
-		defs = append(defs, store.IndicatorDef{
-			Name:        name,
-			Description: ind.Description,
-			Query:       ind.Query,
-		})
-	}
-	return defs
+	return h.cfg.IndicatorDefs()
 }
 
 func (h *handlers) rebuildDB() {
@@ -148,7 +115,7 @@ func (h *handlers) handleSchema(ctx context.Context, req mcp.CallToolRequest) (*
 }
 
 func (h *handlers) handleListProjects(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	projects := h.cfg.ResolveProjects()
+	projects := h.cfg.Projects
 
 	type projectEntry struct {
 		ID            string   `json:"id"`
@@ -188,10 +155,9 @@ func (h *handlers) handleShowProject(ctx context.Context, req mcp.CallToolReques
 		return errorResult(err.Error()), nil
 	}
 
-	projects := h.cfg.ResolveProjects()
-	proj, exists := projects[id]
-	if !exists {
-		return errorResult(fmt.Sprintf("project %q not found in config", id)), nil
+	proj, err := h.cfg.GetProject(id)
+	if err != nil {
+		return errorResult(err.Error()), nil
 	}
 
 	dataDir := h.cfg.DataDir()
@@ -452,8 +418,7 @@ func (h *handlers) handleAddProject(ctx context.Context, req mcp.CallToolRequest
 		return errorResult(fmt.Sprintf("invalid project ID %q: must be lowercase alphanumeric with hyphens", id)), nil
 	}
 
-	projects := h.cfg.ResolveProjects()
-	if _, exists := projects[id]; exists {
+	if _, err := h.cfg.GetProject(id); err == nil {
 		return errorResult(fmt.Sprintf("project %q already exists", id)), nil
 	}
 
@@ -486,9 +451,8 @@ func (h *handlers) handleUpdateProject(ctx context.Context, req mcp.CallToolRequ
 		return errorResult(err.Error()), nil
 	}
 
-	projects := h.cfg.ResolveProjects()
-	if _, exists := projects[id]; !exists {
-		return errorResult(fmt.Sprintf("project %q not found in config", id)), nil
+	if _, err := h.cfg.GetProject(id); err != nil {
+		return errorResult(err.Error()), nil
 	}
 
 	args := req.GetArguments()
@@ -535,9 +499,8 @@ func (h *handlers) handleRemoveProject(ctx context.Context, req mcp.CallToolRequ
 		return errorResult(err.Error()), nil
 	}
 
-	projects := h.cfg.ResolveProjects()
-	if _, exists := projects[id]; !exists {
-		return errorResult(fmt.Sprintf("project %q not found in config", id)), nil
+	if _, err := h.cfg.GetProject(id); err != nil {
+		return errorResult(err.Error()), nil
 	}
 
 	if err := config.RemoveProject(h.cfgFilePath(), id); err != nil {
@@ -580,11 +543,10 @@ func (h *handlers) handleRenameProject(ctx context.Context, req mcp.CallToolRequ
 		return errorResult(fmt.Sprintf("invalid project ID %q: must be lowercase alphanumeric with hyphens", newID)), nil
 	}
 
-	projects := h.cfg.ResolveProjects()
-	if _, exists := projects[oldID]; !exists {
-		return errorResult(fmt.Sprintf("project %q not found in config", oldID)), nil
+	if _, err := h.cfg.GetProject(oldID); err != nil {
+		return errorResult(err.Error()), nil
 	}
-	if _, exists := projects[newID]; exists {
+	if _, err := h.cfg.GetProject(newID); err == nil {
 		return errorResult(fmt.Sprintf("project %q already exists", newID)), nil
 	}
 
@@ -647,7 +609,7 @@ func (h *handlers) handleImportProjects(ctx context.Context, req mcp.CallToolReq
 		return errorResult(fmt.Sprintf("import: %v", err)), nil
 	}
 
-	existing := h.cfg.ResolveProjects()
+	existing := h.cfg.Projects
 	var added []string
 	cfgPath := h.cfgFilePath()
 
@@ -670,16 +632,16 @@ func (h *handlers) handleImportProjects(ctx context.Context, req mcp.CallToolReq
 
 
 func (h *handlers) handleValidateProjects(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	projects := h.cfg.ResolveProjects()
-	if projects == nil {
+	projects := h.cfg.Projects
+	if len(projects) == 0 {
 		return errorResult("no projects configured"), nil
 	}
 
 	projectFilter := req.GetString("project", "")
 	if projectFilter != "" {
-		p, ok := projects[projectFilter]
-		if !ok {
-			return errorResult(fmt.Sprintf("project %q not found", projectFilter)), nil
+		p, err := h.cfg.GetProject(projectFilter)
+		if err != nil {
+			return errorResult(err.Error()), nil
 		}
 		projects = map[string]config.Project{projectFilter: p}
 	}

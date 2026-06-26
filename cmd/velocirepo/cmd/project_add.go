@@ -48,8 +48,7 @@ func addProjectCmd() *cobra.Command {
 				return fmt.Errorf("invalid GitHub repo %q: must be owner/repo", githubEvents)
 			}
 
-			projects := cfg.ResolveProjects()
-			if _, exists := projects[id]; exists {
+			if _, err := cfg.GetProject(id); err == nil {
 				return fmt.Errorf("project %q already exists (use 'update-project' to modify)", id)
 			}
 
@@ -121,8 +120,7 @@ func projectAddInteractive(cfgPath string, id string) error {
 		return fmt.Errorf("invalid project ID %q: must be lowercase alphanumeric with hyphens", id)
 	}
 
-	projects := cfg.ResolveProjects()
-	if _, exists := projects[id]; exists {
+	if _, err := cfg.GetProject(id); err == nil {
 		return fmt.Errorf("project %q already exists (use 'update-project' to modify)", id)
 	}
 

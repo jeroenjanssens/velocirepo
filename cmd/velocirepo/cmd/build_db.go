@@ -33,21 +33,7 @@ func rebuildDB() {
 		ui.Warnf("build-db: reload config: %v", err)
 		return
 	}
-	projects := fresh.ResolveProjects()
-	var infos []store.ProjectInfo
-	for id, p := range projects {
-		infos = append(infos, store.ProjectInfo{
-			ID:          id,
-			Name:        p.Name,
-			Description: p.Description,
-			Color:       p.Color,
-			Tags:        []string(p.Tags),
-			Website:     p.Website,
-			Logo:        p.Logo,
-		})
-	}
-	indicators := indicatorDefsFromConfig(fresh)
-	if err := store.BuildDB(cfg.DataDir(), infos, indicators); err != nil {
+	if err := store.BuildDB(cfg.DataDir(), fresh.ProjectInfos(), fresh.IndicatorDefs()); err != nil {
 		ui.Warnf("build-db: %v", err)
 	} else {
 		ui.Infof("Updated velocirepo.duckdb")

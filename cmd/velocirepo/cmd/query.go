@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jeroenjanssens/velocirepo/internal/config"
 	"github.com/jeroenjanssens/velocirepo/internal/store"
 	"github.com/olekukonko/tablewriter"
 	"github.com/olekukonko/tablewriter/tw"
@@ -217,46 +216,9 @@ func formatValue(v interface{}) string {
 }
 
 func projectInfos() []store.ProjectInfo {
-	projects := cfg.ResolveProjects()
-	if projects == nil {
-		return nil
-	}
-	infos := make([]store.ProjectInfo, 0, len(projects))
-	for id, p := range projects {
-		infos = append(infos, store.ProjectInfo{
-			ID:          id,
-			Name:        p.Name,
-			Description: p.Description,
-			Color:       p.Color,
-			Tags:        []string(p.Tags),
-			Website:     p.Website,
-			Logo:        p.Logo,
-		})
-	}
-	return infos
+	return cfg.ProjectInfos()
 }
 
 func indicatorDefs() []store.IndicatorDef {
-	return indicatorDefsFromConfig(cfg)
-}
-
-func indicatorDefsFromConfig(c *config.Config) []store.IndicatorDef {
-	if len(c.Indicators) == 0 {
-		return store.DefaultIndicators
-	}
-
-	includeDefaults := c.Settings.IncludeDefaultIndicators == nil || *c.Settings.IncludeDefaultIndicators
-
-	var defs []store.IndicatorDef
-	if includeDefaults {
-		defs = append(defs, store.DefaultIndicators...)
-	}
-	for name, ind := range c.Indicators {
-		defs = append(defs, store.IndicatorDef{
-			Name:        name,
-			Description: ind.Description,
-			Query:       ind.Query,
-		})
-	}
-	return defs
+	return cfg.IndicatorDefs()
 }

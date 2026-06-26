@@ -96,7 +96,7 @@ func installCICmd() *cobra.Command {
 
 			needsPlausible := false
 			needsYouTube := false
-			projects := cfg.ResolveProjects()
+			projects := cfg.Projects
 			for _, p := range projects {
 				if !p.Plausible.IsEmpty() {
 					needsPlausible = true

@@ -92,8 +92,8 @@ func filterProjects(projects map[string]config.Project, projectID string) map[st
 }
 
 func All(ctx context.Context, cfg *config.Config, tokens Tokens, opts Options) ([]Result, error) {
-	projects := cfg.ResolveProjects()
-	if projects == nil {
+	projects := cfg.Projects
+	if len(projects) == 0 {
 		return nil, fmt.Errorf("no projects configured")
 	}
 
@@ -297,8 +297,8 @@ func All(ctx context.Context, cfg *config.Config, tokens Tokens, opts Options) (
 }
 
 func Source(ctx context.Context, cfg *config.Config, tokens Tokens, sourceName string, opts Options, createSources func(id string, proj config.Project) []source.Source) ([]Result, error) {
-	projects := cfg.ResolveProjects()
-	if projects == nil {
+	projects := cfg.Projects
+	if len(projects) == 0 {
 		return nil, fmt.Errorf("no projects configured")
 	}
 
@@ -404,8 +404,8 @@ func Source(ctx context.Context, cfg *config.Config, tokens Tokens, sourceName s
 }
 
 func GitHub(ctx context.Context, cfg *config.Config, tokens Tokens, opts Options) ([]Result, error) {
-	projects := cfg.ResolveProjects()
-	if projects == nil {
+	projects := cfg.Projects
+	if len(projects) == 0 {
 		return nil, fmt.Errorf("no projects configured")
 	}
 
@@ -549,7 +549,7 @@ func Homebrew(ctx context.Context, cfg *config.Config, tokens Tokens, opts Optio
 
 func Plausible(ctx context.Context, cfg *config.Config, tokens Tokens, opts Options) ([]Result, error) {
 	if tokens.Plausible == "" {
-		return nil, fmt.Errorf("PLAUSIBLE_TOKEN not set")
+		return []Result{{Source: "plausible", Skipped: "PLAUSIBLE_TOKEN not set"}}, nil
 	}
 	client := &http.Client{Timeout: 30 * time.Second}
 	return Source(ctx, cfg, tokens, "plausible", opts, func(id string, p config.Project) []source.Source {
@@ -574,7 +574,7 @@ func OpenVSX(ctx context.Context, cfg *config.Config, tokens Tokens, opts Option
 
 func YouTube(ctx context.Context, cfg *config.Config, tokens Tokens, opts Options) ([]Result, error) {
 	if tokens.YouTube == "" {
-		return nil, fmt.Errorf("YOUTUBE_TOKEN not set")
+		return []Result{{Source: "youtube", Skipped: "YOUTUBE_TOKEN not set"}}, nil
 	}
 	client := &http.Client{Timeout: 30 * time.Second}
 	return Source(ctx, cfg, tokens, "youtube", opts, func(id string, p config.Project) []source.Source {
