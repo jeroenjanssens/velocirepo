@@ -356,6 +356,64 @@ func TestYouTubeNullableLikesComments(t *testing.T) {
 	}
 }
 
+func TestYouTubeZeroDurationIsNil(t *testing.T) {
+	mux := http.NewServeMux()
+
+	mux.HandleFunc("/videos", func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode(videoListResponse{
+			Items: []videoItem{
+				{
+					ID:             "livestream1",
+					Snippet:        videoSnippet{Title: "Live Stream", PublishedAt: "2025-01-01T00:00:00Z"},
+					ContentDetails: videoContentDetails{Duration: "P0D"},
+					Statistics:     videoStats{ViewCount: 100},
+				},
+				{
+					ID:             "emptydur",
+					Snippet:        videoSnippet{Title: "Empty Duration", PublishedAt: "2025-01-02T00:00:00Z"},
+					ContentDetails: videoContentDetails{Duration: ""},
+					Statistics:     videoStats{ViewCount: 50},
+				},
+				{
+					ID:             "zerosec",
+					Snippet:        videoSnippet{Title: "Zero Seconds", PublishedAt: "2025-01-03T00:00:00Z"},
+					ContentDetails: videoContentDetails{Duration: "PT0S"},
+					Statistics:     videoStats{ViewCount: 75},
+				},
+			},
+		})
+	})
+
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+
+	yt := &YouTube{
+		Client:  srv.Client(),
+		APIKey:  "test-key",
+		Target:  "livestream1",
+		BaseURL: srv.URL,
+	}
+
+	_, err := yt.Fetch(context.Background(), FetchOptions{
+		ProjectID: "test",
+		StartDate: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC),
+		EndDate:   time.Date(2025, 6, 15, 0, 0, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	entries := yt.ContentEntries()
+	if len(entries) != 3 {
+		t.Fatalf("expected 3 content entries, got %d", len(entries))
+	}
+	for _, e := range entries {
+		if e.Duration != nil {
+			t.Errorf("expected nil duration for %s (raw duration unknown/zero), got %d", e.ID, *e.Duration)
+		}
+	}
+}
+
 func TestDetectYouTubeType(t *testing.T) {
 	tests := []struct {
 		target   string

@@ -237,7 +237,12 @@ func (y *YouTube) fetchVideos(ctx context.Context, opts FetchOptions, videoIDs [
 				})
 			}
 
-			dur := parseISO8601Duration(item.ContentDetails.Duration)
+			var duration *int64
+			if d := item.ContentDetails.Duration; d != "" && d != "P0D" {
+				if dur := parseISO8601Duration(d); dur != 0 {
+					duration = &dur
+				}
+			}
 			y.contentEntries = append(y.contentEntries, ContentEntry{
 				Source:      "youtube",
 				Target:      y.Target,
@@ -245,7 +250,7 @@ func (y *YouTube) fetchVideos(ctx context.Context, opts FetchOptions, videoIDs [
 				Title:       item.Snippet.Title,
 				PublishedAt: item.Snippet.PublishedAt,
 				URL:         "https://youtube.com/watch?v=" + item.ID,
-				Duration:    &dur,
+				Duration:    duration,
 				Tags:        item.Snippet.Tags,
 				Type:        "video",
 			})
