@@ -9,16 +9,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var badgePresets = map[string]struct {
-	label string
-	query string
-	color string
-}{
-	"stars":     {"stars", "SELECT COUNT(*) AS value FROM github_events WHERE event_type = 'star'", "#007ec6"},
-	"forks":     {"forks", "SELECT COUNT(*) AS value FROM github_events WHERE event_type = 'fork'", "#007ec6"},
-	"downloads": {"downloads", "SELECT MAX(value) AS value FROM metrics WHERE metric = 'downloads' OR metric = 'total_downloads'", "#44cc11"},
-	"pageviews": {"pageviews", "SELECT SUM(value) AS value FROM metrics WHERE metric = 'pageviews'", "#44cc11"},
-}
 
 func badgeCmd() *cobra.Command {
 	var (
@@ -70,12 +60,12 @@ For custom badges, provide --query and --label.`,
 				return renderBadge(label, msg, color, labelColor, style, height, radius, output)
 			}
 
-			preset, ok := badgePresets[badgeType]
+			preset, ok := badge.Presets[badgeType]
 			if !ok {
 				return fmt.Errorf("unknown badge type %q (available: stars, forks, downloads, pageviews, custom)", badgeType)
 			}
 
-			q := preset.query
+			q := preset.Query
 			if project != "" {
 				q += fmt.Sprintf(" AND project = '%s'", project)
 			}
@@ -86,10 +76,10 @@ For custom badges, provide --query and --label.`,
 			}
 
 			if label == "" {
-				label = preset.label
+				label = preset.Label
 			}
 			if color == "" {
-				color = preset.color
+				color = preset.Color
 			}
 
 			return renderBadge(label, msg, color, labelColor, style, height, radius, output)

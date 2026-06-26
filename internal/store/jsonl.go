@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/jeroenjanssens/velocirepo/internal/source"
@@ -247,4 +248,32 @@ func groupEventsByDate(events []source.GitHubEvent) map[string][]source.GitHubEv
 		grouped[date] = append(grouped[date], e)
 	}
 	return grouped
+}
+
+type DirStats struct {
+	LastDate string
+	Records  int
+}
+
+func ScanProjectDir(dir string) DirStats {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return DirStats{}
+	}
+
+	var stats DirStats
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".jsonl") {
+			continue
+		}
+		path := filepath.Join(dir, e.Name())
+		recs, _ := ReadRecords(path)
+		stats.Records += len(recs)
+
+		datePart := strings.TrimSuffix(e.Name(), ".jsonl")
+		if datePart > stats.LastDate {
+			stats.LastDate = datePart
+		}
+	}
+	return stats
 }

@@ -1,8 +1,7 @@
 package cmd
 
 import (
-	"github.com/jeroenjanssens/velocirepo/internal/config"
-	"github.com/jeroenjanssens/velocirepo/internal/source"
+	"github.com/jeroenjanssens/velocirepo/internal/fetch"
 	"github.com/spf13/cobra"
 )
 
@@ -11,17 +10,13 @@ func fetchGitHubTrafficCmd() *cobra.Command {
 		Use:   "fetch-traffic",
 		Short: "Fetch GitHub traffic data (views and clones)",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runFetchMulti(cmd, "github-traffic", func(id string, p config.Project) []source.Source {
-				var sources []source.Source
-				for _, repo := range p.GitHubTraffic {
-					sources = append(sources, &source.GitHubTraffic{
-						Client: newHTTPClient(),
-						Token:  githubToken(),
-						Repo:   repo,
-					})
-				}
-				return sources
-			})
+			results, err := fetch.Traffic(cmd.Context(), cfg, fetch.TokensFromEnv(), fetchOpts())
+			if err != nil {
+				return err
+			}
+			renderFetchResults(results)
+			rebuildDB()
+			return nil
 		},
 	}
 

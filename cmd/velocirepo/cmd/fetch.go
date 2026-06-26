@@ -2,13 +2,8 @@ package cmd
 
 import (
 	"fmt"
-	"net/http"
-	"os"
-	"time"
 
-	"github.com/jeroenjanssens/velocirepo/internal/config"
-	"github.com/jeroenjanssens/velocirepo/internal/source"
-	"github.com/jeroenjanssens/velocirepo/internal/store"
+	"github.com/jeroenjanssens/velocirepo/internal/fetch"
 	"github.com/jeroenjanssens/velocirepo/internal/ui"
 	"github.com/spf13/cobra"
 )
@@ -28,136 +23,24 @@ func addFetchFlags(cmd *cobra.Command) {
 	cmd.GroupID = "fetch"
 }
 
-func resolveEndDate() (time.Time, error) {
-	if fetchEndDate != "" {
-		return time.Parse("2006-01-02", fetchEndDate)
+func fetchOpts() fetch.Options {
+	return fetch.Options{
+		Project:       fetchProject,
+		StartDate:     fetchStartDate,
+		EndDate:       fetchEndDate,
+		NoConcatenate: noAggregate,
 	}
-	if cfg.Settings.EndDate == "yesterday" || cfg.Settings.EndDate == "" {
-		return time.Now().UTC().AddDate(0, 0, -1).Truncate(24 * time.Hour), nil
-	}
-	return time.Parse("2006-01-02", cfg.Settings.EndDate)
 }
 
-func resolveStartDate(dataDir, sourceName, projectID string) (time.Time, error) {
-	if fetchStartDate != "" {
-		return time.Parse("2006-01-02", fetchStartDate)
-	}
-	last, err := store.LastDate(dataDir, sourceName, projectID)
-	if err != nil {
-		return time.Time{}, err
-	}
-	var start time.Time
-	if last.IsZero() {
-		start = time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
-	} else {
-		start = last.AddDate(0, 0, 1)
-	}
-
-	// GitHub Traffic API only retains 14 days of history
-	if sourceName == "github-traffic" {
-		earliest := time.Now().UTC().AddDate(0, 0, -14).Truncate(24 * time.Hour)
-		if start.Before(earliest) {
-			start = earliest
+func renderFetchResults(results []fetch.Result) {
+	for _, r := range results {
+		switch {
+		case r.Error != "":
+			ui.FetchError(r.Source, r.ProjectID, fmt.Errorf("%s", r.Error))
+		case r.Skipped != "":
+			ui.FetchSkip(r.Source, r.ProjectID, r.Skipped)
+		default:
+			ui.FetchDone(r.Source, r.ProjectID, r.Records, r.Duration)
 		}
 	}
-
-	return start, nil
-}
-
-func filterProjects(projects map[string]config.Project) map[string]config.Project {
-	if fetchProject == "" {
-		return projects
-	}
-	p, ok := projects[fetchProject]
-	if !ok {
-		return nil
-	}
-	return map[string]config.Project{fetchProject: p}
-}
-
-func runFetchMulti(cmd *cobra.Command, sourceName string, createSources func(projectID string, project config.Project) []source.Source) error {
-	projects := cfg.ResolveProjects()
-	if projects == nil {
-		return fmt.Errorf("no projects configured")
-	}
-
-	projects = filterProjects(projects)
-	if projects == nil {
-		return fmt.Errorf("project %q not found in config", fetchProject)
-	}
-
-	endDate, err := resolveEndDate()
-	if err != nil {
-		return fmt.Errorf("parse end date: %w", err)
-	}
-
-	dataDir := cfg.DataDir()
-
-	for id, proj := range projects {
-		sources := createSources(id, proj)
-		if len(sources) == 0 {
-			continue
-		}
-
-		startDate, err := resolveStartDate(dataDir, sourceName, id)
-		if err != nil {
-			ui.FetchError(sourceName, id, fmt.Errorf("resolve start date: %w", err))
-			continue
-		}
-
-		if !startDate.Before(endDate.AddDate(0, 0, 1)) {
-			ui.FetchSkip(sourceName, id, "already up to date")
-			continue
-		}
-
-		for _, src := range sources {
-			dateRange := fmt.Sprintf("%s to %s", startDate.Format("2006-01-02"), endDate.Format("2006-01-02"))
-			ui.FetchStart(sourceName, id, dateRange)
-			started := time.Now()
-
-			records, err := src.Fetch(cmd.Context(), source.FetchOptions{
-				ProjectID: id,
-				StartDate: startDate,
-				EndDate:   endDate,
-			})
-			if err != nil {
-				ui.FetchError(sourceName, id, err)
-				continue
-			}
-
-			if len(records) == 0 {
-				ui.FetchSkip(sourceName, id, "no new records")
-				continue
-			}
-
-			if err := store.WriteRecords(dataDir, sourceName, id, records); err != nil {
-				ui.FetchError(sourceName, id, fmt.Errorf("write: %w", err))
-				continue
-			}
-
-			ui.FetchDone(sourceName, id, len(records), time.Since(started))
-		}
-	}
-
-	if !noAggregate {
-		if err := store.Aggregate(dataDir, time.Now().UTC()); err != nil {
-			ui.Warnf("concatenation: %v", err)
-		}
-	}
-
-	rebuildDB()
-
-	return nil
-}
-
-func newHTTPClient() *http.Client {
-	return &http.Client{Timeout: 30 * time.Second}
-}
-
-func githubToken() string {
-	return os.Getenv("GITHUB_TOKEN")
-}
-
-func plausibleKey() string {
-	return os.Getenv("PLAUSIBLE_TOKEN")
 }

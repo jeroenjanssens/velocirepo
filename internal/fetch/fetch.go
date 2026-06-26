@@ -21,13 +21,14 @@ type Options struct {
 }
 
 type Result struct {
-	Source    string `json:"source"`
-	ProjectID string `json:"project_id"`
-	Records   int    `json:"records"`
-	StartDate string `json:"start_date"`
-	EndDate   string `json:"end_date"`
-	Skipped   string `json:"skipped,omitempty"`
-	Error     string `json:"error,omitempty"`
+	Source    string        `json:"source"`
+	ProjectID string       `json:"project_id"`
+	Records   int          `json:"records"`
+	StartDate string       `json:"start_date"`
+	EndDate   string       `json:"end_date"`
+	Duration  time.Duration `json:"duration,omitempty"`
+	Skipped   string       `json:"skipped,omitempty"`
+	Error     string       `json:"error,omitempty"`
 }
 
 type Tokens struct {
@@ -161,11 +162,13 @@ func All(ctx context.Context, cfg *config.Config, tokens Tokens, opts Options) (
 	for _, job := range jobs {
 		job := job
 		g.Go(func() error {
+			started := time.Now()
 			startDate, err := resolveStartDate(dataDir, job.sourceName, job.projectID, opts.StartDate)
 			if err != nil {
 				resultsCh <- resultEntry{Result{
 					Source:    job.sourceName,
 					ProjectID: job.projectID,
+					Duration:  time.Since(started),
 					Error:     fmt.Sprintf("resolve start date: %v", err),
 				}}
 				return nil
@@ -175,6 +178,7 @@ func All(ctx context.Context, cfg *config.Config, tokens Tokens, opts Options) (
 				resultsCh <- resultEntry{Result{
 					Source:    job.sourceName,
 					ProjectID: job.projectID,
+					Duration:  time.Since(started),
 					Skipped:   "already up to date",
 				}}
 				return nil
@@ -190,6 +194,7 @@ func All(ctx context.Context, cfg *config.Config, tokens Tokens, opts Options) (
 					resultsCh <- resultEntry{Result{
 						Source:    job.sourceName,
 						ProjectID: job.projectID,
+						Duration:  time.Since(started),
 						Error:     err.Error(),
 					}}
 					return nil
@@ -199,6 +204,7 @@ func All(ctx context.Context, cfg *config.Config, tokens Tokens, opts Options) (
 					resultsCh <- resultEntry{Result{
 						Source:    job.sourceName,
 						ProjectID: job.projectID,
+						Duration:  time.Since(started),
 						Skipped:   "no new events",
 					}}
 					return nil
@@ -208,6 +214,7 @@ func All(ctx context.Context, cfg *config.Config, tokens Tokens, opts Options) (
 					resultsCh <- resultEntry{Result{
 						Source:    job.sourceName,
 						ProjectID: job.projectID,
+						Duration:  time.Since(started),
 						Error:     fmt.Sprintf("write: %v", err),
 					}}
 					return nil
@@ -219,6 +226,7 @@ func All(ctx context.Context, cfg *config.Config, tokens Tokens, opts Options) (
 					Records:   len(events),
 					StartDate: startDate.Format("2006-01-02"),
 					EndDate:   endDate.Format("2006-01-02"),
+					Duration:  time.Since(started),
 				}}
 			} else {
 				records, err := job.src.Fetch(gctx, source.FetchOptions{
@@ -230,6 +238,7 @@ func All(ctx context.Context, cfg *config.Config, tokens Tokens, opts Options) (
 					resultsCh <- resultEntry{Result{
 						Source:    job.sourceName,
 						ProjectID: job.projectID,
+						Duration:  time.Since(started),
 						Error:     err.Error(),
 					}}
 					return nil
@@ -239,6 +248,7 @@ func All(ctx context.Context, cfg *config.Config, tokens Tokens, opts Options) (
 					resultsCh <- resultEntry{Result{
 						Source:    job.sourceName,
 						ProjectID: job.projectID,
+						Duration:  time.Since(started),
 						Skipped:   "no new records",
 					}}
 					return nil
@@ -248,6 +258,7 @@ func All(ctx context.Context, cfg *config.Config, tokens Tokens, opts Options) (
 					resultsCh <- resultEntry{Result{
 						Source:    job.sourceName,
 						ProjectID: job.projectID,
+						Duration:  time.Since(started),
 						Error:     fmt.Sprintf("write: %v", err),
 					}}
 					return nil
@@ -265,6 +276,7 @@ func All(ctx context.Context, cfg *config.Config, tokens Tokens, opts Options) (
 					Records:   len(records),
 					StartDate: startDate.Format("2006-01-02"),
 					EndDate:   endDate.Format("2006-01-02"),
+					Duration:  time.Since(started),
 				}}
 			}
 
@@ -333,6 +345,7 @@ func Source(ctx context.Context, cfg *config.Config, tokens Tokens, sourceName s
 		}
 
 		for _, src := range sources {
+			started := time.Now()
 			records, err := src.Fetch(ctx, source.FetchOptions{
 				ProjectID: id,
 				StartDate: startDate,
@@ -342,6 +355,7 @@ func Source(ctx context.Context, cfg *config.Config, tokens Tokens, sourceName s
 				results = append(results, Result{
 					Source:    sourceName,
 					ProjectID: id,
+					Duration:  time.Since(started),
 					Error:     err.Error(),
 				})
 				continue
@@ -351,6 +365,7 @@ func Source(ctx context.Context, cfg *config.Config, tokens Tokens, sourceName s
 				results = append(results, Result{
 					Source:    sourceName,
 					ProjectID: id,
+					Duration:  time.Since(started),
 					Skipped:   "no new records",
 				})
 				continue
@@ -360,6 +375,7 @@ func Source(ctx context.Context, cfg *config.Config, tokens Tokens, sourceName s
 				results = append(results, Result{
 					Source:    sourceName,
 					ProjectID: id,
+					Duration:  time.Since(started),
 					Error:     fmt.Sprintf("write: %v", err),
 				})
 				continue
@@ -377,6 +393,7 @@ func Source(ctx context.Context, cfg *config.Config, tokens Tokens, sourceName s
 				Records:   len(records),
 				StartDate: startDate.Format("2006-01-02"),
 				EndDate:   endDate.Format("2006-01-02"),
+				Duration:  time.Since(started),
 			})
 		}
 	}
@@ -412,11 +429,13 @@ func GitHub(ctx context.Context, cfg *config.Config, tokens Tokens, opts Options
 
 	for id, proj := range projects {
 		for _, repo := range proj.GitHubEvents {
+			started := time.Now()
 			startDate, err := resolveStartDate(dataDir, "github", id, opts.StartDate)
 			if err != nil {
 				results = append(results, Result{
 					Source:    "github",
 					ProjectID: id,
+					Duration:  time.Since(started),
 					Error:     fmt.Sprintf("resolve start date: %v", err),
 				})
 				continue
@@ -426,6 +445,7 @@ func GitHub(ctx context.Context, cfg *config.Config, tokens Tokens, opts Options
 				results = append(results, Result{
 					Source:    "github",
 					ProjectID: id,
+					Duration:  time.Since(started),
 					Skipped:   "already up to date",
 				})
 				continue
@@ -441,6 +461,7 @@ func GitHub(ctx context.Context, cfg *config.Config, tokens Tokens, opts Options
 				results = append(results, Result{
 					Source:    "github",
 					ProjectID: id,
+					Duration:  time.Since(started),
 					Error:     err.Error(),
 				})
 				continue
@@ -450,6 +471,7 @@ func GitHub(ctx context.Context, cfg *config.Config, tokens Tokens, opts Options
 				results = append(results, Result{
 					Source:    "github",
 					ProjectID: id,
+					Duration:  time.Since(started),
 					Skipped:   "no new events",
 				})
 				continue
@@ -459,6 +481,7 @@ func GitHub(ctx context.Context, cfg *config.Config, tokens Tokens, opts Options
 				results = append(results, Result{
 					Source:    "github",
 					ProjectID: id,
+					Duration:  time.Since(started),
 					Error:     fmt.Sprintf("write: %v", err),
 				})
 				continue
@@ -470,6 +493,7 @@ func GitHub(ctx context.Context, cfg *config.Config, tokens Tokens, opts Options
 				Records:   len(events),
 				StartDate: startDate.Format("2006-01-02"),
 				EndDate:   endDate.Format("2006-01-02"),
+				Duration:  time.Since(started),
 			})
 		}
 	}

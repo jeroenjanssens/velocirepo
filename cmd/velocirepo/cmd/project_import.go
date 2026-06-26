@@ -6,13 +6,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/jeroenjanssens/velocirepo/internal/config"
+	"github.com/jeroenjanssens/velocirepo/internal/fetch"
 	"github.com/spf13/cobra"
 )
 
@@ -51,18 +50,24 @@ func importProjectsCmd() *cobra.Command {
 				return fmt.Errorf("specify only one of --github-org, --github-user, or --from-file")
 			}
 
-			var projects []importEntry
+			var projects []fetch.ImportEntry
+
+			importOpts := fetch.ImportOptions{
+				IncludeForks:    includeForks,
+				IncludeArchived: includeArchived,
+				Filter:          filter,
+			}
 
 			switch {
 			case githubOrg != "":
 				var err error
-				projects, err = fetchGitHubRepos(cmd, "orgs/"+githubOrg+"/repos", filter, includeForks, includeArchived)
+				projects, err = fetch.FetchGitHubRepos(cmd.Context(), os.Getenv("GITHUB_TOKEN"), "orgs/"+githubOrg+"/repos", importOpts)
 				if err != nil {
 					return err
 				}
 			case githubUser != "":
 				var err error
-				projects, err = fetchGitHubRepos(cmd, "users/"+githubUser+"/repos", filter, includeForks, includeArchived)
+				projects, err = fetch.FetchGitHubRepos(cmd.Context(), os.Getenv("GITHUB_TOKEN"), "users/"+githubUser+"/repos", importOpts)
 				if err != nil {
 					return err
 				}
@@ -80,7 +85,7 @@ func importProjectsCmd() *cobra.Command {
 			}
 
 			existing := cfg.ResolveProjects()
-			var toAdd []importEntry
+			var toAdd []fetch.ImportEntry
 			var skipped int
 			for _, p := range projects {
 				if _, exists := existing[p.ID]; exists {
@@ -153,86 +158,8 @@ func importProjectsCmd() *cobra.Command {
 	return cmd
 }
 
-type importEntry struct {
-	ID      string
-	Project config.Project
-}
 
-func fetchGitHubRepos(cmd *cobra.Command, endpoint string, filter string, includeForks, includeArchived bool) ([]importEntry, error) {
-	token := os.Getenv("GITHUB_TOKEN")
-	client := &http.Client{Timeout: 30 * time.Second}
-
-	var allRepos []importEntry
-	page := 1
-
-	for {
-		url := fmt.Sprintf("https://api.github.com/%s?type=public&per_page=100&page=%d", endpoint, page)
-		req, err := http.NewRequestWithContext(cmd.Context(), "GET", url, nil)
-		if err != nil {
-			return nil, err
-		}
-		if token != "" {
-			req.Header.Set("Authorization", "Bearer "+token)
-		}
-		req.Header.Set("Accept", "application/vnd.github+json")
-
-		resp, err := client.Do(req)
-		if err != nil {
-			return nil, fmt.Errorf("GitHub API request: %w", err)
-		}
-
-		if resp.StatusCode != 200 {
-			resp.Body.Close()
-			return nil, fmt.Errorf("GitHub API returned %d", resp.StatusCode)
-		}
-
-		var repos []struct {
-			Name     string `json:"name"`
-			FullName string `json:"full_name"`
-			Fork     bool   `json:"fork"`
-			Archived bool   `json:"archived"`
-		}
-		if err := json.NewDecoder(resp.Body).Decode(&repos); err != nil {
-			resp.Body.Close()
-			return nil, fmt.Errorf("parse GitHub response: %w", err)
-		}
-		resp.Body.Close()
-
-		if len(repos) == 0 {
-			break
-		}
-
-		for _, r := range repos {
-			if r.Fork && !includeForks {
-				continue
-			}
-			if r.Archived && !includeArchived {
-				continue
-			}
-			if filter != "" {
-				matched, _ := filepath.Match(filter, r.Name)
-				if !matched {
-					continue
-				}
-			}
-			id := strings.ToLower(r.Name)
-			id = strings.ReplaceAll(id, ".", "-")
-			allRepos = append(allRepos, importEntry{
-				ID: id,
-				Project: config.Project{
-					Name:         r.Name,
-					GitHubEvents: config.StringList{r.FullName},
-				},
-			})
-		}
-
-		page++
-	}
-
-	return allRepos, nil
-}
-
-func loadFromFile(path string) ([]importEntry, error) {
+func loadFromFile(path string) ([]fetch.ImportEntry, error) {
 	ext := strings.ToLower(filepath.Ext(path))
 
 	switch ext {
@@ -245,7 +172,7 @@ func loadFromFile(path string) ([]importEntry, error) {
 	}
 }
 
-func loadFromJSON(path string) ([]importEntry, error) {
+func loadFromJSON(path string) ([]fetch.ImportEntry, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
@@ -265,7 +192,7 @@ func loadFromJSON(path string) ([]importEntry, error) {
 		return nil, fmt.Errorf("parse JSON: %w", err)
 	}
 
-	var entries []importEntry
+	var entries []fetch.ImportEntry
 	for _, item := range items {
 		if item.ID == "" {
 			return nil, fmt.Errorf("JSON entry missing 'id' field")
@@ -277,7 +204,7 @@ func loadFromJSON(path string) ([]importEntry, error) {
 		if name == "" {
 			name = item.ID
 		}
-		entries = append(entries, importEntry{
+		entries = append(entries, fetch.ImportEntry{
 			ID: item.ID,
 			Project: config.Project{
 				Name:         name,
@@ -294,7 +221,7 @@ func loadFromJSON(path string) ([]importEntry, error) {
 	return entries, nil
 }
 
-func loadFromCSV(path string) ([]importEntry, error) {
+func loadFromCSV(path string) ([]fetch.ImportEntry, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, err
@@ -317,7 +244,7 @@ func loadFromCSV(path string) ([]importEntry, error) {
 		return nil, fmt.Errorf("CSV missing 'id' column")
 	}
 
-	var entries []importEntry
+	var entries []fetch.ImportEntry
 	for {
 		row, err := reader.Read()
 		if err == io.EOF {
@@ -361,7 +288,7 @@ func loadFromCSV(path string) ([]importEntry, error) {
 			p.OpenVSX = toStringList(row[idx])
 		}
 
-		entries = append(entries, importEntry{ID: id, Project: p})
+		entries = append(entries, fetch.ImportEntry{ID: id, Project: p})
 	}
 
 	return entries, nil

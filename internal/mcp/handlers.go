@@ -230,16 +230,12 @@ func (h *handlers) handleShowProject(ctx context.Context, req mcp.CallToolReques
 
 	var stats []sourceStats
 	for _, src := range sources {
-		srcDir := src
-		if src == "github" {
-			srcDir = "github"
-		}
-		dir := filepath.Join(dataDir, srcDir, id)
-		lastDate, records := scanDir(dir)
+		dir := filepath.Join(dataDir, src, id)
+		ds := store.ScanProjectDir(dir)
 		stats = append(stats, sourceStats{
 			Source:   src,
-			LastDate: lastDate,
-			Records:  records,
+			LastDate: ds.LastDate,
+			Records:  ds.Records,
 		})
 	}
 
@@ -272,40 +268,7 @@ func (h *handlers) handleShowProject(ctx context.Context, req mcp.CallToolReques
 	return jsonResult(output), nil
 }
 
-func scanDir(dir string) (string, int) {
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return "", 0
-	}
 
-	var lastDate string
-	var records int
-	for _, e := range entries {
-		if e.IsDir() || !strings.HasSuffix(e.Name(), ".jsonl") {
-			continue
-		}
-		path := filepath.Join(dir, e.Name())
-		recs, _ := store.ReadRecords(path)
-		records += len(recs)
-
-		datePart := strings.TrimSuffix(e.Name(), ".jsonl")
-		if datePart > lastDate {
-			lastDate = datePart
-		}
-	}
-	return lastDate, records
-}
-
-var badgePresets = map[string]struct {
-	label string
-	query string
-	color string
-}{
-	"stars":     {"stars", "SELECT COUNT(*) AS value FROM github_events WHERE event_type = 'star'", "#007ec6"},
-	"forks":     {"forks", "SELECT COUNT(*) AS value FROM github_events WHERE event_type = 'fork'", "#007ec6"},
-	"downloads": {"downloads", "SELECT MAX(value) AS value FROM metrics WHERE metric = 'downloads' OR metric = 'total_downloads'", "#44cc11"},
-	"pageviews": {"pageviews", "SELECT SUM(value) AS value FROM metrics WHERE metric = 'pageviews'", "#44cc11"},
-}
 
 func (h *handlers) handleBadge(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	badgeType, err := req.RequireString("type")
@@ -335,19 +298,19 @@ func (h *handlers) handleBadge(ctx context.Context, req mcp.CallToolRequest) (*m
 			color = "#007ec6"
 		}
 	} else {
-		preset, ok := badgePresets[badgeType]
+		preset, ok := badge.Presets[badgeType]
 		if !ok {
 			return errorResult(fmt.Sprintf("unknown badge type %q (available: stars, forks, downloads, pageviews, custom)", badgeType)), nil
 		}
-		q = preset.query
+		q = preset.Query
 		if project != "" {
 			q += fmt.Sprintf(" AND project = '%s'", project)
 		}
 		if label == "" {
-			label = preset.label
+			label = preset.Label
 		}
 		if color == "" {
-			color = preset.color
+			color = preset.Color
 		}
 	}
 
@@ -678,7 +641,8 @@ func (h *handlers) handleImportProjects(ctx context.Context, req mcp.CallToolReq
 		endpoint = "users/" + githubUser + "/repos"
 	}
 
-	entries, err := fetchGitHubRepos(ctx, endpoint, filter)
+	token := os.Getenv("GITHUB_TOKEN")
+	entries, err := fetch.FetchGitHubRepos(ctx, token, endpoint, fetch.ImportOptions{Filter: filter})
 	if err != nil {
 		return errorResult(fmt.Sprintf("import: %v", err)), nil
 	}
@@ -704,81 +668,6 @@ func (h *handlers) handleImportProjects(ctx context.Context, req mcp.CallToolReq
 	return textResult(fmt.Sprintf("Imported %d projects: %s", len(added), strings.Join(added, ", "))), nil
 }
 
-type importEntry struct {
-	ID      string
-	Project config.Project
-}
-
-func fetchGitHubRepos(ctx context.Context, endpoint string, filter string) ([]importEntry, error) {
-	token := os.Getenv("GITHUB_TOKEN")
-	client := &http.Client{Timeout: 30 * time.Second}
-
-	var allRepos []importEntry
-	page := 1
-
-	for {
-		url := fmt.Sprintf("https://api.github.com/%s?type=public&per_page=100&page=%d", endpoint, page)
-		req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
-		if err != nil {
-			return nil, err
-		}
-		if token != "" {
-			req.Header.Set("Authorization", "Bearer "+token)
-		}
-		req.Header.Set("Accept", "application/vnd.github+json")
-
-		resp, err := client.Do(req)
-		if err != nil {
-			return nil, fmt.Errorf("GitHub API request: %w", err)
-		}
-
-		if resp.StatusCode != 200 {
-			resp.Body.Close()
-			return nil, fmt.Errorf("GitHub API returned %d", resp.StatusCode)
-		}
-
-		var repos []struct {
-			Name     string `json:"name"`
-			FullName string `json:"full_name"`
-			Fork     bool   `json:"fork"`
-			Archived bool   `json:"archived"`
-		}
-		if err := json.NewDecoder(resp.Body).Decode(&repos); err != nil {
-			resp.Body.Close()
-			return nil, fmt.Errorf("parse GitHub response: %w", err)
-		}
-		resp.Body.Close()
-
-		if len(repos) == 0 {
-			break
-		}
-
-		for _, r := range repos {
-			if r.Fork || r.Archived {
-				continue
-			}
-			if filter != "" {
-				matched, _ := filepath.Match(filter, r.Name)
-				if !matched {
-					continue
-				}
-			}
-			id := strings.ToLower(r.Name)
-			id = strings.ReplaceAll(id, ".", "-")
-			allRepos = append(allRepos, importEntry{
-				ID: id,
-				Project: config.Project{
-					Name:         r.Name,
-					GitHubEvents: config.StringList{r.FullName},
-				},
-			})
-		}
-
-		page++
-	}
-
-	return allRepos, nil
-}
 
 func (h *handlers) handleValidateProjects(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	projects := h.cfg.ResolveProjects()
