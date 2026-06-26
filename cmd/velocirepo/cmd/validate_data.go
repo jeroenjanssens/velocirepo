@@ -101,7 +101,7 @@ func validateDataCmd() *cobra.Command {
 				}
 			}
 
-			dupPaths := collectDuplicatePaths(grouped[store.IssueDuplicate])
+			dupPaths := collectUniquePaths(grouped[store.IssueDuplicate])
 			if len(dupPaths) > 0 {
 				dupCount := len(grouped[store.IssueDuplicate])
 				ok, err := confirm(os.Stdout, reader,
@@ -118,7 +118,7 @@ func validateDataCmd() *cobra.Command {
 				}
 			}
 
-			mismatchPaths := collectMismatchPaths(grouped[store.IssueDateMismatch])
+			mismatchPaths := collectUniquePaths(grouped[store.IssueDateMismatch])
 			if len(mismatchPaths) > 0 {
 				mismatchCount := len(grouped[store.IssueDateMismatch])
 				ok, err := confirm(os.Stdout, reader,
@@ -207,22 +207,7 @@ func collectMalformedPaths(issues []store.Issue) map[string][]int {
 	return paths
 }
 
-func collectDuplicatePaths(issues []store.Issue) []string {
-	if len(issues) == 0 {
-		return nil
-	}
-	seen := make(map[string]bool)
-	var paths []string
-	for _, issue := range issues {
-		if !seen[issue.Path] {
-			seen[issue.Path] = true
-			paths = append(paths, issue.Path)
-		}
-	}
-	return paths
-}
-
-func collectMismatchPaths(issues []store.Issue) []string {
+func collectUniquePaths(issues []store.Issue) []string {
 	if len(issues) == 0 {
 		return nil
 	}
