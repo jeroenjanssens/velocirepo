@@ -26,16 +26,16 @@ type Source interface {
 	Fetch(ctx context.Context, opts FetchOptions) ([]Record, error)
 }
 
-type GitHubEvent struct {
-	Source     string `json:"source"`
-	EventType  string `json:"event_type"`
-	ProjectID  string `json:"project_id"`
-	GitHubRepo string `json:"github_repo"`
-	Datetime   string `json:"datetime"`
-	User       string `json:"user"`
+type Event struct {
+	Source    string            `json:"source"`
+	Type      string            `json:"type"`
+	ProjectID string            `json:"project_id"`
+	Target    string            `json:"target"`
+	Datetime  string            `json:"datetime"`
+	Tags      map[string]string `json:"tags,omitempty"`
 }
 
-type GitHubEventSource interface {
+type EventSource interface {
 	Name() string
-	FetchEvents(ctx context.Context, opts FetchOptions) ([]GitHubEvent, error)
+	FetchEvents(ctx context.Context, opts FetchOptions) ([]Event, error)
 }

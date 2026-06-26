@@ -41,7 +41,7 @@ func writeTestRaw(t *testing.T, path string, lines []string) {
 	}
 }
 
-func writeTestEvents(t *testing.T, path string, events []source.GitHubEvent) {
+func writeTestEvents(t *testing.T, path string, events []source.Event) {
 	t.Helper()
 	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
 		t.Fatal(err)
@@ -62,7 +62,7 @@ func TestValidateData_Clean(t *testing.T) {
 	dir := t.TempDir()
 	dataDir := filepath.Join(dir, "data")
 
-	writeTestJSONL(t, filepath.Join(dataDir, "pypi", "myproj", "2025-06-01.jsonl"), []source.Record{
+	writeTestJSONL(t, filepath.Join(dataDir, "metrics", "pypi", "myproj", "2025-06-01.jsonl"), []source.Record{
 		{Source: "pypi", Metric: "daily_downloads", ProjectID: "myproj", Target: "myproj", Date: "2025-06-01", Value: 100},
 	})
 
@@ -87,7 +87,7 @@ func TestValidateData_MalformedJSON(t *testing.T) {
 	dir := t.TempDir()
 	dataDir := filepath.Join(dir, "data")
 
-	writeTestRaw(t, filepath.Join(dataDir, "pypi", "myproj", "2025-06-01.jsonl"), []string{
+	writeTestRaw(t, filepath.Join(dataDir, "metrics", "pypi", "myproj", "2025-06-01.jsonl"), []string{
 		`{"source":"pypi","metric":"daily_downloads","project_id":"myproj","target":"myproj","date":"2025-06-01","value":100}`,
 		`{invalid json`,
 		`{"source":"pypi","metric":"total_downloads","project_id":"myproj","target":"myproj","date":"2025-06-01","value":200}`,
@@ -117,7 +117,7 @@ func TestValidateData_InvalidDate(t *testing.T) {
 	dir := t.TempDir()
 	dataDir := filepath.Join(dir, "data")
 
-	writeTestJSONL(t, filepath.Join(dataDir, "pypi", "myproj", "2025-06-01.jsonl"), []source.Record{
+	writeTestJSONL(t, filepath.Join(dataDir, "metrics", "pypi", "myproj", "2025-06-01.jsonl"), []source.Record{
 		{Source: "pypi", Metric: "daily_downloads", ProjectID: "myproj", Target: "myproj", Date: "2025-6-1", Value: 100},
 	})
 
@@ -139,7 +139,7 @@ func TestValidateData_DateMismatch(t *testing.T) {
 	dir := t.TempDir()
 	dataDir := filepath.Join(dir, "data")
 
-	writeTestJSONL(t, filepath.Join(dataDir, "pypi", "myproj", "2025-06-01.jsonl"), []source.Record{
+	writeTestJSONL(t, filepath.Join(dataDir, "metrics", "pypi", "myproj", "2025-06-01.jsonl"), []source.Record{
 		{Source: "pypi", Metric: "daily_downloads", ProjectID: "myproj", Target: "myproj", Date: "2025-06-01", Value: 100},
 		{Source: "pypi", Metric: "daily_downloads", ProjectID: "myproj", Target: "myproj", Date: "2025-06-02", Value: 200},
 	})
@@ -165,7 +165,7 @@ func TestValidateData_DateMismatch_Monthly(t *testing.T) {
 	dir := t.TempDir()
 	dataDir := filepath.Join(dir, "data")
 
-	writeTestJSONL(t, filepath.Join(dataDir, "pypi", "myproj", "2025-06.jsonl"), []source.Record{
+	writeTestJSONL(t, filepath.Join(dataDir, "metrics", "pypi", "myproj", "2025-06.jsonl"), []source.Record{
 		{Source: "pypi", Metric: "daily_downloads", ProjectID: "myproj", Target: "myproj", Date: "2025-06-15", Value: 100},
 		{Source: "pypi", Metric: "daily_downloads", ProjectID: "myproj", Target: "myproj", Date: "2025-07-01", Value: 200},
 	})
@@ -188,7 +188,7 @@ func TestValidateData_EmptyFields(t *testing.T) {
 	dir := t.TempDir()
 	dataDir := filepath.Join(dir, "data")
 
-	writeTestJSONL(t, filepath.Join(dataDir, "pypi", "myproj", "2025-06-01.jsonl"), []source.Record{
+	writeTestJSONL(t, filepath.Join(dataDir, "metrics", "pypi", "myproj", "2025-06-01.jsonl"), []source.Record{
 		{Source: "pypi", Metric: "", ProjectID: "myproj", Target: "myproj", Date: "2025-06-01", Value: 100},
 		{Source: "pypi", Metric: "daily_downloads", ProjectID: "", Target: "myproj", Date: "2025-06-01", Value: 200},
 	})
@@ -213,7 +213,7 @@ func TestValidateData_Duplicates(t *testing.T) {
 	dir := t.TempDir()
 	dataDir := filepath.Join(dir, "data")
 
-	writeTestJSONL(t, filepath.Join(dataDir, "pypi", "myproj", "2025-06-01.jsonl"), []source.Record{
+	writeTestJSONL(t, filepath.Join(dataDir, "metrics", "pypi", "myproj", "2025-06-01.jsonl"), []source.Record{
 		{Source: "pypi", Metric: "daily_downloads", ProjectID: "myproj", Target: "myproj", Date: "2025-06-01", Value: 100},
 		{Source: "pypi", Metric: "daily_downloads", ProjectID: "myproj", Target: "myproj", Date: "2025-06-01", Value: 100},
 		{Source: "pypi", Metric: "daily_downloads", ProjectID: "myproj", Target: "myproj", Date: "2025-06-01", Value: 200},
@@ -239,7 +239,7 @@ func TestValidateData_OrphanDir(t *testing.T) {
 	dir := t.TempDir()
 	dataDir := filepath.Join(dir, "data")
 
-	writeTestJSONL(t, filepath.Join(dataDir, "pypi", "unknown-proj", "2025-06-01.jsonl"), []source.Record{
+	writeTestJSONL(t, filepath.Join(dataDir, "metrics", "pypi", "unknown-proj", "2025-06-01.jsonl"), []source.Record{
 		{Source: "pypi", Metric: "daily_downloads", ProjectID: "unknown-proj", Target: "x", Date: "2025-06-01", Value: 100},
 	})
 
@@ -264,9 +264,9 @@ func TestValidateData_GitHubEvents(t *testing.T) {
 	dir := t.TempDir()
 	dataDir := filepath.Join(dir, "data")
 
-	writeTestEvents(t, filepath.Join(dataDir, "github", "myproj", "2025-06-01.jsonl"), []source.GitHubEvent{
-		{Source: "github", EventType: "star", ProjectID: "myproj", GitHubRepo: "owner/repo", Datetime: "2025-06-01T10:00:00Z", User: "alice"},
-		{Source: "github", EventType: "star", ProjectID: "myproj", GitHubRepo: "owner/repo", Datetime: "2025-06-01T10:00:00Z", User: "alice"},
+	writeTestEvents(t, filepath.Join(dataDir, "events", "github", "myproj", "2025-06-01.jsonl"), []source.Event{
+		{Source: "github", Type: "star", ProjectID: "myproj", Target: "owner/repo", Datetime: "2025-06-01T10:00:00Z", Tags: map[string]string{"user": "alice"}},
+		{Source: "github", Type: "star", ProjectID: "myproj", Target: "owner/repo", Datetime: "2025-06-01T10:00:00Z", Tags: map[string]string{"user": "alice"}},
 	})
 
 	projects := map[string]bool{"myproj": true}
@@ -287,8 +287,8 @@ func TestValidateData_GitHubEvents_InvalidDatetime(t *testing.T) {
 	dir := t.TempDir()
 	dataDir := filepath.Join(dir, "data")
 
-	writeTestEvents(t, filepath.Join(dataDir, "github", "myproj", "2025-06-01.jsonl"), []source.GitHubEvent{
-		{Source: "github", EventType: "star", ProjectID: "myproj", GitHubRepo: "owner/repo", Datetime: "bad", User: "alice"},
+	writeTestEvents(t, filepath.Join(dataDir, "events", "github", "myproj", "2025-06-01.jsonl"), []source.Event{
+		{Source: "github", Type: "star", ProjectID: "myproj", Target: "owner/repo", Datetime: "bad", Tags: map[string]string{"user": "alice"}},
 	})
 
 	projects := map[string]bool{"myproj": true}
@@ -309,7 +309,7 @@ func TestValidateData_UnexpectedFile(t *testing.T) {
 	dir := t.TempDir()
 	dataDir := filepath.Join(dir, "data")
 
-	writeTestRaw(t, filepath.Join(dataDir, "pypi", "myproj", "notes.txt"), []string{"hello"})
+	writeTestRaw(t, filepath.Join(dataDir, "metrics", "pypi", "myproj", "notes.txt"), []string{"hello"})
 
 	projects := map[string]bool{"myproj": true}
 	result, err := ValidateData(dataDir, projects)
@@ -352,7 +352,7 @@ func TestFixMalformedJSON(t *testing.T) {
 func TestFixDuplicates(t *testing.T) {
 	dir := t.TempDir()
 	dataDir := filepath.Join(dir, "data")
-	path := filepath.Join(dataDir, "pypi", "myproj", "2025-06-01.jsonl")
+	path := filepath.Join(dataDir, "metrics", "pypi", "myproj", "2025-06-01.jsonl")
 
 	writeTestJSONL(t, path, []source.Record{
 		{Source: "pypi", Metric: "daily_downloads", ProjectID: "myproj", Target: "myproj", Date: "2025-06-01", Value: 100},
@@ -376,7 +376,7 @@ func TestFixDuplicates(t *testing.T) {
 func TestFixDateMismatches(t *testing.T) {
 	dir := t.TempDir()
 	dataDir := filepath.Join(dir, "data")
-	path := filepath.Join(dataDir, "pypi", "myproj", "2025-06-01.jsonl")
+	path := filepath.Join(dataDir, "metrics", "pypi", "myproj", "2025-06-01.jsonl")
 
 	writeTestJSONL(t, path, []source.Record{
 		{Source: "pypi", Metric: "daily_downloads", ProjectID: "myproj", Target: "myproj", Date: "2025-06-01", Value: 100},
@@ -399,7 +399,7 @@ func TestFixDateMismatches(t *testing.T) {
 		t.Errorf("expected date 2025-06-01, got %s", records[0].Date)
 	}
 
-	movedPath := filepath.Join(dataDir, "pypi", "myproj", "2025-06-02.jsonl")
+	movedPath := filepath.Join(dataDir, "metrics", "pypi", "myproj", "2025-06-02.jsonl")
 	movedRecords, err := ReadRecords(movedPath)
 	if err != nil {
 		t.Fatal(err)
@@ -414,7 +414,7 @@ func TestFixDateMismatches(t *testing.T) {
 
 func TestFixOrphanDirs(t *testing.T) {
 	dir := t.TempDir()
-	orphanPath := filepath.Join(dir, "data", "pypi", "orphan")
+	orphanPath := filepath.Join(dir, "data", "metrics", "pypi", "orphan")
 	os.MkdirAll(orphanPath, 0755)
 
 	result := FixOrphanDirs([]string{orphanPath})
@@ -431,7 +431,7 @@ func TestValidateData_NoProjectFilter(t *testing.T) {
 	dir := t.TempDir()
 	dataDir := filepath.Join(dir, "data")
 
-	writeTestJSONL(t, filepath.Join(dataDir, "pypi", "anything", "2025-06-01.jsonl"), []source.Record{
+	writeTestJSONL(t, filepath.Join(dataDir, "metrics", "pypi", "anything", "2025-06-01.jsonl"), []source.Record{
 		{Source: "pypi", Metric: "daily_downloads", ProjectID: "anything", Target: "x", Date: "2025-06-01", Value: 100},
 	})
 

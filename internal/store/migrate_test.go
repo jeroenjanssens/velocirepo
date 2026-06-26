@@ -93,30 +93,30 @@ func TestMigrate0to1(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if applied != 3 {
-		t.Errorf("expected 3 migrations applied, got %d", applied)
+	if applied != 4 {
+		t.Errorf("expected 4 migrations applied, got %d", applied)
 	}
 
 	v, _ := SchemaVersion(dir)
-	if v != 3 {
-		t.Errorf("expected schema version 3, got %d", v)
+	if v != 4 {
+		t.Errorf("expected schema version 4, got %d", v)
 	}
 
-	// Verify pypi
-	data, _ := os.ReadFile(filepath.Join(pypiDir, "2025-06-01.jsonl"))
+	// Verify pypi (v4 moves it into metrics/)
+	data, _ := os.ReadFile(filepath.Join(dir, "metrics", "pypi", "myproj", "2025-06-01.jsonl"))
 	if got := string(data); !contains(got, `"daily_downloads"`) {
 		t.Errorf("pypi not migrated: %s", got)
 	}
 
-	// Verify plausible
-	data, _ = os.ReadFile(filepath.Join(plausibleDir, "2025-06-01.jsonl"))
+	// Verify plausible (v4 moves it into metrics/)
+	data, _ = os.ReadFile(filepath.Join(dir, "metrics", "plausible", "myproj", "2025-06-01.jsonl"))
 	content := string(data)
 	if !contains(content, `"daily_site_pageviews"`) || !contains(content, `"daily_site_visitors"`) {
 		t.Errorf("plausible not migrated: %s", content)
 	}
 
-	// Verify openvsx
-	data, _ = os.ReadFile(filepath.Join(openvsxDir, "2025-06-01.jsonl"))
+	// Verify openvsx (v4 moves it into metrics/)
+	data, _ = os.ReadFile(filepath.Join(dir, "metrics", "openvsx", "myproj", "2025-06-01.jsonl"))
 	content = string(data)
 	if !contains(content, `"total_downloads"`) || !contains(content, `"total_reviews"`) || !contains(content, `"total_ratings"`) {
 		t.Errorf("openvsx not migrated: %s", content)

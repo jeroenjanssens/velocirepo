@@ -220,10 +220,10 @@ name = "Alpha"
 github ="org/alpha"
 `), 0644)
 
-	dataDir := filepath.Join(dir, "data", "github", "alpha")
+	dataDir := filepath.Join(dir, "data", "events", "github", "alpha")
 	os.MkdirAll(dataDir, 0755)
 	os.WriteFile(filepath.Join(dataDir, "2025-01-01.jsonl"), []byte(`{}`), 0644)
-	os.WriteFile(filepath.Join(dir, "data", ".schema-version"), []byte("3\n"), 0644)
+	os.WriteFile(filepath.Join(dir, "data", ".schema-version"), []byte("4\n"), 0644)
 
 	_, _, err := execCmd(cfgPath, "remove-project", "alpha", "--force", "--delete-data")
 	if err != nil {
@@ -298,11 +298,11 @@ name = "Alpha"
 github ="org/alpha"
 `), 0644)
 
-	dataDir := filepath.Join(dir, "data", "github", "alpha")
+	dataDir := filepath.Join(dir, "data", "events", "github", "alpha")
 	os.MkdirAll(dataDir, 0755)
 	os.WriteFile(filepath.Join(dataDir, "2025-01-01.jsonl"),
 		[]byte(`{"source":"github","event_type":"star","project_id":"alpha","github_repo":"org/alpha","datetime":"2025-01-01T10:00:00Z","user":"alice"}`+"\n"), 0644)
-	os.WriteFile(filepath.Join(dir, "data", ".schema-version"), []byte("3\n"), 0644)
+	os.WriteFile(filepath.Join(dir, "data", ".schema-version"), []byte("4\n"), 0644)
 
 	_, buf, err := execCmd(cfgPath, "show-project", "alpha")
 	if err != nil {
@@ -366,10 +366,10 @@ name = "Old"
 github ="org/old"
 `), 0644)
 
-	dataDir := filepath.Join(dir, "data", "github", "old-name")
+	dataDir := filepath.Join(dir, "data", "events", "github", "old-name")
 	os.MkdirAll(dataDir, 0755)
 	os.WriteFile(filepath.Join(dataDir, "2025-01-01.jsonl"), []byte("{}"), 0644)
-	os.WriteFile(filepath.Join(dir, "data", ".schema-version"), []byte("3\n"), 0644)
+	os.WriteFile(filepath.Join(dir, "data", ".schema-version"), []byte("4\n"), 0644)
 
 	_, _, err := execCmd(cfgPath, "rename-project", "old-name", "new-name")
 	if err != nil {
@@ -385,7 +385,7 @@ github ="org/old"
 		t.Error("new name not in config")
 	}
 
-	newDataDir := filepath.Join(dir, "data", "github", "new-name")
+	newDataDir := filepath.Join(dir, "data", "events", "github", "new-name")
 	if _, err := os.Stat(newDataDir); os.IsNotExist(err) {
 		t.Error("data directory not moved")
 	}

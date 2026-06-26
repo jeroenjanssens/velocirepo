@@ -11,7 +11,7 @@ import (
 
 func TestAggregateDailyToMonthly(t *testing.T) {
 	dir := t.TempDir()
-	projDir := filepath.Join(dir, "pypi", "mylib")
+	projDir := filepath.Join(dir, "metrics", "pypi", "mylib")
 
 	// Create 3 daily files for January 2025
 	for day := 1; day <= 3; day++ {
@@ -57,7 +57,7 @@ func TestAggregateDailyToMonthly(t *testing.T) {
 
 func TestAggregateSkipsIncompleteMonth(t *testing.T) {
 	dir := t.TempDir()
-	projDir := filepath.Join(dir, "pypi", "mylib")
+	projDir := filepath.Join(dir, "metrics", "pypi", "mylib")
 
 	// Create daily files for June 2025
 	records := []source.Record{
@@ -88,7 +88,7 @@ func TestAggregateSkipsIncompleteMonth(t *testing.T) {
 
 func TestAggregateMonthlyToYearly(t *testing.T) {
 	dir := t.TempDir()
-	projDir := filepath.Join(dir, "cran", "pkg")
+	projDir := filepath.Join(dir, "metrics", "cran", "pkg")
 	os.MkdirAll(projDir, 0755)
 
 	// Create monthly files for 2024
@@ -135,7 +135,7 @@ func TestAggregateMonthlyToYearly(t *testing.T) {
 
 func TestAggregateDedup(t *testing.T) {
 	dir := t.TempDir()
-	projDir := filepath.Join(dir, "pypi", "mylib")
+	projDir := filepath.Join(dir, "metrics", "pypi", "mylib")
 	os.MkdirAll(projDir, 0755)
 
 	// Write duplicate records across two daily files
@@ -173,7 +173,7 @@ func TestAggregateDedup(t *testing.T) {
 
 func TestAggregateDedupWithTags(t *testing.T) {
 	dir := t.TempDir()
-	projDir := filepath.Join(dir, "youtube", "proj")
+	projDir := filepath.Join(dir, "metrics", "youtube", "proj")
 	os.MkdirAll(projDir, 0755)
 
 	records := []source.Record{

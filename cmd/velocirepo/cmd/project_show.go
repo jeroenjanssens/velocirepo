@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"path/filepath"
 
+	"github.com/jeroenjanssens/velocirepo/internal/config"
 	"github.com/jeroenjanssens/velocirepo/internal/store"
 	"github.com/spf13/cobra"
 )
@@ -40,7 +41,7 @@ func showProjectCmd() *cobra.Command {
 			var totalSize int64
 
 			for _, src := range sources {
-				dir := filepath.Join(dataDir, src, id)
+				dir := filepath.Join(dataDir, config.SourceDirPath(src), id)
 				ds := store.ScanProjectDir(dir)
 				stats = append(stats, sourceStats{
 					Source:    src,

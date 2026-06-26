@@ -28,7 +28,7 @@ func BuildDB(dataDir string, projects []ProjectInfo, indicators []IndicatorDef) 
 	}
 	defer db.Close()
 
-	if err := createGitHubEventsViewRelative(db, absDir); err != nil {
+	if err := createEventsViewRelative(db, absDir); err != nil {
 		return err
 	}
 	if err := createMetricsViewRelative(db, absDir); err != nil {
@@ -47,31 +47,30 @@ func BuildDB(dataDir string, projects []ProjectInfo, indicators []IndicatorDef) 
 	return nil
 }
 
-func createGitHubEventsViewRelative(db *sql.DB, absDir string) error {
-	glob := "github/*/*.jsonl"
-	absGlob := filepath.ToSlash(filepath.Join(absDir, glob))
+func createEventsViewRelative(db *sql.DB, absDir string) error {
+	glob := filepath.ToSlash(filepath.Join(absDir, "events", "*", "*", "*.jsonl"))
 
-	if !globHasMatches(absGlob) {
-		slog.Debug("no github event files found, creating empty view")
-		return createEmptyGitHubEventsView(db)
+	if !globHasMatches(glob) {
+		slog.Debug("no event files found, creating empty view")
+		return createEmptyEventsView(db)
 	}
 
-	query := fmt.Sprintf(`CREATE OR REPLACE VIEW github_events AS
+	query := fmt.Sprintf(`CREATE OR REPLACE VIEW events AS
 		SELECT
 			project_id AS project,
 			source,
-			event_type,
-			github_repo,
+			type,
+			target,
 			CAST(datetime AS TIMESTAMP) AS datetime,
-			"user"
+			tags
 		FROM read_json('%s',
 			format='newline_delimited',
-			columns={source: 'VARCHAR', event_type: 'VARCHAR', project_id: 'VARCHAR', github_repo: 'VARCHAR', datetime: 'VARCHAR', "user": 'VARCHAR'})`,
-		escapeSQLString(absGlob))
+			columns={source: 'VARCHAR', type: 'VARCHAR', project_id: 'VARCHAR', target: 'VARCHAR', datetime: 'VARCHAR', tags: 'JSON'})`,
+		escapeSQLString(glob))
 
 	if _, err := db.Exec(query); err != nil {
-		slog.Debug("github_events view creation failed, using empty view", "error", err)
-		return createEmptyGitHubEventsView(db)
+		slog.Debug("events view creation failed, using empty view", "error", err)
+		return createEmptyEventsView(db)
 	}
 	return nil
 }
@@ -85,8 +84,13 @@ func createMetricsViewRelative(db *sql.DB, absDir string) error {
 	return nil
 }
 
+func globHasMatches(pattern string) bool {
+	matches, err := filepath.Glob(pattern)
+	return err == nil && len(matches) > 0
+}
+
 func createYouTubeIndexViewRelative(db *sql.DB, absDir string) error {
-	glob := "youtube/*/index.jsonl"
+	glob := "metrics/youtube/*/index.jsonl"
 	absGlob := filepath.ToSlash(filepath.Join(absDir, glob))
 
 	if !globHasMatches(absGlob) {
@@ -165,9 +169,4 @@ func createProjectsTable(db *sql.DB, projects []ProjectInfo) error {
 	}
 
 	return nil
-}
-
-func globHasMatches(pattern string) bool {
-	matches, err := filepath.Glob(pattern)
-	return err == nil && len(matches) > 0
 }

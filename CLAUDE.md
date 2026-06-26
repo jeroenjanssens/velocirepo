@@ -30,5 +30,5 @@ All tests run offline using httptest — no network access required.
 - Source fields in config accept a string or array of strings (`config.StringList`)
 - Tests use `net/http/httptest` with canned responses — no mocking frameworks
 - Config file is `velocirepo.toml`, discovered by walking up from cwd
-- Data stored as JSONL files at `velocirepo/data/<source>/<project-id>/<date>.jsonl`
+- Data stored as JSONL files at `velocirepo/data/metrics/<source>/<project-id>/<date>.jsonl` and `velocirepo/data/events/<source>/<project-id>/<date>.jsonl`
 - Concatenation runs automatically after fetch (daily→monthly→yearly)

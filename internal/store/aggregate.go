@@ -12,20 +12,34 @@ import (
 	"github.com/jeroenjanssens/velocirepo/internal/source"
 )
 
+var EventSources = map[string]bool{
+	"github": true,
+}
+
+func SourceCategory(sourceName string) string {
+	if EventSources[sourceName] {
+		return "events"
+	}
+	return "metrics"
+}
+
 func Aggregate(dataDir string, now time.Time) error {
-	sourceDirs, err := os.ReadDir(dataDir)
+	aggregateCategory(filepath.Join(dataDir, "metrics"), now, false)
+	aggregateCategory(filepath.Join(dataDir, "events"), now, true)
+	return nil
+}
+
+func aggregateCategory(categoryDir string, now time.Time, isEvents bool) {
+	sourceDirs, err := os.ReadDir(categoryDir)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return nil
-		}
-		return fmt.Errorf("read data dir: %w", err)
+		return
 	}
 
 	for _, sourceEntry := range sourceDirs {
 		if !sourceEntry.IsDir() {
 			continue
 		}
-		sourcePath := filepath.Join(dataDir, sourceEntry.Name())
+		sourcePath := filepath.Join(categoryDir, sourceEntry.Name())
 
 		projectDirs, err := os.ReadDir(sourcePath)
 		if err != nil {
@@ -38,8 +52,8 @@ func Aggregate(dataDir string, now time.Time) error {
 			}
 			projPath := filepath.Join(sourcePath, projEntry.Name())
 			var err error
-			if sourceEntry.Name() == "github" {
-				err = aggregateGitHubEventsProject(projPath, now)
+			if isEvents {
+				err = aggregateEventsProject(projPath, now)
 			} else {
 				err = aggregateProject(projPath, now)
 			}
@@ -48,7 +62,6 @@ func Aggregate(dataDir string, now time.Time) error {
 			}
 		}
 	}
-	return nil
 }
 
 func aggregateProject(projDir string, now time.Time) error {
@@ -233,7 +246,7 @@ func dedupKey(r source.Record) string {
 	return b.String()
 }
 
-func aggregateGitHubEventsProject(projDir string, now time.Time) error {
+func aggregateEventsProject(projDir string, now time.Time) error {
 	if err := aggregateEventsDailyToMonthly(projDir, now); err != nil {
 		return err
 	}
@@ -342,10 +355,10 @@ func aggregateEventsMonthlyToYearly(projDir string, now time.Time) error {
 	return nil
 }
 
-func readAllEventFiles(paths []string) ([]source.GitHubEvent, error) {
-	var all []source.GitHubEvent
+func readAllEventFiles(paths []string) ([]source.Event, error) {
+	var all []source.Event
 	for _, p := range paths {
-		events, err := ReadGitHubEvents(p)
+		events, err := ReadEvents(p)
 		if err != nil {
 			return nil, err
 		}
@@ -354,9 +367,9 @@ func readAllEventFiles(paths []string) ([]source.GitHubEvent, error) {
 	return all, nil
 }
 
-func dedupEvents(events []source.GitHubEvent) []source.GitHubEvent {
+func dedupEvents(events []source.Event) []source.Event {
 	seen := make(map[string]struct{})
-	var result []source.GitHubEvent
+	var result []source.Event
 
 	for _, e := range events {
 		key := dedupEventKey(e)
@@ -369,17 +382,30 @@ func dedupEvents(events []source.GitHubEvent) []source.GitHubEvent {
 	return result
 }
 
-func dedupEventKey(e source.GitHubEvent) string {
+func dedupEventKey(e source.Event) string {
 	var b strings.Builder
 	b.WriteString(e.Source)
 	b.WriteByte('|')
 	b.WriteString(e.ProjectID)
 	b.WriteByte('|')
-	b.WriteString(e.EventType)
+	b.WriteString(e.Type)
 	b.WriteByte('|')
 	b.WriteString(e.Datetime)
-	b.WriteByte('|')
-	b.WriteString(e.User)
+
+	if len(e.Tags) > 0 {
+		keys := make([]string, 0, len(e.Tags))
+		for k := range e.Tags {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		for _, k := range keys {
+			b.WriteByte('|')
+			b.WriteString(k)
+			b.WriteByte('=')
+			b.WriteString(e.Tags[k])
+		}
+	}
+
 	return b.String()
 }
 

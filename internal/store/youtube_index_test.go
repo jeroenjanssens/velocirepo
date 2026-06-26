@@ -20,7 +20,7 @@ func TestWriteYouTubeIndex(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	path := filepath.Join(dataDir, "youtube", "my-proj", "index.jsonl")
+	path := filepath.Join(dataDir, "metrics", "youtube", "my-proj", "index.jsonl")
 	read, err := readYouTubeIndex(path)
 	if err != nil {
 		t.Fatal(err)
@@ -53,7 +53,7 @@ func TestWriteYouTubeIndexMerge(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	path := filepath.Join(dataDir, "youtube", "proj", "index.jsonl")
+	path := filepath.Join(dataDir, "metrics", "youtube", "proj", "index.jsonl")
 	read, err := readYouTubeIndex(path)
 	if err != nil {
 		t.Fatal(err)

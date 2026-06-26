@@ -101,8 +101,28 @@ func (p Project) SourceNames() []string {
 	return names
 }
 
+var eventSourceNames = map[string]bool{
+	"github": true,
+}
+
+func SourceDirPath(sourceName string) string {
+	if eventSourceNames[sourceName] {
+		return "events/" + sourceName
+	}
+	return "metrics/" + sourceName
+}
+
 func SourceDirNames() []string {
-	return []string{"github", "github-traffic", "pypi", "cran", "homebrew", "plausible", "openvsx", "youtube"}
+	return []string{
+		"events/github",
+		"metrics/github-traffic",
+		"metrics/pypi",
+		"metrics/cran",
+		"metrics/homebrew",
+		"metrics/plausible",
+		"metrics/openvsx",
+		"metrics/youtube",
+	}
 }
 
 type DataConfig struct {

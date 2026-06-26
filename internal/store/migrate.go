@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-const LatestSchemaVersion = 3
+const LatestSchemaVersion = 4
 
 const schemaVersionFile = ".schema-version"
 
@@ -76,6 +76,10 @@ var migrations = []migration{
 	{
 		description: "rename site-level plausible metrics to daily_site_*",
 		run:         migrate2to3,
+	},
+	{
+		description: "rename github event fields: event_type→type, github_repo→target, user→tags",
+		run:         migrate3to4,
 	},
 }
 
@@ -188,6 +192,151 @@ func renameMetricsInDir(dir string, renames map[string]string) error {
 		}
 		return renameMetricsInFile(path, renames)
 	})
+}
+
+func migrate3to4(dataDir string) error {
+	// Rewrite github event fields in place first
+	githubDir := filepath.Join(dataDir, "github")
+	if _, err := os.Stat(githubDir); err == nil {
+		if err := filepath.Walk(githubDir, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+			if info.IsDir() || !strings.HasSuffix(info.Name(), ".jsonl") {
+				return nil
+			}
+			return rewriteEventFields(path)
+		}); err != nil {
+			return err
+		}
+	}
+
+	// Move source directories into metrics/ and events/ subdirs
+	eventsDir := filepath.Join(dataDir, "events")
+	metricsDir := filepath.Join(dataDir, "metrics")
+
+	for src := range EventSources {
+		srcDir := filepath.Join(dataDir, src)
+		if _, err := os.Stat(srcDir); os.IsNotExist(err) {
+			continue
+		}
+		if err := os.MkdirAll(eventsDir, 0755); err != nil {
+			return fmt.Errorf("create events dir: %w", err)
+		}
+		dst := filepath.Join(eventsDir, src)
+		if err := os.Rename(srcDir, dst); err != nil {
+			return fmt.Errorf("move %s to events/: %w", src, err)
+		}
+	}
+
+	metricSources := []string{"github-traffic", "pypi", "cran", "homebrew", "plausible", "openvsx", "youtube"}
+	for _, src := range metricSources {
+		srcDir := filepath.Join(dataDir, src)
+		if _, err := os.Stat(srcDir); os.IsNotExist(err) {
+			continue
+		}
+		if err := os.MkdirAll(metricsDir, 0755); err != nil {
+			return fmt.Errorf("create metrics dir: %w", err)
+		}
+		dst := filepath.Join(metricsDir, src)
+		if err := os.Rename(srcDir, dst); err != nil {
+			return fmt.Errorf("move %s to metrics/: %w", src, err)
+		}
+	}
+
+	return nil
+}
+
+func rewriteEventFields(path string) error {
+	f, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	var lines [][]byte
+	modified := false
+	scanner := bufio.NewScanner(f)
+	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
+	for scanner.Scan() {
+		line := scanner.Bytes()
+		var record map[string]interface{}
+		if err := json.Unmarshal(line, &record); err != nil {
+			lines = append(lines, append([]byte(nil), line...))
+			continue
+		}
+
+		changed := false
+
+		if v, ok := record["event_type"]; ok {
+			record["type"] = v
+			delete(record, "event_type")
+			changed = true
+		}
+
+		if v, ok := record["github_repo"]; ok {
+			record["target"] = v
+			delete(record, "github_repo")
+			changed = true
+		}
+
+		if v, ok := record["user"]; ok {
+			user, _ := v.(string)
+			delete(record, "user")
+			if user != "" {
+				tags, _ := record["tags"].(map[string]interface{})
+				if tags == nil {
+					tags = make(map[string]interface{})
+				}
+				tags["user"] = user
+				record["tags"] = tags
+			}
+			changed = true
+		}
+
+		if !changed {
+			lines = append(lines, append([]byte(nil), line...))
+			continue
+		}
+
+		newLine, err := json.Marshal(record)
+		if err != nil {
+			lines = append(lines, append([]byte(nil), line...))
+			continue
+		}
+		lines = append(lines, newLine)
+		modified = true
+	}
+	if err := scanner.Err(); err != nil {
+		return err
+	}
+	f.Close()
+
+	if !modified {
+		return nil
+	}
+
+	tmp, err := os.CreateTemp(filepath.Dir(path), ".migrate-*.jsonl")
+	if err != nil {
+		return err
+	}
+	tmpPath := tmp.Name()
+
+	w := bufio.NewWriter(tmp)
+	for _, line := range lines {
+		w.Write(line)
+		w.WriteByte('\n')
+	}
+	if err := w.Flush(); err != nil {
+		tmp.Close()
+		os.Remove(tmpPath)
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		os.Remove(tmpPath)
+		return err
+	}
+	return os.Rename(tmpPath, path)
 }
 
 func renameMetricsInFile(path string, renames map[string]string) error {

@@ -40,7 +40,7 @@ func Export(opts ExportOptions) ([]string, error) {
 
 	tables := []table{
 		{"metrics", buildExportQuery("metrics", opts)},
-		{"github_events", buildExportQuery("github_events", opts)},
+		{"events", buildExportQuery("events", opts)},
 		{"youtube_index", buildExportQuery("youtube_index", opts)},
 		{"indicators", buildExportQuery("indicators", opts)},
 		{"projects", buildExportQuery("projects", opts)},
@@ -108,8 +108,8 @@ func buildExportQuery(table string, opts ExportOptions) string {
 	switch table {
 	case "metrics":
 		query += " ORDER BY project, source, metric, date"
-	case "github_events":
-		query += " ORDER BY project, event_type, datetime"
+	case "events":
+		query += " ORDER BY project, type, datetime"
 	case "youtube_index":
 		query += " ORDER BY channel, published_at"
 	case "indicators":
@@ -124,7 +124,7 @@ func buildExportQuery(table string, opts ExportOptions) string {
 func matchesSource(table, source string) bool {
 	switch source {
 	case "github":
-		return table == "github_events"
+		return table == "events"
 	case "youtube":
 		return table == "metrics" || table == "youtube_index"
 	case "projects":

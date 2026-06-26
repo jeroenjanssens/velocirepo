@@ -75,10 +75,10 @@ func TestGitHubEventsFetchStargazers(t *testing.T) {
 	if len(events) != 2 {
 		t.Fatalf("got %d events, want 2", len(events))
 	}
-	if events[0].EventType != "star" || events[0].User != "alice" {
+	if events[0].Type != "star" || events[0].Tags["user"] != "alice" {
 		t.Errorf("events[0] = %+v, want star/alice", events[0])
 	}
-	if events[1].EventType != "star" || events[1].User != "bob" {
+	if events[1].Type != "star" || events[1].Tags["user"] != "bob" {
 		t.Errorf("events[1] = %+v, want star/bob", events[1])
 	}
 }
@@ -135,17 +135,17 @@ func TestGitHubEventsFetchAllTypes(t *testing.T) {
 	}
 
 	for i, want := range expected {
-		if events[i].EventType != want.eventType {
-			t.Errorf("events[%d].EventType = %q, want %q", i, events[i].EventType, want.eventType)
+		if events[i].Type != want.eventType {
+			t.Errorf("events[%d].Type = %q, want %q", i, events[i].Type, want.eventType)
 		}
-		if events[i].User != want.user {
-			t.Errorf("events[%d].User = %q, want %q", i, events[i].User, want.user)
+		if events[i].Tags["user"] != want.user {
+			t.Errorf("events[%d].User = %q, want %q", i, events[i].Tags["user"], want.user)
 		}
 		if events[i].ProjectID != "my-project" {
 			t.Errorf("events[%d].ProjectID = %q, want %q", i, events[i].ProjectID, "my-project")
 		}
-		if events[i].GitHubRepo != "owner/repo" {
-			t.Errorf("events[%d].GitHubRepo = %q, want %q", i, events[i].GitHubRepo, "owner/repo")
+		if events[i].Target != "owner/repo" {
+			t.Errorf("events[%d].GitHubRepo = %q, want %q", i, events[i].Target, "owner/repo")
 		}
 	}
 }
@@ -240,8 +240,8 @@ func TestGitHubEventsPagination(t *testing.T) {
 	if len(events) != 2 {
 		t.Fatalf("got %d events, want 2", len(events))
 	}
-	if events[0].User != "alice" || events[1].User != "bob" {
-		t.Errorf("unexpected users: %s, %s", events[0].User, events[1].User)
+	if events[0].Tags["user"] != "alice" || events[1].Tags["user"] != "bob" {
+		t.Errorf("unexpected users: %s, %s", events[0].Tags["user"], events[1].Tags["user"])
 	}
 }
 
@@ -318,8 +318,8 @@ func TestGitHubEventsPRNotMerged(t *testing.T) {
 	if len(events) != 1 {
 		t.Fatalf("got %d events, want 1 (only pr_open, no merge)", len(events))
 	}
-	if events[0].EventType != "pr_open" {
-		t.Errorf("EventType = %q, want pr_open", events[0].EventType)
+	if events[0].Type != "pr_open" {
+		t.Errorf("EventType = %q, want pr_open", events[0].Type)
 	}
 }
 
@@ -354,8 +354,8 @@ func TestGitHubEventsIssueCloseOutOfRange(t *testing.T) {
 	if len(events) != 1 {
 		t.Fatalf("got %d events, want 1 (issue_open only, close is out of range)", len(events))
 	}
-	if events[0].EventType != "issue_open" {
-		t.Errorf("EventType = %q, want issue_open", events[0].EventType)
+	if events[0].Type != "issue_open" {
+		t.Errorf("EventType = %q, want issue_open", events[0].Type)
 	}
 }
 

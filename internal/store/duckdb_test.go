@@ -135,10 +135,10 @@ func TestSchemaLive(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	events := []source.GitHubEvent{
-		{EventType: "star", ProjectID: "test", GitHubRepo: "owner/repo", Datetime: "2025-01-01T10:00:00Z", User: "alice"},
+	events := []source.Event{
+		{Type: "star", ProjectID: "test", Target: "owner/repo", Datetime: "2025-01-01T10:00:00Z", Tags: map[string]string{"user": "alice"}},
 	}
-	if err := WriteGitHubEvents(dataDir, "github", "test", events); err != nil {
+	if err := WriteEvents(dataDir, "github", "test", events); err != nil {
 		t.Fatal(err)
 	}
 
@@ -147,14 +147,14 @@ func TestSchemaLive(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	eventsExpected := []string{"project", "source", "event_type", "github_repo", "datetime", "user"}
+	eventsExpected := []string{"project", "source", "type", "target", "datetime", "tags"}
 	metricsExpected := []string{"project", "source", "target", "metric", "date", "value", "tags"}
 	projectsExpected := []string{"id", "name", "description", "color", "tags", "website", "logo"}
 
 	var eventsCols, metricsCols, projectsCols []SchemaColumn
 	for _, c := range cols {
 		switch c.Table {
-		case "github_events":
+		case "events":
 			eventsCols = append(eventsCols, c)
 		case "metrics":
 			metricsCols = append(metricsCols, c)
@@ -164,7 +164,7 @@ func TestSchemaLive(t *testing.T) {
 	}
 
 	if len(eventsCols) != 6 {
-		t.Fatalf("expected 6 github_events columns, got %d", len(eventsCols))
+		t.Fatalf("expected 6 events columns, got %d", len(eventsCols))
 	}
 	if len(metricsCols) != 7 {
 		t.Fatalf("expected 7 metrics columns, got %d", len(metricsCols))
@@ -175,7 +175,7 @@ func TestSchemaLive(t *testing.T) {
 
 	for i, exp := range eventsExpected {
 		if eventsCols[i].Column != exp {
-			t.Errorf("github_events column %d: expected %s, got %s", i, exp, eventsCols[i].Column)
+			t.Errorf("events column %d: expected %s, got %s", i, exp, eventsCols[i].Column)
 		}
 	}
 
@@ -196,16 +196,16 @@ func TestQueryLiveGitHubEvents(t *testing.T) {
 	dir := t.TempDir()
 	dataDir := filepath.Join(dir, "data")
 
-	events := []source.GitHubEvent{
-		{EventType: "star", ProjectID: "my-proj", GitHubRepo: "owner/repo", Datetime: "2025-06-01T10:00:00Z", User: "alice"},
-		{EventType: "fork", ProjectID: "my-proj", GitHubRepo: "owner/repo", Datetime: "2025-06-01T11:00:00Z", User: "bob"},
-		{EventType: "issue_open", ProjectID: "my-proj", GitHubRepo: "owner/repo", Datetime: "2025-06-02T09:00:00Z", User: "carol"},
+	events := []source.Event{
+		{Type: "star", ProjectID: "my-proj", Target: "owner/repo", Datetime: "2025-06-01T10:00:00Z", Tags: map[string]string{"user": "alice"}},
+		{Type: "fork", ProjectID: "my-proj", Target: "owner/repo", Datetime: "2025-06-01T11:00:00Z", Tags: map[string]string{"user": "bob"}},
+		{Type: "issue_open", ProjectID: "my-proj", Target: "owner/repo", Datetime: "2025-06-02T09:00:00Z", Tags: map[string]string{"user": "carol"}},
 	}
-	if err := WriteGitHubEvents(dataDir, "github", "my-proj", events); err != nil {
+	if err := WriteEvents(dataDir, "github", "my-proj", events); err != nil {
 		t.Fatal(err)
 	}
 
-	results, _, err := QueryLive(dataDir, nil, nil, "SELECT COUNT(*) AS cnt FROM github_events")
+	results, _, err := QueryLive(dataDir, nil, nil, "SELECT COUNT(*) AS cnt FROM events")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -214,7 +214,7 @@ func TestQueryLiveGitHubEvents(t *testing.T) {
 		t.Fatalf("expected 3 events, got %d", cnt)
 	}
 
-	results, _, err = QueryLive(dataDir, nil, nil, "SELECT event_type, \"user\" FROM github_events WHERE event_type = 'star'")
+	results, _, err = QueryLive(dataDir, nil, nil, "SELECT type, tags->>'user' AS user FROM events WHERE type = 'star'")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -237,10 +237,10 @@ func TestMetricsViewIncludesGitHubAggregated(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	events := []source.GitHubEvent{
-		{EventType: "star", ProjectID: "test", GitHubRepo: "owner/repo", Datetime: "2025-06-01T10:00:00Z", User: "alice"},
+	events := []source.Event{
+		{Type: "star", ProjectID: "test", Target: "owner/repo", Datetime: "2025-06-01T10:00:00Z", Tags: map[string]string{"user": "alice"}},
 	}
-	if err := WriteGitHubEvents(dataDir, "github", "test", events); err != nil {
+	if err := WriteEvents(dataDir, "github", "test", events); err != nil {
 		t.Fatal(err)
 	}
 
@@ -258,12 +258,12 @@ func TestQueryLiveGitHubView(t *testing.T) {
 	dir := t.TempDir()
 	dataDir := filepath.Join(dir, "data")
 
-	events := []source.GitHubEvent{
-		{EventType: "star", ProjectID: "my-proj", GitHubRepo: "owner/repo", Datetime: "2025-06-01T10:00:00Z", User: "alice"},
-		{EventType: "star", ProjectID: "my-proj", GitHubRepo: "owner/repo", Datetime: "2025-06-01T12:00:00Z", User: "bob"},
-		{EventType: "fork", ProjectID: "my-proj", GitHubRepo: "owner/repo", Datetime: "2025-06-01T11:00:00Z", User: "carol"},
+	events := []source.Event{
+		{Type: "star", ProjectID: "my-proj", Target: "owner/repo", Datetime: "2025-06-01T10:00:00Z", Tags: map[string]string{"user": "alice"}},
+		{Type: "star", ProjectID: "my-proj", Target: "owner/repo", Datetime: "2025-06-01T12:00:00Z", Tags: map[string]string{"user": "bob"}},
+		{Type: "fork", ProjectID: "my-proj", Target: "owner/repo", Datetime: "2025-06-01T11:00:00Z", Tags: map[string]string{"user": "carol"}},
 	}
-	if err := WriteGitHubEvents(dataDir, "github", "my-proj", events); err != nil {
+	if err := WriteEvents(dataDir, "github", "my-proj", events); err != nil {
 		t.Fatal(err)
 	}
 

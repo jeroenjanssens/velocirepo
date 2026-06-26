@@ -28,7 +28,7 @@ func WriteRecords(dataDir, sourceName, projectID string, records []source.Record
 	grouped := groupByDate(records)
 
 	for date, dateRecords := range grouped {
-		dir := filepath.Join(dataDir, sourceName, projectID)
+		dir := filepath.Join(dataDir, "metrics", sourceName, projectID)
 		if err := os.MkdirAll(dir, 0755); err != nil {
 			return fmt.Errorf("create directory %s: %w", dir, err)
 		}
@@ -103,7 +103,7 @@ func ReadRecords(path string) ([]source.Record, error) {
 }
 
 func LastDate(dataDir, sourceName, projectID string) (time.Time, error) {
-	dir := filepath.Join(dataDir, sourceName, projectID)
+	dir := filepath.Join(dataDir, SourceCategory(sourceName), sourceName, projectID)
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -159,7 +159,7 @@ func groupByDate(records []source.Record) map[string][]source.Record {
 	return grouped
 }
 
-func WriteGitHubEvents(dataDir, sourceName, projectID string, events []source.GitHubEvent) error {
+func WriteEvents(dataDir, sourceName, projectID string, events []source.Event) error {
 	for i := range events {
 		events[i].Source = sourceName
 	}
@@ -167,7 +167,7 @@ func WriteGitHubEvents(dataDir, sourceName, projectID string, events []source.Gi
 	grouped := groupEventsByDate(events)
 
 	for date, dateEvents := range grouped {
-		dir := filepath.Join(dataDir, sourceName, projectID)
+		dir := filepath.Join(dataDir, "events", sourceName, projectID)
 		if err := os.MkdirAll(dir, 0755); err != nil {
 			return fmt.Errorf("create directory %s: %w", dir, err)
 		}
@@ -182,7 +182,7 @@ func WriteGitHubEvents(dataDir, sourceName, projectID string, events []source.Gi
 	return nil
 }
 
-func writeEventsFileAtomic(path string, events []source.GitHubEvent) error {
+func writeEventsFileAtomic(path string, events []source.Event) error {
 	dir := filepath.Dir(path)
 	tmp, err := os.CreateTemp(dir, ".tmp-*.jsonl")
 	if err != nil {
@@ -218,18 +218,18 @@ func writeEventsFileAtomic(path string, events []source.GitHubEvent) error {
 	return nil
 }
 
-func ReadGitHubEvents(path string) ([]source.GitHubEvent, error) {
+func ReadEvents(path string) ([]source.Event, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, fmt.Errorf("open %s: %w", path, err)
 	}
 	defer f.Close()
 
-	var events []source.GitHubEvent
+	var events []source.Event
 	scanner := bufio.NewScanner(f)
 	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
 	for scanner.Scan() {
-		var e source.GitHubEvent
+		var e source.Event
 		if err := json.Unmarshal(scanner.Bytes(), &e); err != nil {
 			return nil, fmt.Errorf("unmarshal line in %s: %w", path, err)
 		}
@@ -241,8 +241,8 @@ func ReadGitHubEvents(path string) ([]source.GitHubEvent, error) {
 	return events, nil
 }
 
-func groupEventsByDate(events []source.GitHubEvent) map[string][]source.GitHubEvent {
-	grouped := make(map[string][]source.GitHubEvent)
+func groupEventsByDate(events []source.Event) map[string][]source.Event {
+	grouped := make(map[string][]source.Event)
 	for _, e := range events {
 		date := e.Datetime[:10]
 		grouped[date] = append(grouped[date], e)

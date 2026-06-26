@@ -22,8 +22,8 @@ func TestWriteAndReadRecords(t *testing.T) {
 	}
 
 	// Check files exist
-	path1 := filepath.Join(dir, "pypi", "mylib", "2025-06-01.jsonl")
-	path2 := filepath.Join(dir, "pypi", "mylib", "2025-06-02.jsonl")
+	path1 := filepath.Join(dir, "metrics", "pypi", "mylib", "2025-06-01.jsonl")
+	path2 := filepath.Join(dir, "metrics", "pypi", "mylib", "2025-06-02.jsonl")
 
 	if _, err := os.Stat(path1); err != nil {
 		t.Fatalf("file not created: %s", path1)
@@ -67,7 +67,7 @@ func TestWriteRecordsWithTags(t *testing.T) {
 		t.Fatalf("WriteRecords failed: %v", err)
 	}
 
-	path := filepath.Join(dir, "youtube", "mylib", "2025-06-01.jsonl")
+	path := filepath.Join(dir, "metrics", "youtube", "mylib", "2025-06-01.jsonl")
 	got, err := ReadRecords(path)
 	if err != nil {
 		t.Fatalf("ReadRecords failed: %v", err)
@@ -82,7 +82,7 @@ func TestWriteRecordsWithTags(t *testing.T) {
 
 func TestLastDateDaily(t *testing.T) {
 	dir := t.TempDir()
-	projDir := filepath.Join(dir, "github", "myproject")
+	projDir := filepath.Join(dir, "events", "github", "myproject")
 	os.MkdirAll(projDir, 0755)
 
 	for _, name := range []string{"2025-01-15.jsonl", "2025-03-20.jsonl", "2025-02-10.jsonl"} {
@@ -102,7 +102,7 @@ func TestLastDateDaily(t *testing.T) {
 
 func TestLastDateMonthly(t *testing.T) {
 	dir := t.TempDir()
-	projDir := filepath.Join(dir, "pypi", "mylib")
+	projDir := filepath.Join(dir, "metrics", "pypi", "mylib")
 	os.MkdirAll(projDir, 0755)
 
 	for _, name := range []string{"2025-01.jsonl", "2025-03.jsonl"} {
@@ -122,7 +122,7 @@ func TestLastDateMonthly(t *testing.T) {
 
 func TestLastDateYearly(t *testing.T) {
 	dir := t.TempDir()
-	projDir := filepath.Join(dir, "cran", "pkg")
+	projDir := filepath.Join(dir, "metrics", "cran", "pkg")
 	os.MkdirAll(projDir, 0755)
 
 	os.WriteFile(filepath.Join(projDir, "2024.jsonl"), []byte(`{}`+"\n"), 0644)
@@ -153,7 +153,7 @@ func TestLastDateEmpty(t *testing.T) {
 
 func TestLastDateMixed(t *testing.T) {
 	dir := t.TempDir()
-	projDir := filepath.Join(dir, "github", "proj")
+	projDir := filepath.Join(dir, "events", "github", "proj")
 	os.MkdirAll(projDir, 0755)
 
 	for _, name := range []string{"2024.jsonl", "2025-01.jsonl", "2025-02-15.jsonl"} {

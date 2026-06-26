@@ -114,7 +114,7 @@ func All(ctx context.Context, cfg *config.Config, tokens Tokens, opts Options) (
 		sourceName string
 		projectID  string
 		src        source.Source
-		eventSrc   source.GitHubEventSource
+		eventSrc   source.EventSource
 	}
 
 	var jobs []fetchJob
@@ -206,7 +206,7 @@ func All(ctx context.Context, cfg *config.Config, tokens Tokens, opts Options) (
 					return nil
 				}
 
-				if err := store.WriteGitHubEvents(dataDir, job.sourceName, job.projectID, events); err != nil {
+				if err := store.WriteEvents(dataDir, job.sourceName, job.projectID, events); err != nil {
 					resultsCh <- Result{
 						Source:    job.sourceName,
 						ProjectID: job.projectID,
@@ -473,7 +473,7 @@ func GitHub(ctx context.Context, cfg *config.Config, tokens Tokens, opts Options
 				continue
 			}
 
-			if err := store.WriteGitHubEvents(dataDir, "github", id, events); err != nil {
+			if err := store.WriteEvents(dataDir, "github", id, events); err != nil {
 				results = append(results, Result{
 					Source:    "github",
 					ProjectID: id,

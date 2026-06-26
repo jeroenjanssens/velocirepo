@@ -11,7 +11,7 @@ import (
 )
 
 func WriteYouTubeIndex(dataDir, projectID string, entries []source.YouTubeIndexEntry) error {
-	dir := filepath.Join(dataDir, "youtube", projectID)
+	dir := filepath.Join(dataDir, "metrics", "youtube", projectID)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return fmt.Errorf("create directory %s: %w", dir, err)
 	}

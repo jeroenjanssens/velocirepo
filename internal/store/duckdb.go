@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"fmt"
 	"log/slog"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -57,7 +56,7 @@ func SchemaLive(dataDir string, projects []ProjectInfo, indicators []IndicatorDe
 	}
 	defer db.Close()
 
-	rows, err := db.Query("SELECT table_name, column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name IN ('github_events', 'indicators', 'metrics', 'projects', 'youtube_index') ORDER BY table_name, ordinal_position")
+	rows, err := db.Query("SELECT table_name, column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name IN ('events', 'indicators', 'metrics', 'projects', 'youtube_index') ORDER BY table_name, ordinal_position")
 	if err != nil {
 		return nil, fmt.Errorf("query schema: %w", err)
 	}
@@ -86,7 +85,7 @@ func openLiveDB(dataDir string, projects []ProjectInfo, indicators []IndicatorDe
 		return nil, fmt.Errorf("resolve data dir: %w", err)
 	}
 
-	if err := createGitHubEventsView(db, absDir); err != nil {
+	if err := createEventsView(db, absDir); err != nil {
 		db.Close()
 		return nil, err
 	}
@@ -124,44 +123,31 @@ func createMetricsView(db *sql.DB, absDir string) error {
 }
 
 func metricsViewSQL(absDir string) string {
-	entries, err := os.ReadDir(absDir)
-	if err != nil && !os.IsNotExist(err) {
-		slog.Debug("could not read data dir", "error", err)
-	}
+	glob := filepath.ToSlash(filepath.Join(absDir, "metrics", "*", "*", "*.jsonl"))
 
-	var globs []string
-	for _, entry := range entries {
-		if !entry.IsDir() || entry.Name() == "github" {
-			continue
-		}
-		g := filepath.ToSlash(filepath.Join(absDir, entry.Name(), "*", "*.jsonl"))
-		globs = append(globs, "'"+escapeSQLString(g)+"'")
-	}
-
-	const githubAgg = `SELECT
+	const eventsAgg = `SELECT
 			project,
-			'github' AS source,
-			github_repo AS target,
-			CASE event_type
+			source,
+			target,
+			CASE type
 				WHEN 'star' THEN 'daily_stars'
 				WHEN 'fork' THEN 'daily_forks'
 				WHEN 'issue_open' THEN 'daily_issues_opened'
 				WHEN 'issue_close' THEN 'daily_issues_closed'
 				WHEN 'pr_open' THEN 'daily_prs_opened'
 				WHEN 'pr_merge' THEN 'daily_prs_merged'
-				ELSE 'daily_' || event_type
+				ELSE 'daily_' || type
 			END AS metric,
 			CAST(datetime AS DATE) AS date,
 			COUNT(*) AS value,
 			NULL::JSON AS tags
-		FROM github_events
-		GROUP BY project, github_repo, event_type, CAST(datetime AS DATE)`
+		FROM events
+		GROUP BY project, source, target, type, CAST(datetime AS DATE)`
 
-	if len(globs) == 0 {
-		return fmt.Sprintf(`CREATE OR REPLACE VIEW metrics AS %s`, githubAgg)
+	if !globHasMatches(glob) {
+		return fmt.Sprintf(`CREATE OR REPLACE VIEW metrics AS %s`, eventsAgg)
 	}
 
-	globList := strings.Join(globs, ", ")
 	return fmt.Sprintf(`CREATE OR REPLACE VIEW metrics AS
 		SELECT
 			project_id AS project,
@@ -171,11 +157,11 @@ func metricsViewSQL(absDir string) string {
 			CAST(date AS DATE) AS date,
 			CAST(value AS BIGINT) AS value,
 			tags
-		FROM read_json([%s],
+		FROM read_json('%s',
 			format='newline_delimited',
 			columns={source: 'VARCHAR', metric: 'VARCHAR', project_id: 'VARCHAR', target: 'VARCHAR', date: 'VARCHAR', value: 'BIGINT', tags: 'JSON'})
 		UNION ALL
-		%s`, globList, githubAgg)
+		%s`, escapeSQLString(glob), eventsAgg)
 }
 
 func createEmptyMetricsView(db *sql.DB) error {
@@ -188,41 +174,47 @@ func createEmptyMetricsView(db *sql.DB) error {
 	return nil
 }
 
-func createGitHubEventsView(db *sql.DB, absDir string) error {
-	glob := filepath.ToSlash(filepath.Join(absDir, "github", "*", "*.jsonl"))
-	query := fmt.Sprintf(`CREATE OR REPLACE VIEW github_events AS
+func createEventsView(db *sql.DB, absDir string) error {
+	glob := filepath.ToSlash(filepath.Join(absDir, "events", "*", "*", "*.jsonl"))
+
+	if !globHasMatches(glob) {
+		slog.Debug("no event files found, creating empty view")
+		return createEmptyEventsView(db)
+	}
+
+	query := fmt.Sprintf(`CREATE OR REPLACE VIEW events AS
 		SELECT
 			project_id AS project,
 			source,
-			event_type,
-			github_repo,
+			type,
+			target,
 			CAST(datetime AS TIMESTAMP) AS datetime,
-			"user"
+			tags
 		FROM read_json('%s',
 			format='newline_delimited',
-			columns={source: 'VARCHAR', event_type: 'VARCHAR', project_id: 'VARCHAR', github_repo: 'VARCHAR', datetime: 'VARCHAR', "user": 'VARCHAR'})`,
+			columns={source: 'VARCHAR', type: 'VARCHAR', project_id: 'VARCHAR', target: 'VARCHAR', datetime: 'VARCHAR', tags: 'JSON'})`,
 		escapeSQLString(glob))
 
 	if _, err := db.Exec(query); err != nil {
-		slog.Debug("github_events view creation failed, using empty view", "error", err)
-		return createEmptyGitHubEventsView(db)
+		slog.Debug("events view creation failed, using empty view", "error", err)
+		return createEmptyEventsView(db)
 	}
 	return nil
 }
 
-func createEmptyGitHubEventsView(db *sql.DB) error {
-	_, err := db.Exec(`CREATE VIEW github_events (project, source, event_type, github_repo, datetime, "user") AS
-		SELECT NULL::VARCHAR, NULL::VARCHAR, NULL::VARCHAR, NULL::VARCHAR, NULL::TIMESTAMP, NULL::VARCHAR
+func createEmptyEventsView(db *sql.DB) error {
+	_, err := db.Exec(`CREATE VIEW events (project, source, type, target, datetime, tags) AS
+		SELECT NULL::VARCHAR, NULL::VARCHAR, NULL::VARCHAR, NULL::VARCHAR, NULL::TIMESTAMP, NULL::JSON
 		WHERE false`)
 	if err != nil {
-		return fmt.Errorf("create empty github_events view: %w", err)
+		return fmt.Errorf("create empty events view: %w", err)
 	}
 	return nil
 }
 
 
 func createYouTubeIndexView(db *sql.DB, absDir string) error {
-	glob := filepath.ToSlash(filepath.Join(absDir, "youtube", "*", "index.jsonl"))
+	glob := filepath.ToSlash(filepath.Join(absDir, "metrics", "youtube", "*", "index.jsonl"))
 	query := fmt.Sprintf(`CREATE OR REPLACE VIEW youtube_index AS
 		SELECT
 			video_id,

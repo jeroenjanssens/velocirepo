@@ -74,9 +74,16 @@ func ValidateData(dataDir string, projectIDs map[string]bool) (*ValidationResult
 		return result, nil
 	}
 
-	sourceDirs, err := os.ReadDir(dataDir)
+	validateCategory(filepath.Join(dataDir, "metrics"), projectIDs, false, result)
+	validateCategory(filepath.Join(dataDir, "events"), projectIDs, true, result)
+
+	return result, nil
+}
+
+func validateCategory(categoryDir string, projectIDs map[string]bool, isEvents bool, result *ValidationResult) {
+	sourceDirs, err := os.ReadDir(categoryDir)
 	if err != nil {
-		return nil, fmt.Errorf("read data dir: %w", err)
+		return
 	}
 
 	for _, sourceEntry := range sourceDirs {
@@ -84,7 +91,7 @@ func ValidateData(dataDir string, projectIDs map[string]bool) (*ValidationResult
 			continue
 		}
 		sourceName := sourceEntry.Name()
-		sourcePath := filepath.Join(dataDir, sourceName)
+		sourcePath := filepath.Join(categoryDir, sourceName)
 
 		projDirs, err := os.ReadDir(sourcePath)
 		if err != nil {
@@ -108,15 +115,13 @@ func ValidateData(dataDir string, projectIDs map[string]bool) (*ValidationResult
 				continue
 			}
 
-			if sourceName == "github" {
-				validateGitHubDir(projPath, result)
+			if isEvents {
+				validateEventsDir(projPath, result)
 			} else {
 				validateRecordsDir(projPath, sourceName, projID, result)
 			}
 		}
 	}
-
-	return result, nil
 }
 
 func validateRecordsDir(dir, sourceName, projectID string, result *ValidationResult) {
@@ -258,7 +263,7 @@ func validateRecordsFile(path, sourceName, projectID, fileDateRange string, resu
 	})
 }
 
-func validateGitHubDir(dir string, result *ValidationResult) {
+func validateEventsDir(dir string, result *ValidationResult) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return
@@ -282,13 +287,13 @@ func validateGitHubDir(dir string, result *ValidationResult) {
 			continue
 		}
 
-		validateGitHubEventsFile(path, fileDateRange, result)
+		validateEventsFile(path, fileDateRange, result)
 	}
 }
 
-func validateGitHubEventsFile(path, fileDateRange string, result *ValidationResult) {
+func validateEventsFile(path, fileDateRange string, result *ValidationResult) {
 	validateJSONLFile(path, fileDateRange, result, func(line []byte, p string, lineNum int) (string, string, []Issue) {
-		var e source.GitHubEvent
+		var e source.Event
 		if err := json.Unmarshal(line, &e); err != nil {
 			return "", "", []Issue{{
 				Type: IssueMalformedJSON, Path: p, Line: lineNum,
@@ -297,10 +302,10 @@ func validateGitHubEventsFile(path, fileDateRange string, result *ValidationResu
 		}
 
 		var issues []Issue
-		if e.EventType == "" {
+		if e.Type == "" {
 			issues = append(issues, Issue{
 				Type: IssueEmptyField, Path: p, Line: lineNum,
-				Message: fmt.Sprintf("line %d: empty event_type field", lineNum),
+				Message: fmt.Sprintf("line %d: empty type field", lineNum),
 			})
 		}
 
@@ -400,10 +405,7 @@ func FixMalformedJSON(paths map[string][]int) *FixResult {
 func FixDuplicates(paths []string) *FixResult {
 	result := &FixResult{}
 	for _, path := range paths {
-		dir := filepath.Dir(path)
-		sourceName := filepath.Base(filepath.Dir(dir))
-
-		if sourceName == "github" {
+		if isEventPath(path) {
 			n, err := deduplicateEventsFile(path)
 			if err != nil {
 				result.Errors = append(result.Errors, fmt.Errorf("%s: %w", path, err))
@@ -425,10 +427,7 @@ func FixDuplicates(paths []string) *FixResult {
 func FixDateMismatches(paths []string) *FixResult {
 	result := &FixResult{}
 	for _, path := range paths {
-		dir := filepath.Dir(path)
-		sourceName := filepath.Base(filepath.Dir(dir))
-
-		if sourceName == "github" {
+		if isEventPath(path) {
 			n, err := regroupEventsFile(path)
 			if err != nil {
 				result.Errors = append(result.Errors, fmt.Errorf("%s: %w", path, err))
@@ -445,6 +444,16 @@ func FixDateMismatches(paths []string) *FixResult {
 		}
 	}
 	return result
+}
+
+func isEventPath(path string) bool {
+	parts := strings.Split(filepath.ToSlash(path), "/")
+	for _, p := range parts {
+		if p == "events" {
+			return true
+		}
+	}
+	return false
 }
 
 func FixOrphanDirs(paths []string) *FixResult {
@@ -514,7 +523,7 @@ func deduplicateRecordsFile(path string) (int, error) {
 }
 
 func deduplicateEventsFile(path string) (int, error) {
-	events, err := ReadGitHubEvents(path)
+	events, err := ReadEvents(path)
 	if err != nil {
 		return 0, err
 	}
@@ -595,13 +604,13 @@ func regroupEventsFile(path string) (int, error) {
 		return 0, fmt.Errorf("cannot determine date range from filename %s", filename)
 	}
 
-	events, err := ReadGitHubEvents(path)
+	events, err := ReadEvents(path)
 	if err != nil {
 		return 0, err
 	}
 
-	var belong []source.GitHubEvent
-	misplaced := make(map[string][]source.GitHubEvent)
+	var belong []source.Event
+	misplaced := make(map[string][]source.Event)
 
 	for _, e := range events {
 		if len(e.Datetime) < 10 {
@@ -625,7 +634,7 @@ func regroupEventsFile(path string) (int, error) {
 
 	for date, evts := range misplaced {
 		targetPath := filepath.Join(dir, date+".jsonl")
-		existing, _ := ReadGitHubEvents(targetPath)
+		existing, _ := ReadEvents(targetPath)
 		combined := append(existing, evts...)
 		combined = dedupEvents(combined)
 		sort.Slice(combined, func(i, j int) bool {

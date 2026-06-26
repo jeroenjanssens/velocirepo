@@ -90,10 +90,10 @@ func TestExportWithSourceFilter(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	events := []source.GitHubEvent{
-		{EventType: "star", ProjectID: "test", GitHubRepo: "owner/repo", Datetime: "2025-06-01T10:00:00Z", User: "alice"},
+	events := []source.Event{
+		{Type: "star", ProjectID: "test", Target: "owner/repo", Datetime: "2025-06-01T10:00:00Z", Tags: map[string]string{"user": "alice"}},
 	}
-	if err := WriteGitHubEvents(dataDir, "github", "test", events); err != nil {
+	if err := WriteEvents(dataDir, "github", "test", events); err != nil {
 		t.Fatal(err)
 	}
 
@@ -111,8 +111,8 @@ func TestExportWithSourceFilter(t *testing.T) {
 	if len(written) != 1 {
 		t.Fatalf("expected 1 file with source filter, got %d", len(written))
 	}
-	if filepath.Base(written[0]) != "github_events.parquet" {
-		t.Errorf("expected github_events.parquet, got %s", filepath.Base(written[0]))
+	if filepath.Base(written[0]) != "events.parquet" {
+		t.Errorf("expected events.parquet, got %s", filepath.Base(written[0]))
 	}
 }
 

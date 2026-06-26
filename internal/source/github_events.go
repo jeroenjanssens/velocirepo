@@ -26,13 +26,13 @@ func (g *GitHubEvents) graphqlURL() string {
 	return "https://api.github.com/graphql"
 }
 
-func (g *GitHubEvents) FetchEvents(ctx context.Context, opts FetchOptions) ([]GitHubEvent, error) {
+func (g *GitHubEvents) FetchEvents(ctx context.Context, opts FetchOptions) ([]Event, error) {
 	owner, repo := splitOwnerRepo(g.Repo)
 	if owner == "" || repo == "" {
 		return nil, fmt.Errorf("invalid github repo: %q", g.Repo)
 	}
 
-	var events []GitHubEvent
+	var events []Event
 
 	stars, err := g.fetchStargazers(ctx, owner, repo, opts)
 	if err != nil {
@@ -61,7 +61,7 @@ func (g *GitHubEvents) FetchEvents(ctx context.Context, opts FetchOptions) ([]Gi
 	return events, nil
 }
 
-func (g *GitHubEvents) fetchStargazers(ctx context.Context, owner, repo string, opts FetchOptions) ([]GitHubEvent, error) {
+func (g *GitHubEvents) fetchStargazers(ctx context.Context, owner, repo string, opts FetchOptions) ([]Event, error) {
 	query := `query($owner: String!, $name: String!, $after: String) {
 		repository(owner: $owner, name: $name) {
 			stargazers(first: 100, after: $after, orderBy: {field: STARRED_AT, direction: DESC}) {
@@ -74,7 +74,7 @@ func (g *GitHubEvents) fetchStargazers(ctx context.Context, owner, repo string, 
 		}
 	}`
 
-	var events []GitHubEvent
+	var events []Event
 	var cursor *string
 
 	for {
@@ -116,12 +116,12 @@ func (g *GitHubEvents) fetchStargazers(ctx context.Context, owner, repo string, 
 			if !inDateRange(t, opts.StartDate, opts.EndDate) {
 				continue
 			}
-			events = append(events, GitHubEvent{
-				EventType:  "star",
-				ProjectID:  opts.ProjectID,
-				GitHubRepo: g.Repo,
-				Datetime:   edge.StarredAt,
-				User:       edge.Node.Login,
+			events = append(events, Event{
+				Type:      "star",
+				ProjectID: opts.ProjectID,
+				Target:    g.Repo,
+				Datetime:  edge.StarredAt,
+				Tags:      map[string]string{"user": edge.Node.Login},
 			})
 		}
 
@@ -135,7 +135,7 @@ func (g *GitHubEvents) fetchStargazers(ctx context.Context, owner, repo string, 
 	return events, nil
 }
 
-func (g *GitHubEvents) fetchForks(ctx context.Context, owner, repo string, opts FetchOptions) ([]GitHubEvent, error) {
+func (g *GitHubEvents) fetchForks(ctx context.Context, owner, repo string, opts FetchOptions) ([]Event, error) {
 	query := `query($owner: String!, $name: String!, $after: String) {
 		repository(owner: $owner, name: $name) {
 			forks(first: 100, after: $after, orderBy: {field: CREATED_AT, direction: DESC}) {
@@ -148,7 +148,7 @@ func (g *GitHubEvents) fetchForks(ctx context.Context, owner, repo string, opts 
 		}
 	}`
 
-	var events []GitHubEvent
+	var events []Event
 	var cursor *string
 
 	for {
@@ -190,12 +190,12 @@ func (g *GitHubEvents) fetchForks(ctx context.Context, owner, repo string, opts 
 			if !inDateRange(t, opts.StartDate, opts.EndDate) {
 				continue
 			}
-			events = append(events, GitHubEvent{
-				EventType:  "fork",
-				ProjectID:  opts.ProjectID,
-				GitHubRepo: g.Repo,
-				Datetime:   node.CreatedAt,
-				User:       node.Owner.Login,
+			events = append(events, Event{
+				Type:      "fork",
+				ProjectID: opts.ProjectID,
+				Target:    g.Repo,
+				Datetime:  node.CreatedAt,
+				Tags:      map[string]string{"user": node.Owner.Login},
 			})
 		}
 
@@ -209,7 +209,7 @@ func (g *GitHubEvents) fetchForks(ctx context.Context, owner, repo string, opts 
 	return events, nil
 }
 
-func (g *GitHubEvents) fetchIssues(ctx context.Context, owner, repo string, opts FetchOptions) ([]GitHubEvent, error) {
+func (g *GitHubEvents) fetchIssues(ctx context.Context, owner, repo string, opts FetchOptions) ([]Event, error) {
 	query := `query($owner: String!, $name: String!, $after: String) {
 		repository(owner: $owner, name: $name) {
 			issues(first: 100, after: $after, orderBy: {field: CREATED_AT, direction: DESC}) {
@@ -223,7 +223,7 @@ func (g *GitHubEvents) fetchIssues(ctx context.Context, owner, repo string, opts
 		}
 	}`
 
-	var events []GitHubEvent
+	var events []Event
 	var cursor *string
 
 	for {
@@ -264,31 +264,31 @@ func (g *GitHubEvents) fetchIssues(ctx context.Context, owner, repo string, opts
 				break
 			}
 
-			user := ""
-			if node.Author != nil {
-				user = node.Author.Login
+			var tags map[string]string
+			if node.Author != nil && node.Author.Login != "" {
+				tags = map[string]string{"user": node.Author.Login}
 			}
 
 			if !inDateRange(t, opts.StartDate, opts.EndDate) {
 				continue
 			}
-			events = append(events, GitHubEvent{
-				EventType:  "issue_open",
-				ProjectID:  opts.ProjectID,
-				GitHubRepo: g.Repo,
-				Datetime:   node.CreatedAt,
-				User:       user,
+			events = append(events, Event{
+				Type:      "issue_open",
+				ProjectID: opts.ProjectID,
+				Target:    g.Repo,
+				Datetime:  node.CreatedAt,
+				Tags:      tags,
 			})
 
 			if node.ClosedAt != nil {
 				ct, err := time.Parse(time.RFC3339, *node.ClosedAt)
 				if err == nil && inDateRange(ct, opts.StartDate, opts.EndDate) {
-					events = append(events, GitHubEvent{
-						EventType:  "issue_close",
-						ProjectID:  opts.ProjectID,
-						GitHubRepo: g.Repo,
-						Datetime:   *node.ClosedAt,
-						User:       user,
+					events = append(events, Event{
+						Type:      "issue_close",
+						ProjectID: opts.ProjectID,
+						Target:    g.Repo,
+						Datetime:  *node.ClosedAt,
+						Tags:      tags,
 					})
 				}
 			}
@@ -304,7 +304,7 @@ func (g *GitHubEvents) fetchIssues(ctx context.Context, owner, repo string, opts
 	return events, nil
 }
 
-func (g *GitHubEvents) fetchPullRequests(ctx context.Context, owner, repo string, opts FetchOptions) ([]GitHubEvent, error) {
+func (g *GitHubEvents) fetchPullRequests(ctx context.Context, owner, repo string, opts FetchOptions) ([]Event, error) {
 	query := `query($owner: String!, $name: String!, $after: String) {
 		repository(owner: $owner, name: $name) {
 			pullRequests(first: 100, after: $after, orderBy: {field: CREATED_AT, direction: DESC}) {
@@ -319,7 +319,7 @@ func (g *GitHubEvents) fetchPullRequests(ctx context.Context, owner, repo string
 		}
 	}`
 
-	var events []GitHubEvent
+	var events []Event
 	var cursor *string
 
 	for {
@@ -361,31 +361,31 @@ func (g *GitHubEvents) fetchPullRequests(ctx context.Context, owner, repo string
 				break
 			}
 
-			user := ""
-			if node.Author != nil {
-				user = node.Author.Login
+			var tags map[string]string
+			if node.Author != nil && node.Author.Login != "" {
+				tags = map[string]string{"user": node.Author.Login}
 			}
 
 			if !inDateRange(t, opts.StartDate, opts.EndDate) {
 				continue
 			}
-			events = append(events, GitHubEvent{
-				EventType:  "pr_open",
-				ProjectID:  opts.ProjectID,
-				GitHubRepo: g.Repo,
-				Datetime:   node.CreatedAt,
-				User:       user,
+			events = append(events, Event{
+				Type:      "pr_open",
+				ProjectID: opts.ProjectID,
+				Target:    g.Repo,
+				Datetime:  node.CreatedAt,
+				Tags:      tags,
 			})
 
 			if node.MergedAt != nil {
 				mt, err := time.Parse(time.RFC3339, *node.MergedAt)
 				if err == nil && inDateRange(mt, opts.StartDate, opts.EndDate) {
-					events = append(events, GitHubEvent{
-						EventType:  "pr_merge",
-						ProjectID:  opts.ProjectID,
-						GitHubRepo: g.Repo,
-						Datetime:   *node.MergedAt,
-						User:       user,
+					events = append(events, Event{
+						Type:      "pr_merge",
+						ProjectID: opts.ProjectID,
+						Target:    g.Repo,
+						Datetime:  *node.MergedAt,
+						Tags:      tags,
 					})
 				}
 			}

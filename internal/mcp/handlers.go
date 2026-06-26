@@ -196,7 +196,7 @@ func (h *handlers) handleShowProject(ctx context.Context, req mcp.CallToolReques
 
 	var stats []sourceStats
 	for _, src := range sources {
-		dir := filepath.Join(dataDir, src, id)
+		dir := filepath.Join(dataDir, config.SourceDirPath(src), id)
 		ds := store.ScanProjectDir(dir)
 		stats = append(stats, sourceStats{
 			Source:   src,
