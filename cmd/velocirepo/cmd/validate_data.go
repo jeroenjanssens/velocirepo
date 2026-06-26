@@ -135,6 +135,23 @@ func validateDataCmd() *cobra.Command {
 				}
 			}
 
+			srcMismatchPaths := collectUniquePaths(grouped[store.IssueSourceMismatch])
+			if len(srcMismatchPaths) > 0 {
+				srcMismatchCount := len(grouped[store.IssueSourceMismatch])
+				ok, err := confirm(os.Stdout, reader,
+					fmt.Sprintf("Fix source field in %d record(s) across %d file(s)?", srcMismatchCount, len(srcMismatchPaths)))
+				if err != nil {
+					return err
+				}
+				if ok {
+					r := store.FixSourceMismatches(srcMismatchPaths)
+					fmt.Fprintf(os.Stdout, "  Fixed %d record(s)\n", r.Fixed)
+					for _, e := range r.Errors {
+						ui.Errorf("  %v", e)
+					}
+				}
+			}
+
 			orphanPaths := collectOrphanPaths(grouped[store.IssueOrphanDir])
 			if len(orphanPaths) > 0 {
 				ok, err := confirm(os.Stdout, reader,

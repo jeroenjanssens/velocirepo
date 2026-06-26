@@ -433,6 +433,78 @@ func FixOrphanDirs(paths []string) *FixResult {
 	return result
 }
 
+func FixSourceMismatches(paths []string) *FixResult {
+	result := &FixResult{}
+	for _, path := range paths {
+		n, err := fixSourceInFile(path)
+		if err != nil {
+			result.Errors = append(result.Errors, fmt.Errorf("%s: %w", path, err))
+		} else {
+			result.Fixed += n
+		}
+	}
+	return result
+}
+
+func fixSourceInFile(path string) (int, error) {
+	sourceName := filepath.Base(filepath.Dir(filepath.Dir(path)))
+
+	f, err := os.Open(path)
+	if err != nil {
+		return 0, err
+	}
+	defer f.Close()
+
+	scanner := bufio.NewScanner(f)
+	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
+
+	var lines [][]byte
+	fixed := 0
+
+	for scanner.Scan() {
+		line := scanner.Bytes()
+		var raw map[string]json.RawMessage
+		if err := json.Unmarshal(line, &raw); err != nil {
+			cp := make([]byte, len(line))
+			copy(cp, line)
+			lines = append(lines, cp)
+			continue
+		}
+
+		var src string
+		if s, ok := raw["source"]; ok {
+			json.Unmarshal(s, &src)
+		}
+
+		if src != sourceName {
+			raw["source"], _ = json.Marshal(sourceName)
+			rewritten, err := json.Marshal(raw)
+			if err != nil {
+				cp := make([]byte, len(line))
+				copy(cp, line)
+				lines = append(lines, cp)
+				continue
+			}
+			lines = append(lines, rewritten)
+			fixed++
+		} else {
+			cp := make([]byte, len(line))
+			copy(cp, line)
+			lines = append(lines, cp)
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		return 0, err
+	}
+	f.Close()
+
+	if fixed == 0 {
+		return 0, nil
+	}
+
+	return fixed, writeLines(path, lines)
+}
+
 func removeLinesFromFile(path string, badLines []int) error {
 	f, err := os.Open(path)
 	if err != nil {
@@ -753,6 +825,7 @@ func validateContentFile(path, sourceName string, result *ValidationResult) {
 				Path:    path,
 				Line:    lineNum,
 				Message: fmt.Sprintf("line %d: source %q does not match directory %q", lineNum, e.Source, sourceName),
+				Fixable: true,
 			})
 		}
 		if e.Target == "" {
