@@ -24,7 +24,7 @@ func updateProjectCmd() *cobra.Command {
 
 			proj, err := cfg.GetProject(id)
 			if err != nil {
-				return fmt.Errorf("project %q not found in config (use 'add-project' to create)", id)
+				return fmt.Errorf("%w (use 'add-project' to create)", err)
 			}
 
 			cfgPath := cfgFilePath()
