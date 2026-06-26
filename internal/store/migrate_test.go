@@ -123,6 +123,58 @@ func TestMigrate0to1(t *testing.T) {
 	}
 }
 
+func TestMigrate4to5YouTubeIndex(t *testing.T) {
+	dir := t.TempDir()
+	writeSchemaVersion(dir, 4)
+
+	// Set up a YouTube index in the old location
+	youtubeDir := filepath.Join(dir, "metrics", "youtube", "my-proj")
+	os.MkdirAll(youtubeDir, 0755)
+	os.WriteFile(filepath.Join(youtubeDir, "index.jsonl"),
+		[]byte(`{"video_id":"abc123","title":"Test Video","published_at":"2025-06-01T10:00:00Z","channel":"@TestChan","duration":330,"tags":["go","tutorial"]}`+"\n"+
+			`{"video_id":"def456","title":"Second Video","published_at":"2025-07-01T10:00:00Z","channel":"@TestChan","duration":600}`+"\n"), 0644)
+
+	applied, err := Migrate(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if applied != 1 {
+		t.Errorf("expected 1 migration applied, got %d", applied)
+	}
+
+	// Old file should be removed
+	if _, err := os.Stat(filepath.Join(youtubeDir, "index.jsonl")); !os.IsNotExist(err) {
+		t.Error("old index.jsonl should have been removed")
+	}
+
+	// New file should exist
+	newPath := filepath.Join(dir, "content", "youtube", "my-proj", "videos.jsonl")
+	data, err := os.ReadFile(newPath)
+	if err != nil {
+		t.Fatalf("new content file not created: %v", err)
+	}
+
+	content := string(data)
+	if !contains(content, `"source":"youtube"`) {
+		t.Error("expected source=youtube in migrated content")
+	}
+	if !contains(content, `"id":"abc123"`) {
+		t.Error("expected id=abc123 in migrated content")
+	}
+	if !contains(content, `"target":"@TestChan"`) {
+		t.Error("expected target=@TestChan in migrated content")
+	}
+	if !contains(content, `"url":"https://youtube.com/watch?v=abc123"`) {
+		t.Error("expected url for abc123 in migrated content")
+	}
+	if !contains(content, `"type":"video"`) {
+		t.Error("expected type=video in migrated content")
+	}
+	if !contains(content, `"duration":330`) {
+		t.Error("expected duration=330 in migrated content")
+	}
+}
+
 func TestMigrateAlreadyCurrent(t *testing.T) {
 	dir := t.TempDir()
 	writeSchemaVersion(dir, LatestSchemaVersion)
