@@ -3,6 +3,7 @@ package fetch
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"os"
 	"time"
@@ -262,7 +263,9 @@ func All(ctx context.Context, cfg *config.Config, tokens Tokens, opts Options) (
 
 				if cp, ok := job.src.(source.ContentProvider); ok {
 					if entries := cp.ContentEntries(); len(entries) > 0 {
-						store.WriteContent(dataDir, job.sourceName, job.projectID, cp.ContentFilename(), entries)
+						if err := store.WriteContent(dataDir, job.sourceName, job.projectID, cp.ContentFilename(), entries); err != nil {
+							slog.Warn("write content failed", "source", job.sourceName, "project", job.projectID, "error", err)
+						}
 					}
 				}
 
@@ -379,7 +382,9 @@ func Source(ctx context.Context, cfg *config.Config, tokens Tokens, sourceName s
 
 			if cp, ok := src.(source.ContentProvider); ok {
 				if entries := cp.ContentEntries(); len(entries) > 0 {
-					store.WriteContent(dataDir, sourceName, id, cp.ContentFilename(), entries)
+					if err := store.WriteContent(dataDir, sourceName, id, cp.ContentFilename(), entries); err != nil {
+						slog.Warn("write content failed", "source", sourceName, "project", id, "error", err)
+					}
 				}
 			}
 

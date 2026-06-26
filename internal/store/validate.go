@@ -25,6 +25,7 @@ const (
 	IssueOrphanDir
 	IssueInvalidDatetime
 	IssueUnexpectedFile
+	IssueSourceMismatch
 )
 
 func (t IssueType) String() string {
@@ -45,6 +46,8 @@ func (t IssueType) String() string {
 		return "invalid datetime"
 	case IssueUnexpectedFile:
 		return "unexpected file"
+	case IssueSourceMismatch:
+		return "source mismatch"
 	default:
 		return "unknown"
 	}
@@ -746,7 +749,7 @@ func validateContentFile(path, sourceName string, result *ValidationResult) {
 			})
 		} else if e.Source != sourceName {
 			result.Issues = append(result.Issues, Issue{
-				Type:    IssueDateMismatch,
+				Type:    IssueSourceMismatch,
 				Path:    path,
 				Line:    lineNum,
 				Message: fmt.Sprintf("line %d: source %q does not match directory %q", lineNum, e.Source, sourceName),

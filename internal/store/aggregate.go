@@ -16,6 +16,9 @@ var EventSources = map[string]bool{
 	"github": true,
 }
 
+// SourceCategory returns the date-partitioned category ("metrics" or "events")
+// for a given source. Sources may also produce content via the ContentProvider
+// interface, which is handled separately by the fetch orchestrator.
 func SourceCategory(sourceName string) string {
 	if EventSources[sourceName] {
 		return "events"
