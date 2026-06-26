@@ -26,7 +26,7 @@ func color(c, s string) string {
 	return c + s + reset
 }
 
-func prefix(source, project string) string {
+func Prefix(source, project string) string {
 	return fmt.Sprintf("[%s/%s]", project, source)
 }
 
@@ -63,27 +63,27 @@ func Errorf(format string, args ...interface{}) {
 }
 
 func FetchStart(source, project, dateRange string) {
-	msg := fmt.Sprintf("%s fetching %s", prefix(source, project), dateRange)
+	msg := fmt.Sprintf("%s fetching %s", Prefix(source, project), dateRange)
 	fmt.Fprintf(os.Stderr, "%s\n", color(cyan, msg))
 }
 
 func FetchDone(source, project string, count int, duration time.Duration) {
-	msg := fmt.Sprintf("%s %d records in %s", prefix(source, project), count, formatDuration(duration))
+	msg := fmt.Sprintf("%s %d records in %s", Prefix(source, project), count, formatDuration(duration))
 	fmt.Fprintf(os.Stderr, "%s\n", color(green, "  ✓ "+msg))
 }
 
 func FetchSkip(source, project, reason string) {
-	msg := fmt.Sprintf("%s skipped: %s", prefix(source, project), reason)
+	msg := fmt.Sprintf("%s skipped: %s", Prefix(source, project), reason)
 	fmt.Fprintf(os.Stderr, "%s\n", color(dim, "  · "+msg))
 }
 
 func FetchError(source, project string, err error) {
-	msg := fmt.Sprintf("%s %v", prefix(source, project), err)
+	msg := fmt.Sprintf("%s %v", Prefix(source, project), err)
 	fmt.Fprintf(os.Stderr, "%s\n", color(red, "  ✗ "+msg))
 }
 
 func FetchWarn(source, project, msg string) {
-	fmt.Fprintf(os.Stderr, "%s\n", color(yellow, fmt.Sprintf("  ! %s %s", prefix(source, project), msg)))
+	fmt.Fprintf(os.Stderr, "%s\n", color(yellow, fmt.Sprintf("  ! %s %s", Prefix(source, project), msg)))
 }
 
 

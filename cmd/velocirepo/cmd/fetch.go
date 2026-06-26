@@ -66,9 +66,9 @@ func renderFetchResults(results []fetch.Result) {
 	})
 
 	fmt.Fprintln(os.Stderr)
-	ui.Warnf("%d failed:", len(failures))
+	ui.Warnf("%d fetch(es) failed:", len(failures))
 	for _, f := range failures {
-		ui.Errorf("[%s/%s] %s", f.ProjectID, f.Source, f.Error)
+		ui.Errorf("%s %s", ui.Prefix(f.Source, f.ProjectID), f.Error)
 	}
 }
 
