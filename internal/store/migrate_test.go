@@ -93,13 +93,13 @@ func TestMigrate0to1(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if applied != 4 {
-		t.Errorf("expected 4 migrations applied, got %d", applied)
+	if applied != 5 {
+		t.Errorf("expected 5 migrations applied, got %d", applied)
 	}
 
 	v, _ := SchemaVersion(dir)
-	if v != 4 {
-		t.Errorf("expected schema version 4, got %d", v)
+	if v != 5 {
+		t.Errorf("expected schema version 5, got %d", v)
 	}
 
 	// Verify pypi (v4 moves it into metrics/)

@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-const LatestSchemaVersion = 4
+const LatestSchemaVersion = 5
 
 const schemaVersionFile = ".schema-version"
 
@@ -80,6 +80,10 @@ var migrations = []migration{
 	{
 		description: "rename github event fields: event_type→type, github_repo→target, user→tags",
 		run:         migrate3to4,
+	},
+	{
+		description: "move youtube index to data/content/",
+		run:         migrate4to5,
 	},
 }
 
@@ -337,6 +341,101 @@ func rewriteEventFields(path string) error {
 		return err
 	}
 	return os.Rename(tmpPath, path)
+}
+
+func migrate4to5(dataDir string) error {
+	youtubeDir := filepath.Join(dataDir, "metrics", "youtube")
+	if _, err := os.Stat(youtubeDir); os.IsNotExist(err) {
+		return nil
+	}
+
+	projDirs, err := os.ReadDir(youtubeDir)
+	if err != nil {
+		return fmt.Errorf("read youtube dir: %w", err)
+	}
+
+	for _, projEntry := range projDirs {
+		if !projEntry.IsDir() {
+			continue
+		}
+		projID := projEntry.Name()
+		indexPath := filepath.Join(youtubeDir, projID, "index.jsonl")
+
+		if _, err := os.Stat(indexPath); os.IsNotExist(err) {
+			continue
+		}
+
+		entries, err := readYouTubeIndex(indexPath)
+		if err != nil {
+			return fmt.Errorf("read index for %s: %w", projID, err)
+		}
+
+		contentDir := filepath.Join(dataDir, "content", "youtube", projID)
+		if err := os.MkdirAll(contentDir, 0755); err != nil {
+			return fmt.Errorf("create content dir for %s: %w", projID, err)
+		}
+
+		contentPath := filepath.Join(contentDir, "videos.jsonl")
+		tmp, err := os.CreateTemp(contentDir, ".tmp-*.jsonl")
+		if err != nil {
+			return fmt.Errorf("create temp file for %s: %w", projID, err)
+		}
+		tmpPath := tmp.Name()
+
+		w := bufio.NewWriter(tmp)
+		for _, e := range entries {
+			dur := e.Duration
+			ce := contentEntry5{
+				Source:      "youtube",
+				Target:      e.Channel,
+				ID:          e.VideoID,
+				Title:       e.Title,
+				PublishedAt: e.PublishedAt,
+				URL:         "https://youtube.com/watch?v=" + e.VideoID,
+				Duration:    &dur,
+				Tags:        e.Tags,
+				Type:        "video",
+			}
+			data, err := json.Marshal(ce)
+			if err != nil {
+				tmp.Close()
+				os.Remove(tmpPath)
+				return fmt.Errorf("marshal content entry: %w", err)
+			}
+			w.Write(data)
+			w.WriteByte('\n')
+		}
+
+		if err := w.Flush(); err != nil {
+			tmp.Close()
+			os.Remove(tmpPath)
+			return err
+		}
+		if err := tmp.Close(); err != nil {
+			os.Remove(tmpPath)
+			return err
+		}
+		if err := os.Rename(tmpPath, contentPath); err != nil {
+			os.Remove(tmpPath)
+			return err
+		}
+
+		os.Remove(indexPath)
+	}
+
+	return nil
+}
+
+type contentEntry5 struct {
+	Source      string   `json:"source"`
+	Target      string   `json:"target"`
+	ID          string   `json:"id"`
+	Title       string   `json:"title"`
+	PublishedAt string   `json:"published_at"`
+	URL         string   `json:"url,omitempty"`
+	Duration    *int64   `json:"duration,omitempty"`
+	Tags        []string `json:"tags,omitempty"`
+	Type        string   `json:"type,omitempty"`
 }
 
 func renameMetricsInFile(path string, renames map[string]string) error {
