@@ -309,7 +309,7 @@ func validateGitHubEventsFile(path, fileDateRange string, result *ValidationResu
 				Type: IssueInvalidDatetime, Path: p, Line: lineNum,
 				Message: fmt.Sprintf("line %d: datetime too short: %q", lineNum, e.Datetime),
 			})
-			return "", dedupEventKey(e), issues
+			return "", "", issues
 		}
 
 		if _, err := time.Parse(time.RFC3339, e.Datetime); err != nil {

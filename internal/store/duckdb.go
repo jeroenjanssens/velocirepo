@@ -124,7 +124,10 @@ func createMetricsView(db *sql.DB, absDir string) error {
 }
 
 func metricsViewSQL(absDir string) string {
-	entries, _ := os.ReadDir(absDir)
+	entries, err := os.ReadDir(absDir)
+	if err != nil && !os.IsNotExist(err) {
+		slog.Debug("could not read data dir", "error", err)
+	}
 
 	var globs []string
 	for _, entry := range entries {
