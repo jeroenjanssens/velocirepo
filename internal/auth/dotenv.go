@@ -55,7 +55,7 @@ func ReadEnvValue(path, key string) string {
 		if k == key {
 			parts := strings.SplitN(line, "=", 2)
 			if len(parts) == 2 {
-				return parts[1]
+				return unquoteEnvValue(parts[1])
 			}
 		}
 	}
@@ -91,7 +91,29 @@ func envKey(line string) string {
 
 func quoteEnvValue(val string) string {
 	if strings.ContainsAny(val, " \t#=\"'\\$`!") {
-		return "\"" + strings.ReplaceAll(strings.ReplaceAll(val, "\\", "\\\\"), "\"", "\\\"") + "\""
+		r := strings.NewReplacer(
+			"\\", "\\\\",
+			"\"", "\\\"",
+			"$", "\\$",
+			"`", "\\`",
+			"!", "\\!",
+		)
+		return "\"" + r.Replace(val) + "\""
+	}
+	return val
+}
+
+func unquoteEnvValue(val string) string {
+	if len(val) >= 2 && val[0] == '"' && val[len(val)-1] == '"' {
+		val = val[1 : len(val)-1]
+		r := strings.NewReplacer(
+			"\\\"", "\"",
+			"\\$", "$",
+			"\\`", "`",
+			"\\!", "!",
+			"\\\\", "\\",
+		)
+		return r.Replace(val)
 	}
 	return val
 }
