@@ -53,20 +53,31 @@ func TestValidateMCPQueryRejectsUnsafeSQL(t *testing.T) {
 	}
 }
 
-func TestPrepareMCPQueryAddsLimitOnlyWhenNeeded(t *testing.T) {
+func TestPrepareMCPQueryAlwaysAddsOuterLimit(t *testing.T) {
 	query, err := prepareMCPQuery("SELECT * FROM metrics", 10)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(query, "LIMIT 10") {
-		t.Fatalf("query = %q, want LIMIT 10", query)
+	want := "SELECT * FROM (SELECT * FROM metrics) AS velocirepo_mcp_query LIMIT 10"
+	if query != want {
+		t.Fatalf("query = %q, want %q", query, want)
 	}
 
 	query, err = prepareMCPQuery("SELECT * FROM metrics LIMIT 5", 10)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if query != "SELECT * FROM metrics LIMIT 5" {
-		t.Fatalf("query = %q, want original query", query)
+	want = "SELECT * FROM (SELECT * FROM metrics LIMIT 5) AS velocirepo_mcp_query LIMIT 10"
+	if query != want {
+		t.Fatalf("query = %q, want %q", query, want)
+	}
+
+	query, err = prepareMCPQuery(`SELECT *, 1 AS "limit" FROM metrics`, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want = `SELECT * FROM (SELECT *, 1 AS "limit" FROM metrics) AS velocirepo_mcp_query LIMIT 10`
+	if query != want {
+		t.Fatalf("query = %q, want %q", query, want)
 	}
 }

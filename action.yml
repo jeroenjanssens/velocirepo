@@ -34,7 +34,7 @@ runs:
           VERSION=$(curl -sSL -o /dev/null -w '%{url_effective}' https://github.com/jeroenjanssens/velocirepo/releases/latest | grep -o '[^/]*$' | sed 's/^v//')
         else
           if [[ ! "$VELOCIREPO_VERSION_INPUT" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "::error::Invalid velocirepo version '$VELOCIREPO_VERSION_INPUT'. Use 'latest' or a semantic version like v1.2.3." >&2
+            echo "::error::Invalid velocirepo version. Use 'latest' or a semantic version like v1.2.3." >&2
             exit 1
           fi
           VERSION="${VELOCIREPO_VERSION_INPUT#v}"

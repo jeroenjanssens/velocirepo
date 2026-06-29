@@ -74,11 +74,10 @@ var mcpForbiddenFunctions = map[string]bool{
 }
 
 func prepareMCPQuery(query string, limit int) (string, error) {
-	tokens, err := validateMCPQuery(query)
-	if err != nil {
+	if _, err := validateMCPQuery(query); err != nil {
 		return "", err
 	}
-	if limit > 0 && !hasTopLevelLimit(tokens) {
+	if limit > 0 {
 		return fmt.Sprintf("SELECT * FROM (%s) AS velocirepo_mcp_query LIMIT %d", query, limit), nil
 	}
 	return query, nil
@@ -424,25 +423,4 @@ func isMCPClauseEnd(name string) bool {
 	default:
 		return false
 	}
-}
-
-func hasTopLevelLimit(tokens []sqlToken) bool {
-	depth := 0
-	for _, tok := range tokens {
-		if tok.kind == sqlTokenSymbol {
-			switch tok.text {
-			case "(":
-				depth++
-			case ")":
-				if depth > 0 {
-					depth--
-				}
-			}
-			continue
-		}
-		if depth == 0 && tokenIdentEquals(tok, "limit") {
-			return true
-		}
-	}
-	return false
 }

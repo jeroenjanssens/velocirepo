@@ -129,7 +129,67 @@ func ScaffoldDir(viewsDir, name string) (string, error) {
 	if rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) || filepath.IsAbs(rel) {
 		return "", fmt.Errorf("invalid view name %q: must stay inside %s", name, absViewsDir)
 	}
+	if err := validateNoSymlinkEscape(absViewsDir, absDir); err != nil {
+		return "", err
+	}
 	return absDir, nil
+}
+
+func validateNoSymlinkEscape(absViewsDir, absDir string) error {
+	resolvedViewsDir, err := filepath.EvalSymlinks(absViewsDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return fmt.Errorf("resolve views directory symlinks: %w", err)
+	}
+	resolvedViewsDir, err = filepath.Abs(resolvedViewsDir)
+	if err != nil {
+		return fmt.Errorf("resolve views directory: %w", err)
+	}
+
+	rel, err := filepath.Rel(absViewsDir, absDir)
+	if err != nil {
+		return fmt.Errorf("check view directory symlinks: %w", err)
+	}
+	current := absViewsDir
+	for _, component := range strings.Split(rel, string(filepath.Separator)) {
+		if component == "" || component == "." {
+			continue
+		}
+		current = filepath.Join(current, component)
+		info, err := os.Lstat(current)
+		if err != nil {
+			if os.IsNotExist(err) {
+				return nil
+			}
+			return fmt.Errorf("inspect view path %s: %w", current, err)
+		}
+		if info.Mode()&os.ModeSymlink == 0 {
+			continue
+		}
+
+		resolved, err := filepath.EvalSymlinks(current)
+		if err != nil {
+			return fmt.Errorf("resolve view path symlink %s: %w", current, err)
+		}
+		resolved, err = filepath.Abs(resolved)
+		if err != nil {
+			return fmt.Errorf("resolve view path %s: %w", current, err)
+		}
+		if !pathInside(resolvedViewsDir, resolved) {
+			return fmt.Errorf("invalid view name: symlink %q points outside views directory", current)
+		}
+	}
+	return nil
+}
+
+func pathInside(base, target string) bool {
+	rel, err := filepath.Rel(base, target)
+	if err != nil {
+		return false
+	}
+	return rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) && !filepath.IsAbs(rel)
 }
 
 func renderShTemplate(fw Framework, renv bool) string {

@@ -230,6 +230,36 @@ func TestScaffoldRejectsPathTraversal(t *testing.T) {
 	}
 }
 
+func TestScaffoldRejectsSymlinkEscape(t *testing.T) {
+	root := t.TempDir()
+	viewsDir := filepath.Join(root, "views")
+	outside := filepath.Join(root, "outside")
+	if err := os.MkdirAll(viewsDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(outside, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, filepath.Join(viewsDir, "linked")); err != nil {
+		t.Skipf("symlinks not supported: %v", err)
+	}
+
+	_, err := Scaffold(ScaffoldOptions{
+		ViewsDir:  viewsDir,
+		Name:      "linked/new",
+		Framework: FrameworkQuarto,
+		Source:    "duckdb",
+		DBPath:    "../../data/velocirepo.duckdb",
+	})
+	if err == nil {
+		t.Fatal("expected error for symlink escape")
+	}
+
+	if _, statErr := os.Stat(filepath.Join(outside, "new")); !os.IsNotExist(statErr) {
+		t.Fatalf("outside directory was created: %v", statErr)
+	}
+}
+
 func TestScaffoldRejectsAbsoluteName(t *testing.T) {
 	viewsDir := t.TempDir()
 
