@@ -181,16 +181,21 @@ velocirepo init
 
 velocirepo looks for `velocirepo.toml` by walking up from the current directory. Override with `--config` or the `VELOCIREPO_CONFIG` environment variable.
 
-### Environment variables
+### Authentication
 
-| Variable | Description |
-|----------|-------------|
-| `GITHUB_TOKEN` | GitHub personal access token (increases rate limits) |
-| `PLAUSIBLE_TOKEN` | Plausible API token |
-| `YOUTUBE_TOKEN` | YouTube Data API key |
-| `VELOCIREPO_CONFIG` | Path to config file |
+velocirepo uses API tokens to authenticate with external services. Tokens can be provided in three ways:
 
-These can also be set in a `.env` file in the current directory.
+1. **Environment variables** — export them in your shell (e.g., `export GITHUB_TOKEN=ghp_...`)
+2. **`.env` file** — place a `.env` file next to your `velocirepo.toml`; variables are loaded automatically
+3. **GitHub Actions secrets** — when using `velocirepo install-ci` or the GitHub Action, pass tokens as secrets (see [Installation](#github-actions-recommended))
+
+| Variable | Required for | How to get one |
+|----------|-------------|----------------|
+| `GITHUB_TOKEN` | GitHub Events, GitHub Traffic | [Create a personal access token](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens) — use a fine-grained token with **Contents:read** (add **Administration:read** for traffic data) |
+| `PLAUSIBLE_TOKEN` | Plausible | [Create an API key](https://plausible.io/docs/stats-api#authentication) in your Plausible site settings |
+| `YOUTUBE_TOKEN` | YouTube | [Create an API key](https://developers.google.com/youtube/v3/getting-started#before-you-start) in the Google Cloud Console with the YouTube Data API v3 enabled |
+| `LINKEDIN_TOKEN` | LinkedIn | [Create an access token](https://learn.microsoft.com/en-us/linkedin/shared/authentication/getting-access) via a LinkedIn app with the Marketing Developer Platform |
+| `VELOCIREPO_CONFIG` | — | Path to config file (not a token, but supported as an env var) |
 
 ## Usage
 
