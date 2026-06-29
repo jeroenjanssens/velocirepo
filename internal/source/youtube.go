@@ -349,13 +349,6 @@ func parseInt(s string) int64 {
 	return n
 }
 
-func copyTags(tags map[string]string) map[string]string {
-	m := make(map[string]string, len(tags))
-	for k, v := range tags {
-		m[k] = v
-	}
-	return m
-}
 
 // API response types
 

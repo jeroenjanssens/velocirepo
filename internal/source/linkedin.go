@@ -79,7 +79,7 @@ func (l *LinkedIn) fetchPosts(ctx context.Context) ([]linkedinPost, error) {
 
 		allPosts = append(allPosts, resp.Elements...)
 
-		if len(resp.Elements) < resp.Paging.Count || start+len(resp.Elements) >= resp.Paging.Total {
+		if len(resp.Elements) == 0 || len(resp.Elements) < resp.Paging.Count || start+len(resp.Elements) >= resp.Paging.Total {
 			break
 		}
 		start += len(resp.Elements)

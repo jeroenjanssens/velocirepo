@@ -15,3 +15,11 @@ func splitOwnerRepo(repo string) (string, string) {
 	}
 	return "", ""
 }
+
+func copyTags(tags map[string]string) map[string]string {
+	m := make(map[string]string, len(tags))
+	for k, v := range tags {
+		m[k] = v
+	}
+	return m
+}
