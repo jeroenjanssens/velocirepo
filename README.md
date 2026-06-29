@@ -252,7 +252,11 @@ velocirepo version               Print version information
 
 ## Data storage
 
-All data is stored as JSONL files at `velocirepo/data/<source>/<project-id>/<date>.jsonl`. This entire directory is meant to be committed to git — it's your permanent metric history.
+All data is stored as JSONL files under `velocirepo/data/`. This entire directory is meant to be committed to git — it's your permanent metric history. Data is organized into three categories:
+
+- `data/metrics/<source>/<project-id>/<date>.jsonl` — time-series metrics (date-partitioned)
+- `data/events/<source>/<project-id>/<date>.jsonl` — individual events (date-partitioned)
+- `data/content/<source>/<project-id>/<name>.jsonl` — entity data (upsert-by-id)
 
 ### Metrics sources
 
@@ -277,37 +281,39 @@ Fields:
 | `value` | Integer value |
 | `tags` | Optional key-value metadata (e.g., `{"video_id": "..."}` for YouTube) |
 
-### GitHub Events source
+### Events sources
 
-The GitHub Events source stores individual events rather than pre-computed counts, giving you full historical detail including who performed each action and when:
+Event sources store individual events rather than pre-computed counts, giving you full historical detail including who performed each action and when. Currently, GitHub is the only event source.
 
 ```json
-{"source":"github","event_type":"star","project_id":"quarto","github_repo":"quarto-dev/quarto-cli","datetime":"2026-06-15T14:23:01Z","user":"alice"}
-{"source":"github","event_type":"fork","project_id":"quarto","github_repo":"quarto-dev/quarto-cli","datetime":"2026-06-15T09:11:44Z","user":"bob"}
+{"source":"github","type":"star","project_id":"quarto","target":"quarto-dev/quarto-cli","datetime":"2026-06-15T14:23:01Z","tags":{"user":"alice"}}
+{"source":"github","type":"fork","project_id":"quarto","target":"quarto-dev/quarto-cli","datetime":"2026-06-15T09:11:44Z","tags":{"user":"bob"}}
 ```
 
 Fields:
 
 | Field | Description |
 |-------|-------------|
-| `source` | Always `github` |
-| `event_type` | One of: star, fork, issue_open, issue_close, pr_open, pr_merge |
+| `source` | Source name (e.g., `github`) |
+| `type` | Event type (e.g., star, fork, issue_open, issue_close, pr_open, pr_merge) |
 | `project_id` | Project ID from your config |
-| `github_repo` | The owner/repo being tracked |
+| `target` | Specific repo or resource being tracked (e.g., `owner/repo`) |
 | `datetime` | Full timestamp of the event (ISO 8601) |
-| `user` | GitHub username who performed the action |
+| `tags` | Optional key-value metadata (e.g., `{"user": "alice"}`) |
 
 These events are automatically aggregated into daily counts in the `metrics` DuckDB view (as `daily_stars`, `daily_forks`, etc.) so you can query them alongside other sources.
 
-### YouTube index
+### Content sources
 
-The YouTube source also writes an `index.jsonl` file at `velocirepo/data/youtube/<project-id>/index.jsonl` containing video metadata:
+Sources that implement the `ContentProvider` interface also write entity data to `data/content/<source>/<project-id>/<name>.jsonl`. These files use upsert-by-id (new entries are merged with existing ones) rather than date-partitioned concatenation.
+
+Currently, YouTube is the only content source. It writes video metadata to `velocirepo/data/content/youtube/<project-id>/videos.jsonl`:
 
 ```json
-{"video_id":"ML3q7Ok4hJg","title":"God-Tier Developer Roadmap","published_at":"2024-03-15T16:00:00Z","channel":"@Fireship","duration":423,"tags":["programming","roadmap"]}
+{"source":"youtube","target":"@Fireship","id":"ML3q7Ok4hJg","title":"God-Tier Developer Roadmap","published_at":"2024-03-15T16:00:00Z","duration":423,"tags":["programming","roadmap"]}
 ```
 
-This is exposed as the `youtube_index` DuckDB view, allowing you to join video titles and publish dates with metrics data.
+This is exposed as both the `content` DuckDB view (for all content sources) and the `youtube_index` convenience view (filtered to YouTube with familiar column names like `video_id` and `channel`).
 
 ### Concatenation
 
@@ -345,10 +351,11 @@ The `query` command reads JSONL files directly using DuckDB and exposes five vie
 
 | View | Description |
 |------|-------------|
-| `metrics` | Unified time-series: all sources including aggregated GitHub events |
+| `metrics` | Unified time-series: all sources including aggregated events |
 | `indicators` | Derived growth rate and trend for daily metrics (28-day windows) |
-| `github_events` | Raw GitHub events with user and timestamp |
-| `youtube_index` | Video metadata (title, publish date, channel, duration) |
+| `events` | Raw events with timestamp and tags (e.g., GitHub stars, forks, issues, PRs) |
+| `content` | Entity data from content providers (e.g., YouTube video metadata) |
+| `youtube_index` | Convenience view over `content` filtered to YouTube videos |
 | `projects` | Project metadata from your config |
 
 ### Daily star counts
@@ -403,13 +410,13 @@ velocirepo query "
 
 ### Monthly star activity using raw events
 
-The `github_events` view gives you access to individual events when you need per-user or per-timestamp detail:
+The `events` view gives you access to individual events when you need per-user or per-timestamp detail:
 
 ```bash
 velocirepo query "
   SELECT date_trunc('month', datetime)::DATE AS month, COUNT(*) AS stars
-  FROM github_events
-  WHERE project = 'quarto' AND event_type = 'star'
+  FROM events
+  WHERE project = 'quarto' AND type = 'star'
   GROUP BY month
   ORDER BY month DESC
   LIMIT 5
@@ -485,12 +492,23 @@ velocirepo schema
 ┌───────────────┬──────────────┬───────────┐
 │ TABLE         │ COLUMN       │ TYPE      │
 ├───────────────┼──────────────┼───────────┤
-│ github_events │ project      │ VARCHAR   │
-│ github_events │ source       │ VARCHAR   │
-│ github_events │ event_type   │ VARCHAR   │
-│ github_events │ github_repo  │ VARCHAR   │
-│ github_events │ datetime     │ TIMESTAMP │
-│ github_events │ user         │ VARCHAR   │
+│ content       │ source       │ VARCHAR   │
+│ content       │ target       │ VARCHAR   │
+│ content       │ id           │ VARCHAR   │
+│ content       │ title        │ VARCHAR   │
+│ content       │ description  │ VARCHAR   │
+│ content       │ published_at │ TIMESTAMP │
+│ content       │ url          │ VARCHAR   │
+│ content       │ duration     │ BIGINT    │
+│ content       │ tags         │ JSON      │
+│ content       │ type         │ VARCHAR   │
+│ content       │ metadata     │ JSON      │
+│ events        │ project      │ VARCHAR   │
+│ events        │ source       │ VARCHAR   │
+│ events        │ type         │ VARCHAR   │
+│ events        │ target       │ VARCHAR   │
+│ events        │ datetime     │ TIMESTAMP │
+│ events        │ tags         │ JSON      │
 │ indicators    │ project      │ VARCHAR   │
 │ indicators    │ source       │ VARCHAR   │
 │ indicators    │ target       │ VARCHAR   │
@@ -534,8 +552,9 @@ This writes one file per table:
 
 ```
   out/metrics.parquet (257 KB)
-  out/github_events.parquet (2.9 MB)
-  out/youtube_index.parquet (15 KB)
+  out/events.parquet (2.9 MB)
+  out/content.parquet (15 KB)
+  out/youtube_index.parquet (4 KB)
   out/indicators.parquet (42 KB)
   out/projects.parquet (2 KB)
 ```
@@ -766,7 +785,7 @@ For custom metrics, provide a SQL query that returns a single value:
 ```bash
 velocirepo badge custom \
   --label "contributors" \
-  --query "SELECT COUNT(DISTINCT \"user\") AS value FROM github_events" \
+  --query "SELECT COUNT(DISTINCT tags->>'user') AS value FROM events" \
   --color "#ea7233" \
   -o contributors.svg
 ```
@@ -931,7 +950,7 @@ Add to your project's `.mcp.json`:
 
 | Tool | Description |
 |------|-------------|
-| `query` | Run SQL against metrics, github_events, youtube_index, projects views |
+| `query` | Run SQL against metrics, events, youtube_index, projects views |
 | `schema` | Show all table columns and types |
 | `fetch` | Fetch from all configured sources |
 | `fetch_github` | Fetch GitHub events |
