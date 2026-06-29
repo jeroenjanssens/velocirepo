@@ -406,6 +406,14 @@ func (h *handlers) handleFetchYouTube(ctx context.Context, req mcp.CallToolReque
 	return jsonResult(results), nil
 }
 
+func (h *handlers) handleFetchLinkedIn(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	results, err := fetch.LinkedIn(ctx, h.cfg, fetch.TokensFromEnv(), h.fetchOpts(req))
+	if err != nil {
+		return errorResult(err.Error()), nil
+	}
+	return jsonResult(results), nil
+}
+
 var validIDRe = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
 
 func (h *handlers) handleAddProject(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -434,6 +442,7 @@ func (h *handlers) handleAddProject(ctx context.Context, req mcp.CallToolRequest
 		Plausible:     toStringList(req.GetString("plausible", "")),
 		OpenVSX:       toStringList(req.GetString("openvsx", "")),
 		YouTube:       toStringList(req.GetString("youtube", "")),
+		LinkedIn:      toStringList(req.GetString("linkedin", "")),
 	}
 
 	if err := config.AppendProject(h.cfgFilePath(), id, proj); err != nil {
@@ -469,6 +478,7 @@ func (h *handlers) handleUpdateProject(ctx context.Context, req mcp.CallToolRequ
 		"plausible":      "plausible",
 		"openvsx":        "openvsx",
 		"youtube":        "youtube",
+		"linkedin":       "linkedin",
 	}
 
 	for argKey, tomlKey := range fieldMap {

@@ -71,6 +71,7 @@ type Project struct {
 	Plausible     StringList `toml:"plausible"`
 	OpenVSX       StringList `toml:"openvsx"`
 	YouTube       StringList `toml:"youtube"`
+	LinkedIn      StringList `toml:"linkedin"`
 }
 
 type SourceEntry struct {
@@ -88,6 +89,7 @@ func (p Project) Sources() []SourceEntry {
 		{"plausible", p.Plausible},
 		{"openvsx", p.OpenVSX},
 		{"youtube", p.YouTube},
+		{"linkedin", p.LinkedIn},
 	}
 }
 
@@ -118,6 +120,8 @@ func SourceDirNames() []string {
 		"metrics/plausible",
 		"metrics/openvsx",
 		"metrics/youtube",
+		"metrics/linkedin",
+		"content/linkedin",
 	}
 }
 

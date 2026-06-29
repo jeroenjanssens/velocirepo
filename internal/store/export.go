@@ -125,7 +125,7 @@ func matchesSource(table, source string) bool {
 	switch source {
 	case "github":
 		return table == "events"
-	case "youtube":
+	case "youtube", "linkedin":
 		return table == "metrics" || table == "content"
 	case "projects":
 		return table == "projects"

@@ -36,6 +36,7 @@ type Tokens struct {
 	GitHub    string
 	Plausible string
 	YouTube   string
+	LinkedIn  string
 }
 
 func TokensFromEnv() Tokens {
@@ -43,6 +44,7 @@ func TokensFromEnv() Tokens {
 		GitHub:    os.Getenv("GITHUB_TOKEN"),
 		Plausible: os.Getenv("PLAUSIBLE_TOKEN"),
 		YouTube:   os.Getenv("YOUTUBE_TOKEN"),
+		LinkedIn:  os.Getenv("LINKEDIN_TOKEN"),
 	}
 }
 
@@ -146,6 +148,11 @@ func All(ctx context.Context, cfg *config.Config, tokens Tokens, opts Options) (
 		if tokens.YouTube != "" {
 			for _, target := range proj.YouTube {
 				jobs = append(jobs, fetchJob{sourceName: "youtube", projectID: id, src: &source.YouTube{Client: client, APIKey: tokens.YouTube, Target: target}})
+			}
+		}
+		if tokens.LinkedIn != "" {
+			for _, target := range proj.LinkedIn {
+				jobs = append(jobs, fetchJob{sourceName: "linkedin", projectID: id, src: &source.LinkedIn{Client: client, Token: tokens.LinkedIn, Target: target}})
 			}
 		}
 	}
@@ -586,6 +593,20 @@ func YouTube(ctx context.Context, cfg *config.Config, tokens Tokens, opts Option
 		var sources []source.Source
 		for _, target := range p.YouTube {
 			sources = append(sources, &source.YouTube{Client: client, APIKey: tokens.YouTube, Target: target})
+		}
+		return sources
+	})
+}
+
+func LinkedIn(ctx context.Context, cfg *config.Config, tokens Tokens, opts Options) ([]Result, error) {
+	if tokens.LinkedIn == "" {
+		return []Result{{Source: "linkedin", Skipped: "LINKEDIN_TOKEN not set"}}, nil
+	}
+	client := &http.Client{Timeout: 30 * time.Second}
+	return Source(ctx, cfg, tokens, "linkedin", opts, func(id string, p config.Project) []source.Source {
+		var sources []source.Source
+		for _, target := range p.LinkedIn {
+			sources = append(sources, &source.LinkedIn{Client: client, Token: tokens.LinkedIn, Target: target})
 		}
 		return sources
 	})

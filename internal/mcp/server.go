@@ -39,6 +39,7 @@ func NewServer(opts ServerOptions) *server.MCPServer {
 		s.AddTool(fetchPlausibleTool(), h.handleFetchPlausible)
 		s.AddTool(fetchOpenVSXTool(), h.handleFetchOpenVSX)
 		s.AddTool(fetchYouTubeTool(), h.handleFetchYouTube)
+		s.AddTool(fetchLinkedInTool(), h.handleFetchLinkedIn)
 		s.AddTool(addProjectTool(), h.handleAddProject)
 		s.AddTool(updateProjectTool(), h.handleUpdateProject)
 		s.AddTool(removeProjectTool(), h.handleRemoveProject)
@@ -67,7 +68,7 @@ Schema:
   projects: id VARCHAR, name VARCHAR, description VARCHAR, color VARCHAR, tags VARCHAR[], website VARCHAR, logo VARCHAR
 
 Notes:
-- metrics.source: github, github-traffic, pypi, cran, homebrew, plausible, openvsx, youtube
+- metrics.source: github, github-traffic, pypi, cran, homebrew, plausible, openvsx, youtube, linkedin
 - metrics.metric examples: daily_stars, daily_forks, daily_downloads, total_downloads, daily_pageviews
 - events.type: star, fork, issue_open, issue_close, pr_open, pr_merge
 - events.tags is a JSON object with source-specific fields (e.g. {"user": "..."} for GitHub events)
@@ -195,6 +196,15 @@ func fetchYouTubeTool() mcp.Tool {
 	)
 }
 
+func fetchLinkedInTool() mcp.Tool {
+	return mcp.NewTool("fetch_linkedin",
+		mcp.WithDescription("Fetch LinkedIn post metrics (impressions, likes, comments, shares) and content index. Requires LINKEDIN_TOKEN."),
+		mcp.WithString("project", mcp.Description("Fetch only this project ID")),
+		mcp.WithString("start_date", mcp.Description("Start date (YYYY-MM-DD)")),
+		mcp.WithString("end_date", mcp.Description("End date (YYYY-MM-DD, default: yesterday)")),
+	)
+}
+
 func addProjectTool() mcp.Tool {
 	return mcp.NewTool("add_project",
 		mcp.WithDescription("Add a new project to the velocirepo config."),
@@ -208,6 +218,7 @@ func addProjectTool() mcp.Tool {
 		mcp.WithString("plausible", mcp.Description("Plausible site ID")),
 		mcp.WithString("openvsx", mcp.Description("OpenVSX extension (publisher/extension)")),
 		mcp.WithString("youtube", mcp.Description("YouTube channel (@handle), playlist, or video ID")),
+		mcp.WithString("linkedin", mcp.Description("LinkedIn URN (urn:li:organization:ID)")),
 	)
 }
 
@@ -224,6 +235,7 @@ func updateProjectTool() mcp.Tool {
 		mcp.WithString("plausible", mcp.Description("Plausible site ID (empty to remove)")),
 		mcp.WithString("openvsx", mcp.Description("OpenVSX extension (empty to remove)")),
 		mcp.WithString("youtube", mcp.Description("YouTube target (empty to remove)")),
+		mcp.WithString("linkedin", mcp.Description("LinkedIn URN (empty to remove)")),
 	)
 }
 

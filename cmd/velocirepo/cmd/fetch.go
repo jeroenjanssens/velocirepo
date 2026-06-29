@@ -87,6 +87,7 @@ var fetchSources = []fetchSourceDef{
 	{"fetch-plausible", "Fetch Plausible analytics (pageviews, visitors, visits)", fetch.Plausible},
 	{"fetch-pypi", "Fetch PyPI download statistics", fetch.PyPI},
 	{"fetch-youtube", "Fetch YouTube metrics (views, likes, comments, subscribers)", fetch.YouTube},
+	{"fetch-linkedin", "Fetch LinkedIn post metrics and content", fetch.LinkedIn},
 }
 
 func makeFetchCmd(def fetchSourceDef) *cobra.Command {
