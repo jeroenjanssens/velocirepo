@@ -40,7 +40,7 @@ func newRootCmd() *cobra.Command {
 
 			godotenv.Load(filepath.Join(cfg.Dir, ".env"))
 
-			if cmd.Name() != "migrate" && cmd.Name() != "mcp" {
+			if cmd.Name() != "migrate" && cmd.Name() != "mcp" && cmd.Name() != "linkedin" {
 				if err := store.CheckSchemaVersion(cfg.DataDir()); err != nil {
 					return err
 				}
@@ -110,6 +110,9 @@ func newRootCmd() *cobra.Command {
 
 	// MCP
 	rootCmd.AddCommand(mcpCmd())
+
+	// Auth
+	rootCmd.AddCommand(authCmd())
 
 	// Other
 	rootCmd.AddCommand(versionCmd())
