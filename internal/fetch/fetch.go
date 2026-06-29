@@ -8,6 +8,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/jeroenjanssens/velocirepo/internal/auth"
 	"github.com/jeroenjanssens/velocirepo/internal/config"
 	"github.com/jeroenjanssens/velocirepo/internal/source"
 	"github.com/jeroenjanssens/velocirepo/internal/store"
@@ -118,6 +119,10 @@ func All(ctx context.Context, cfg *config.Config, tokens Tokens, opts Options) (
 		projectID  string
 		src        source.Source
 		eventSrc   source.EventSource
+	}
+
+	if tokens.LinkedIn != "" {
+		auth.CheckLinkedInTokenExpiry(ctx, tokens.LinkedIn, os.Getenv("LINKEDIN_CLIENT_ID"), os.Getenv("LINKEDIN_CLIENT_SECRET"))
 	}
 
 	var jobs []fetchJob
@@ -602,6 +607,7 @@ func LinkedIn(ctx context.Context, cfg *config.Config, tokens Tokens, opts Optio
 	if tokens.LinkedIn == "" {
 		return []Result{{Source: "linkedin", Skipped: "LINKEDIN_TOKEN not set"}}, nil
 	}
+	auth.CheckLinkedInTokenExpiry(ctx, tokens.LinkedIn, os.Getenv("LINKEDIN_CLIENT_ID"), os.Getenv("LINKEDIN_CLIENT_SECRET"))
 	client := &http.Client{Timeout: 30 * time.Second}
 	return Source(ctx, cfg, tokens, "linkedin", opts, func(id string, p config.Project) []source.Source {
 		var sources []source.Source
