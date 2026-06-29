@@ -594,9 +594,15 @@ func (h *handlers) handleUpdateProject(ctx context.Context, req mcp.CallToolRequ
 		return errorResult("no changes specified"), nil
 	}
 
-	if err := config.UpdateProject(h.cfgFilePath(), id, updates, unsets); err != nil {
+	cfgPath := h.cfgFilePath()
+	if err := config.UpdateProject(cfgPath, id, updates, unsets); err != nil {
 		return errorResult(fmt.Sprintf("update project: %v", err)), nil
 	}
+	updatedCfg, err := config.Load(cfgPath)
+	if err != nil {
+		return errorResult(fmt.Sprintf("reload config: %v", err)), nil
+	}
+	h.cfg = updatedCfg
 
 	return textResult(fmt.Sprintf("Updated project '%s'", id)), nil
 }

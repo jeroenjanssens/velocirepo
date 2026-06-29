@@ -30,48 +30,13 @@ func RewriteProjectID(root, oldID, newID string) error {
 }
 
 func rewriteProjectIDFile(path, oldID, newID string) error {
-	f, err := os.Open(path)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
 	encodedNewID, err := json.Marshal(newID)
 	if err != nil {
 		return err
 	}
 
-	var lines [][]byte
-	changed := false
-	scanner := bufio.NewScanner(f)
-	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
-	for scanner.Scan() {
-		line := scanner.Bytes()
-		var record map[string]json.RawMessage
-		if err := json.Unmarshal(line, &record); err != nil {
-			return err
-		}
-
-		if raw, ok := record["project_id"]; ok {
-			var projectID string
-			if err := json.Unmarshal(raw, &projectID); err != nil {
-				return fmt.Errorf("project_id is not a string: %w", err)
-			}
-			if projectID == oldID {
-				record["project_id"] = encodedNewID
-				rewritten, err := json.Marshal(record)
-				if err != nil {
-					return err
-				}
-				lines = append(lines, rewritten)
-				changed = true
-				continue
-			}
-		}
-
-		lines = append(lines, append([]byte(nil), line...))
-	}
-	if err := scanner.Err(); err != nil {
+	lines, changed, err := readProjectIDLines(path, oldID, encodedNewID)
+	if err != nil {
 		return err
 	}
 	if !changed {
@@ -112,4 +77,49 @@ func rewriteProjectIDFile(path, oldID, newID string) error {
 		return err
 	}
 	return nil
+}
+
+func readProjectIDLines(path, oldID string, encodedNewID []byte) (lines [][]byte, changed bool, err error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, false, err
+	}
+	defer func() {
+		if closeErr := f.Close(); err == nil && closeErr != nil {
+			err = closeErr
+		}
+	}()
+
+	scanner := bufio.NewScanner(f)
+	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
+	for scanner.Scan() {
+		line := scanner.Bytes()
+		var record map[string]json.RawMessage
+		if err := json.Unmarshal(line, &record); err != nil {
+			return nil, false, err
+		}
+
+		if raw, ok := record["project_id"]; ok {
+			var projectID string
+			if err := json.Unmarshal(raw, &projectID); err != nil {
+				return nil, false, fmt.Errorf("project_id is not a string: %w", err)
+			}
+			if projectID == oldID {
+				record["project_id"] = encodedNewID
+				rewritten, err := json.Marshal(record)
+				if err != nil {
+					return nil, false, err
+				}
+				lines = append(lines, rewritten)
+				changed = true
+				continue
+			}
+		}
+
+		lines = append(lines, append([]byte(nil), line...))
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, false, err
+	}
+	return lines, changed, nil
 }
