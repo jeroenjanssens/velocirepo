@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/jeroenjanssens/velocirepo/internal/sourceinfo"
 )
 
 type ExportOptions struct {
@@ -122,14 +124,19 @@ func buildExportQuery(table string, opts ExportOptions) string {
 }
 
 func matchesSource(table, source string) bool {
-	switch source {
-	case "github":
-		return table == "events"
-	case "youtube", "linkedin":
-		return table == "metrics" || table == "content"
-	case "projects":
+	if source == "projects" {
 		return table == "projects"
-	default:
+	}
+
+	if d, ok := sourceinfo.Get(source); ok {
+		if d.Category == sourceinfo.CategoryEvents {
+			return table == "events"
+		}
+		if d.ContentDir != "" {
+			return table == "metrics" || table == "content"
+		}
 		return table == "metrics" || table == "content"
 	}
+
+	return table == "metrics" || table == "content"
 }

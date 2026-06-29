@@ -368,7 +368,7 @@ github ="org/old"
 
 	dataDir := filepath.Join(dir, "data", "events", "github", "old-name")
 	os.MkdirAll(dataDir, 0755)
-	os.WriteFile(filepath.Join(dataDir, "2025-01-01.jsonl"), []byte("{}"), 0644)
+	os.WriteFile(filepath.Join(dataDir, "2025-01-01.jsonl"), []byte(`{"source":"github","type":"star","project_id":"old-name","target":"org/old","datetime":"2025-01-01T00:00:00Z"}`+"\n"), 0644)
 	os.WriteFile(filepath.Join(dir, "data", ".schema-version"), []byte("5\n"), 0644)
 
 	_, _, err := execCmd(cfgPath, "rename-project", "old-name", "new-name")
@@ -388,6 +388,10 @@ github ="org/old"
 	newDataDir := filepath.Join(dir, "data", "events", "github", "new-name")
 	if _, err := os.Stat(newDataDir); os.IsNotExist(err) {
 		t.Error("data directory not moved")
+	}
+	renamedData, _ := os.ReadFile(filepath.Join(newDataDir, "2025-01-01.jsonl"))
+	if !strings.Contains(string(renamedData), `"project_id":"new-name"`) {
+		t.Errorf("project_id not rewritten in renamed data: %s", renamedData)
 	}
 	if _, err := os.Stat(dataDir); !os.IsNotExist(err) {
 		t.Error("old data directory still exists")

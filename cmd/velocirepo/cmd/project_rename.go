@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/jeroenjanssens/velocirepo/internal/config"
+	"github.com/jeroenjanssens/velocirepo/internal/store"
 	"github.com/spf13/cobra"
 )
 
@@ -33,24 +34,25 @@ func renameProjectCmd() *cobra.Command {
 				return fmt.Errorf("project %q already exists in config", newID)
 			}
 
+			var moved []string
+			var dataMoves []projectDataMove
+			if !noMoveData {
+				var err error
+				dataMoves, moved, err = moveProjectDataForRename(cfg.DataDir(), oldID, newID)
+				if err != nil {
+					return err
+				}
+			}
+
 			cfgPath := cfgFilePath()
 			if err := config.RenameSection(cfgPath, oldID, newID); err != nil {
+				if rollbackErr := rollbackProjectDataMoves(dataMoves); rollbackErr != nil {
+					return fmt.Errorf("%w (rollback data: %v)", err, rollbackErr)
+				}
 				return err
 			}
 
 			if !noMoveData {
-				dataDir := cfg.DataDir()
-				var moved []string
-				for _, src := range config.SourceDirNames() {
-					oldDir := filepath.Join(dataDir, src, oldID)
-					newDir := filepath.Join(dataDir, src, newID)
-					if _, err := os.Stat(oldDir); err == nil {
-						if err := os.Rename(oldDir, newDir); err != nil {
-							return fmt.Errorf("rename %s → %s: %w", oldDir, newDir, err)
-						}
-						moved = append(moved, src)
-					}
-				}
 				if len(moved) > 0 {
 					fmt.Fprintf(os.Stdout, "Renamed project '%s' → '%s' (moved data for: %s)\n", oldID, newID, joinComma(moved))
 				} else {
@@ -68,6 +70,68 @@ func renameProjectCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&noMoveData, "no-move-data", false, "only rename in config, leave data directories as-is")
 
 	return cmd
+}
+
+type projectDataMove struct {
+	from  string
+	to    string
+	oldID string
+	newID string
+}
+
+func moveProjectDataForRename(dataDir, oldID, newID string) ([]projectDataMove, []string, error) {
+	for _, src := range config.SourceDirNames() {
+		newDir := filepath.Join(dataDir, src, newID)
+		if _, err := os.Stat(newDir); err == nil {
+			return nil, nil, fmt.Errorf("target data directory already exists: %s", newDir)
+		} else if !os.IsNotExist(err) {
+			return nil, nil, err
+		}
+	}
+
+	var moves []projectDataMove
+	var moved []string
+	for _, src := range config.SourceDirNames() {
+		oldDir := filepath.Join(dataDir, src, oldID)
+		newDir := filepath.Join(dataDir, src, newID)
+		if _, err := os.Stat(oldDir); err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			return moves, moved, err
+		}
+		if err := os.MkdirAll(filepath.Dir(newDir), 0755); err != nil {
+			rollbackProjectDataMoves(moves)
+			return nil, nil, err
+		}
+		if err := os.Rename(oldDir, newDir); err != nil {
+			rollbackProjectDataMoves(moves)
+			return nil, nil, fmt.Errorf("rename %s → %s: %w", oldDir, newDir, err)
+		}
+		moves = append(moves, projectDataMove{from: oldDir, to: newDir, oldID: oldID, newID: newID})
+		if err := store.RewriteProjectID(newDir, oldID, newID); err != nil {
+			rollbackProjectDataMoves(moves)
+			return nil, nil, fmt.Errorf("rewrite project IDs in %s: %w", newDir, err)
+		}
+		moved = append(moved, src)
+	}
+	return moves, moved, nil
+}
+
+func rollbackProjectDataMoves(moves []projectDataMove) error {
+	for i := len(moves) - 1; i >= 0; i-- {
+		move := moves[i]
+		if err := store.RewriteProjectID(move.to, move.newID, move.oldID); err != nil {
+			return err
+		}
+		if err := os.MkdirAll(filepath.Dir(move.from), 0755); err != nil {
+			return err
+		}
+		if err := os.Rename(move.to, move.from); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func joinComma(s []string) string {

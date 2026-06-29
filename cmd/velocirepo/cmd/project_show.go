@@ -64,6 +64,8 @@ func showProjectCmd() *cobra.Command {
 					Homebrew      []string      `json:"homebrew,omitempty"`
 					Plausible     []string      `json:"plausible,omitempty"`
 					OpenVSX       []string      `json:"openvsx,omitempty"`
+					YouTube       []string      `json:"youtube,omitempty"`
+					LinkedIn      []string      `json:"linkedin,omitempty"`
 					Sources       []sourceStats `json:"sources"`
 					Total         struct {
 						Records   int   `json:"records"`
@@ -79,6 +81,8 @@ func showProjectCmd() *cobra.Command {
 					Homebrew:      []string(proj.Homebrew),
 					Plausible:     []string(proj.Plausible),
 					OpenVSX:       []string(proj.OpenVSX),
+					YouTube:       []string(proj.YouTube),
+					LinkedIn:      []string(proj.LinkedIn),
 					Sources:       stats,
 				}
 				out.Total.Records = totalRecords
@@ -90,26 +94,10 @@ func showProjectCmd() *cobra.Command {
 
 			fmt.Fprintf(cmd.OutOrStdout(), "Project: %s\n", id)
 			fmt.Fprintf(cmd.OutOrStdout(), "Name:    %s\n", proj.Name)
-			if !proj.GitHubEvents.IsEmpty() {
-				fmt.Fprintf(cmd.OutOrStdout(), "GitHub:  %s\n", proj.GitHubEvents.String())
-			}
-			if !proj.GitHubTraffic.IsEmpty() {
-				fmt.Fprintf(cmd.OutOrStdout(), "GitHub Traffic: %s\n", proj.GitHubTraffic.String())
-			}
-			if !proj.PyPI.IsEmpty() {
-				fmt.Fprintf(cmd.OutOrStdout(), "PyPI:    %s\n", proj.PyPI.String())
-			}
-			if !proj.CRAN.IsEmpty() {
-				fmt.Fprintf(cmd.OutOrStdout(), "CRAN:    %s\n", proj.CRAN.String())
-			}
-			if !proj.Homebrew.IsEmpty() {
-				fmt.Fprintf(cmd.OutOrStdout(), "Homebrew: %s\n", proj.Homebrew.String())
-			}
-			if !proj.Plausible.IsEmpty() {
-				fmt.Fprintf(cmd.OutOrStdout(), "Plausible: %s\n", proj.Plausible.String())
-			}
-			if !proj.OpenVSX.IsEmpty() {
-				fmt.Fprintf(cmd.OutOrStdout(), "OpenVSX: %s\n", proj.OpenVSX.String())
+			for _, src := range proj.Sources() {
+				if !src.Values.IsEmpty() {
+					fmt.Fprintf(cmd.OutOrStdout(), "%-15s %s\n", src.DisplayName+":", src.Values.String())
+				}
 			}
 
 			if len(stats) > 0 {
@@ -125,7 +113,6 @@ func showProjectCmd() *cobra.Command {
 				fmt.Fprintf(cmd.OutOrStdout(), "\nTotal: %d records across %d sources (%s)\n",
 					totalRecords, len(stats), formatSize(totalSize))
 			}
-
 			return nil
 		},
 	}
@@ -134,7 +121,6 @@ func showProjectCmd() *cobra.Command {
 
 	return cmd
 }
-
 
 func formatSize(bytes int64) string {
 	if bytes < 1024 {
@@ -145,4 +131,3 @@ func formatSize(bytes int64) string {
 	}
 	return fmt.Sprintf("%.1f MB", float64(bytes)/(1024*1024))
 }
-

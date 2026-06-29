@@ -158,7 +158,6 @@ func importProjectsCmd() *cobra.Command {
 	return cmd
 }
 
-
 func loadFromFile(path string) ([]fetch.ImportEntry, error) {
 	ext := strings.ToLower(filepath.Ext(path))
 
@@ -179,14 +178,18 @@ func loadFromJSON(path string) ([]fetch.ImportEntry, error) {
 	}
 
 	var items []struct {
-		ID        string `json:"id"`
-		Name      string `json:"name"`
-		GitHub    string `json:"github"`
-		PyPI      string `json:"pypi"`
-		CRAN      string `json:"cran"`
-		Homebrew  string `json:"homebrew"`
-		Plausible string `json:"plausible"`
-		OpenVSX   string `json:"openvsx"`
+		ID         string `json:"id"`
+		Name       string `json:"name"`
+		GitHub     string `json:"github"`
+		Traffic    string `json:"github_traffic"`
+		TrafficAlt string `json:"github-traffic"`
+		PyPI       string `json:"pypi"`
+		CRAN       string `json:"cran"`
+		Homebrew   string `json:"homebrew"`
+		Plausible  string `json:"plausible"`
+		OpenVSX    string `json:"openvsx"`
+		YouTube    string `json:"youtube"`
+		LinkedIn   string `json:"linkedin"`
 	}
 	if err := json.Unmarshal(data, &items); err != nil {
 		return nil, fmt.Errorf("parse JSON: %w", err)
@@ -204,16 +207,23 @@ func loadFromJSON(path string) ([]fetch.ImportEntry, error) {
 		if name == "" {
 			name = item.ID
 		}
+		traffic := item.Traffic
+		if traffic == "" {
+			traffic = item.TrafficAlt
+		}
 		entries = append(entries, fetch.ImportEntry{
 			ID: item.ID,
 			Project: config.Project{
-				Name:         name,
-				GitHubEvents: toStringList(item.GitHub),
-				PyPI:         toStringList(item.PyPI),
-				CRAN:         toStringList(item.CRAN),
-				Homebrew:     toStringList(item.Homebrew),
-				Plausible:    toStringList(item.Plausible),
-				OpenVSX:      toStringList(item.OpenVSX),
+				Name:          name,
+				GitHubEvents:  toStringList(item.GitHub),
+				GitHubTraffic: toStringList(traffic),
+				PyPI:          toStringList(item.PyPI),
+				CRAN:          toStringList(item.CRAN),
+				Homebrew:      toStringList(item.Homebrew),
+				Plausible:     toStringList(item.Plausible),
+				OpenVSX:       toStringList(item.OpenVSX),
+				YouTube:       toStringList(item.YouTube),
+				LinkedIn:      toStringList(item.LinkedIn),
 			},
 		})
 	}
@@ -272,6 +282,12 @@ func loadFromCSV(path string) ([]fetch.ImportEntry, error) {
 		if idx, ok := colIndex["github"]; ok && idx < len(row) {
 			p.GitHubEvents = toStringList(row[idx])
 		}
+		if idx, ok := colIndex["github-traffic"]; ok && idx < len(row) {
+			p.GitHubTraffic = toStringList(row[idx])
+		}
+		if idx, ok := colIndex["github_traffic"]; ok && idx < len(row) {
+			p.GitHubTraffic = toStringList(row[idx])
+		}
 		if idx, ok := colIndex["pypi"]; ok && idx < len(row) {
 			p.PyPI = toStringList(row[idx])
 		}
@@ -286,6 +302,12 @@ func loadFromCSV(path string) ([]fetch.ImportEntry, error) {
 		}
 		if idx, ok := colIndex["openvsx"]; ok && idx < len(row) {
 			p.OpenVSX = toStringList(row[idx])
+		}
+		if idx, ok := colIndex["youtube"]; ok && idx < len(row) {
+			p.YouTube = toStringList(row[idx])
+		}
+		if idx, ok := colIndex["linkedin"]; ok && idx < len(row) {
+			p.LinkedIn = toStringList(row[idx])
 		}
 
 		entries = append(entries, fetch.ImportEntry{ID: id, Project: p})

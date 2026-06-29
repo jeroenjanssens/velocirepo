@@ -44,6 +44,116 @@ func (h *handlers) cfgFilePath() string {
 	return "velocirepo.toml"
 }
 
+type dataMove struct {
+	from  string
+	to    string
+	oldID string
+	newID string
+}
+
+func moveProjectDataDirs(dataDir, oldID, newID string) ([]dataMove, error) {
+	for _, src := range config.SourceDirNames() {
+		newDir := filepath.Join(dataDir, src, newID)
+		if _, err := os.Stat(newDir); err == nil {
+			return nil, fmt.Errorf("target data directory already exists: %s", newDir)
+		} else if !os.IsNotExist(err) {
+			return nil, err
+		}
+	}
+
+	var moves []dataMove
+	for _, src := range config.SourceDirNames() {
+		oldDir := filepath.Join(dataDir, src, oldID)
+		newDir := filepath.Join(dataDir, src, newID)
+		if _, err := os.Stat(oldDir); err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			return moves, err
+		}
+		if err := os.MkdirAll(filepath.Dir(newDir), 0755); err != nil {
+			return moves, err
+		}
+		if err := os.Rename(oldDir, newDir); err != nil {
+			return moves, err
+		}
+		moves = append(moves, dataMove{from: oldDir, to: newDir, oldID: oldID, newID: newID})
+		if err := store.RewriteProjectID(newDir, oldID, newID); err != nil {
+			return moves, err
+		}
+	}
+	return moves, nil
+}
+
+func rollbackDataMoves(moves []dataMove) error {
+	for i := len(moves) - 1; i >= 0; i-- {
+		move := moves[i]
+		if _, err := os.Stat(move.to); err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			return err
+		}
+		if move.oldID != "" && move.newID != "" {
+			if err := store.RewriteProjectID(move.to, move.newID, move.oldID); err != nil {
+				return err
+			}
+		}
+		if err := os.MkdirAll(filepath.Dir(move.from), 0755); err != nil {
+			return err
+		}
+		if err := os.Rename(move.to, move.from); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func trashProjectDataDirs(dataDir, id string) (string, []dataMove, error) {
+	if _, err := os.Stat(dataDir); err != nil {
+		if os.IsNotExist(err) {
+			return "", nil, nil
+		}
+		return "", nil, err
+	}
+
+	trashRoot, err := os.MkdirTemp(dataDir, ".remove-"+id+"-")
+	if err != nil {
+		return "", nil, err
+	}
+
+	var moves []dataMove
+	for _, src := range config.SourceDirNames() {
+		oldDir := filepath.Join(dataDir, src, id)
+		trashDir := filepath.Join(trashRoot, src)
+		if _, err := os.Stat(oldDir); err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			rollbackDataMoves(moves)
+			os.RemoveAll(trashRoot)
+			return "", nil, err
+		}
+		if err := os.MkdirAll(filepath.Dir(trashDir), 0755); err != nil {
+			rollbackDataMoves(moves)
+			os.RemoveAll(trashRoot)
+			return "", nil, err
+		}
+		if err := os.Rename(oldDir, trashDir); err != nil {
+			rollbackDataMoves(moves)
+			os.RemoveAll(trashRoot)
+			return "", nil, err
+		}
+		moves = append(moves, dataMove{from: oldDir, to: trashDir})
+	}
+
+	if len(moves) == 0 {
+		os.RemoveAll(trashRoot)
+		return "", nil, nil
+	}
+	return trashRoot, moves, nil
+}
+
 func textResult(text string) *mcp.CallToolResult {
 	return &mcp.CallToolResult{
 		Content: []mcp.Content{mcp.NewTextContent(text)},
@@ -129,6 +239,7 @@ func (h *handlers) handleListProjects(ctx context.Context, req mcp.CallToolReque
 		Plausible     []string `json:"plausible,omitempty"`
 		OpenVSX       []string `json:"openvsx,omitempty"`
 		YouTube       []string `json:"youtube,omitempty"`
+		LinkedIn      []string `json:"linkedin,omitempty"`
 	}
 
 	var list []projectEntry
@@ -144,6 +255,7 @@ func (h *handlers) handleListProjects(ctx context.Context, req mcp.CallToolReque
 			Plausible:     []string(p.Plausible),
 			OpenVSX:       []string(p.OpenVSX),
 			YouTube:       []string(p.YouTube),
+			LinkedIn:      []string(p.LinkedIn),
 		})
 	}
 
@@ -169,31 +281,7 @@ func (h *handlers) handleShowProject(ctx context.Context, req mcp.CallToolReques
 		Records  int    `json:"records"`
 	}
 
-	var sources []string
-	if !proj.GitHubEvents.IsEmpty() {
-		sources = append(sources, "github")
-	}
-	if !proj.GitHubTraffic.IsEmpty() {
-		sources = append(sources, "github-traffic")
-	}
-	if !proj.PyPI.IsEmpty() {
-		sources = append(sources, "pypi")
-	}
-	if !proj.CRAN.IsEmpty() {
-		sources = append(sources, "cran")
-	}
-	if !proj.Homebrew.IsEmpty() {
-		sources = append(sources, "homebrew")
-	}
-	if !proj.Plausible.IsEmpty() {
-		sources = append(sources, "plausible")
-	}
-	if !proj.OpenVSX.IsEmpty() {
-		sources = append(sources, "openvsx")
-	}
-	if !proj.YouTube.IsEmpty() {
-		sources = append(sources, "youtube")
-	}
+	sources := proj.SourceNames()
 
 	var stats []sourceStats
 	for _, src := range sources {
@@ -217,6 +305,7 @@ func (h *handlers) handleShowProject(ctx context.Context, req mcp.CallToolReques
 		Plausible     []string      `json:"plausible,omitempty"`
 		OpenVSX       []string      `json:"openvsx,omitempty"`
 		YouTube       []string      `json:"youtube,omitempty"`
+		LinkedIn      []string      `json:"linkedin,omitempty"`
 		Sources       []sourceStats `json:"sources"`
 	}{
 		ID:            id,
@@ -229,6 +318,7 @@ func (h *handlers) handleShowProject(ctx context.Context, req mcp.CallToolReques
 		Plausible:     []string(proj.Plausible),
 		OpenVSX:       []string(proj.OpenVSX),
 		YouTube:       []string(proj.YouTube),
+		LinkedIn:      []string(proj.LinkedIn),
 		Sources:       stats,
 	}
 
@@ -521,10 +611,6 @@ func (h *handlers) handleRemoveProject(ctx context.Context, req mcp.CallToolRequ
 		return errorResult(err.Error()), nil
 	}
 
-	if err := config.RemoveProject(h.cfgFilePath(), id); err != nil {
-		return errorResult(fmt.Sprintf("remove project: %v", err)), nil
-	}
-
 	deleteData := false
 	if args := req.GetArguments(); args != nil {
 		if v, ok := args["delete_data"]; ok {
@@ -532,17 +618,33 @@ func (h *handlers) handleRemoveProject(ctx context.Context, req mcp.CallToolRequ
 		}
 	}
 
+	var trashRoot string
+	var dataMoves []dataMove
 	if deleteData {
-		dataDir := h.cfg.DataDir()
-		for _, src := range []string{"github", "github-traffic", "pypi", "cran", "homebrew", "plausible", "openvsx", "youtube"} {
-			dir := filepath.Join(dataDir, src, id)
-			if _, err := os.Stat(dir); err == nil {
-				os.RemoveAll(dir)
-			}
+		var err error
+		trashRoot, dataMoves, err = trashProjectDataDirs(h.cfg.DataDir(), id)
+		if err != nil {
+			return errorResult(fmt.Sprintf("remove data: %v", err)), nil
 		}
 	}
 
+	if err := config.RemoveProject(h.cfgFilePath(), id); err != nil {
+		if len(dataMoves) > 0 {
+			if rollbackErr := rollbackDataMoves(dataMoves); rollbackErr != nil {
+				return errorResult(fmt.Sprintf("remove project: %v (rollback data: %v)", err, rollbackErr)), nil
+			}
+			os.RemoveAll(trashRoot)
+		}
+		return errorResult(fmt.Sprintf("remove project: %v", err)), nil
+	}
+
 	delete(h.cfg.Projects, id)
+
+	if trashRoot != "" {
+		if err := os.RemoveAll(trashRoot); err != nil {
+			return errorResult(fmt.Sprintf("cleanup removed data: %v", err)), nil
+		}
+	}
 
 	return textResult(fmt.Sprintf("Removed project '%s'", id)), nil
 }
@@ -568,17 +670,19 @@ func (h *handlers) handleRenameProject(ctx context.Context, req mcp.CallToolRequ
 		return errorResult(fmt.Sprintf("project %q already exists", newID)), nil
 	}
 
-	if err := config.RenameSection(h.cfgFilePath(), oldID, newID); err != nil {
-		return errorResult(fmt.Sprintf("rename project: %v", err)), nil
+	dataMoves, err := moveProjectDataDirs(h.cfg.DataDir(), oldID, newID)
+	if err != nil {
+		if rollbackErr := rollbackDataMoves(dataMoves); rollbackErr != nil {
+			return errorResult(fmt.Sprintf("rename data: %v (rollback: %v)", err, rollbackErr)), nil
+		}
+		return errorResult(fmt.Sprintf("rename data: %v", err)), nil
 	}
 
-	dataDir := h.cfg.DataDir()
-	for _, src := range []string{"github", "github-traffic", "pypi", "cran", "homebrew", "plausible", "openvsx", "youtube"} {
-		oldDir := filepath.Join(dataDir, src, oldID)
-		newDir := filepath.Join(dataDir, src, newID)
-		if _, err := os.Stat(oldDir); err == nil {
-			os.Rename(oldDir, newDir)
+	if err := config.RenameSection(h.cfgFilePath(), oldID, newID); err != nil {
+		if rollbackErr := rollbackDataMoves(dataMoves); rollbackErr != nil {
+			return errorResult(fmt.Sprintf("rename project: %v (rollback data: %v)", err, rollbackErr)), nil
 		}
+		return errorResult(fmt.Sprintf("rename project: %v", err)), nil
 	}
 
 	if proj, ok := h.cfg.Projects[oldID]; ok {

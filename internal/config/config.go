@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/BurntSushi/toml"
+	"github.com/jeroenjanssens/velocirepo/internal/sourceinfo"
 	"github.com/jeroenjanssens/velocirepo/internal/store"
 )
 
@@ -75,21 +76,44 @@ type Project struct {
 }
 
 type SourceEntry struct {
-	Name   string
+	sourceinfo.Descriptor
 	Values StringList
 }
 
 func (p Project) Sources() []SourceEntry {
-	return []SourceEntry{
-		{"github", p.GitHubEvents},
-		{"github-traffic", p.GitHubTraffic},
-		{"pypi", p.PyPI},
-		{"cran", p.CRAN},
-		{"homebrew", p.Homebrew},
-		{"plausible", p.Plausible},
-		{"openvsx", p.OpenVSX},
-		{"youtube", p.YouTube},
-		{"linkedin", p.LinkedIn},
+	descriptors := sourceinfo.All()
+	entries := make([]SourceEntry, 0, len(descriptors))
+	for _, d := range descriptors {
+		entries = append(entries, SourceEntry{
+			Descriptor: d,
+			Values:     p.SourceValues(d.Name),
+		})
+	}
+	return entries
+}
+
+func (p Project) SourceValues(name string) StringList {
+	switch name {
+	case "github":
+		return p.GitHubEvents
+	case "github-traffic":
+		return p.GitHubTraffic
+	case "pypi":
+		return p.PyPI
+	case "cran":
+		return p.CRAN
+	case "homebrew":
+		return p.Homebrew
+	case "plausible":
+		return p.Plausible
+	case "openvsx":
+		return p.OpenVSX
+	case "youtube":
+		return p.YouTube
+	case "linkedin":
+		return p.LinkedIn
+	default:
+		return nil
 	}
 }
 
@@ -104,25 +128,11 @@ func (p Project) SourceNames() []string {
 }
 
 func SourceDirPath(sourceName string) string {
-	if store.EventSources[sourceName] {
-		return "events/" + sourceName
-	}
-	return "metrics/" + sourceName
+	return sourceinfo.DataDirPath(sourceName)
 }
 
 func SourceDirNames() []string {
-	return []string{
-		"events/github",
-		"metrics/github-traffic",
-		"metrics/pypi",
-		"metrics/cran",
-		"metrics/homebrew",
-		"metrics/plausible",
-		"metrics/openvsx",
-		"metrics/youtube",
-		"metrics/linkedin",
-		"content/linkedin",
-	}
+	return sourceinfo.DataDirPaths()
 }
 
 type DataConfig struct {
@@ -144,11 +154,11 @@ type IndicatorConfig struct {
 }
 
 type Config struct {
-	Data       DataConfig                `toml:"data"`
-	Settings   SettingsConfig            `toml:"settings"`
-	Views      ViewsConfig               `toml:"views"`
+	Data       DataConfig                 `toml:"data"`
+	Settings   SettingsConfig             `toml:"settings"`
+	Views      ViewsConfig                `toml:"views"`
 	Indicators map[string]IndicatorConfig `toml:"indicators"`
-	Projects   map[string]Project        `toml:"projects"`
+	Projects   map[string]Project         `toml:"projects"`
 
 	// Computed fields
 	Dir string `toml:"-"`
@@ -164,7 +174,6 @@ func (c *Config) ViewsDir() string {
 	}
 	return filepath.Join(c.Dir, dir)
 }
-
 
 func (c *Config) DataDir() string {
 	dir := c.Data.Dir

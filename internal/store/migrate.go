@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"github.com/jeroenjanssens/velocirepo/internal/sourceinfo"
 )
 
 const LatestSchemaVersion = 5
@@ -122,21 +124,21 @@ func MigrationDescription(version int) string {
 }
 
 var metricPrefixRenames = map[string]string{
-	"downloads":    "daily_downloads",
-	"views":        "daily_views",
-	"unique_views": "daily_unique_views",
-	"clones":       "daily_clones",
+	"downloads":     "daily_downloads",
+	"views":         "daily_views",
+	"unique_views":  "daily_unique_views",
+	"clones":        "daily_clones",
 	"unique_clones": "daily_unique_clones",
-	"pageviews":    "daily_pageviews",
-	"visitors":     "daily_visitors",
-	"visits":       "daily_visits",
-	"reviews":      "total_reviews",
-	"rating":       "total_rating",
-	"subscribers":  "total_subscribers",
+	"pageviews":     "daily_pageviews",
+	"visitors":      "daily_visitors",
+	"visits":        "daily_visits",
+	"reviews":       "total_reviews",
+	"rating":        "total_rating",
+	"subscribers":   "total_subscribers",
 	"channel_views": "total_channel_views",
-	"video_count":  "total_video_count",
-	"likes":        "total_likes",
-	"comments":     "total_comments",
+	"video_count":   "total_video_count",
+	"likes":         "total_likes",
+	"comments":      "total_comments",
 }
 
 var metricPluralRenames = map[string]string{
@@ -219,7 +221,7 @@ func migrate3to4(dataDir string) error {
 	eventsDir := filepath.Join(dataDir, "events")
 	metricsDir := filepath.Join(dataDir, "metrics")
 
-	for src := range EventSources {
+	for _, src := range sourceinfo.EventNames() {
 		srcDir := filepath.Join(dataDir, src)
 		if _, err := os.Stat(srcDir); os.IsNotExist(err) {
 			continue
@@ -233,8 +235,7 @@ func migrate3to4(dataDir string) error {
 		}
 	}
 
-	metricSources := []string{"github-traffic", "pypi", "cran", "homebrew", "plausible", "openvsx", "youtube"}
-	for _, src := range metricSources {
+	for _, src := range sourceinfo.MetricNames() {
 		srcDir := filepath.Join(dataDir, src)
 		if _, err := os.Stat(srcDir); os.IsNotExist(err) {
 			continue

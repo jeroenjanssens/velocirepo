@@ -11,7 +11,7 @@ import (
 )
 
 func updateProjectCmd() *cobra.Command {
-	var name, githubEvents, githubTraffic, pypi, cran, homebrew, plausible, openvsx, youtube string
+	var name, githubEvents, githubTraffic, pypi, cran, homebrew, plausible, openvsx, youtube, linkedin string
 	var unset []string
 
 	cmd := &cobra.Command{
@@ -33,7 +33,7 @@ func updateProjectCmd() *cobra.Command {
 				cmd.Flags().Changed("github") || cmd.Flags().Changed("github-traffic") ||
 				cmd.Flags().Changed("pypi") || cmd.Flags().Changed("cran") || cmd.Flags().Changed("homebrew") ||
 				cmd.Flags().Changed("plausible") || cmd.Flags().Changed("openvsx") ||
-				cmd.Flags().Changed("youtube") || len(unset) > 0
+				cmd.Flags().Changed("youtube") || cmd.Flags().Changed("linkedin") || len(unset) > 0
 
 			if !flagsProvided && isInteractive() {
 				return projectUpdateInteractive(cfgPath, id, proj)
@@ -77,6 +77,9 @@ func updateProjectCmd() *cobra.Command {
 			if cmd.Flags().Changed("youtube") {
 				updates["youtube"] = youtube
 			}
+			if cmd.Flags().Changed("linkedin") {
+				updates["linkedin"] = linkedin
+			}
 
 			if err := config.UpdateProject(cfgPath, id, updates, unset); err != nil {
 				return err
@@ -104,6 +107,7 @@ func updateProjectCmd() *cobra.Command {
 	cmd.Flags().StringVar(&plausible, "plausible", "", "Plausible site ID")
 	cmd.Flags().StringVar(&openvsx, "openvsx", "", "OpenVSX extension")
 	cmd.Flags().StringVar(&youtube, "youtube", "", "YouTube channel, playlist, or video ID")
+	cmd.Flags().StringVar(&linkedin, "linkedin", "", "LinkedIn URN")
 	cmd.Flags().StringSliceVar(&unset, "unset", nil, "fields to remove (can be repeated)")
 
 	return cmd
@@ -151,6 +155,10 @@ func projectUpdateInteractive(cfgPath string, id string, proj config.Project) er
 	if err != nil {
 		return err
 	}
+	linkedin, err := prompt(os.Stdout, reader, "LinkedIn URN", proj.LinkedIn.String(), "")
+	if err != nil {
+		return err
+	}
 
 	for _, repo := range parseCommaSeparated(githubEvents) {
 		if !validGitHubRe.MatchString(repo) {
@@ -185,6 +193,7 @@ func projectUpdateInteractive(cfgPath string, id string, proj config.Project) er
 	updateOrUnset("plausible", plausible, proj.Plausible.String())
 	updateOrUnset("openvsx", openvsx, proj.OpenVSX.String())
 	updateOrUnset("youtube", youtube, proj.YouTube.String())
+	updateOrUnset("linkedin", linkedin, proj.LinkedIn.String())
 
 	if len(updates) == 0 && len(unsets) == 0 {
 		fmt.Println("No changes.")

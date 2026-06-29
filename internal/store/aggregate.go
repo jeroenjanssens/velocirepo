@@ -10,20 +10,14 @@ import (
 	"time"
 
 	"github.com/jeroenjanssens/velocirepo/internal/source"
+	"github.com/jeroenjanssens/velocirepo/internal/sourceinfo"
 )
-
-var EventSources = map[string]bool{
-	"github": true,
-}
 
 // SourceCategory returns the date-partitioned category ("metrics" or "events")
 // for a given source. Sources may also produce content via the ContentProvider
 // interface, which is handled separately by the fetch orchestrator.
 func SourceCategory(sourceName string) string {
-	if EventSources[sourceName] {
-		return "events"
-	}
-	return "metrics"
+	return sourceinfo.CategoryDir(sourceName)
 }
 
 // Aggregate concatenates daily→monthly→yearly for all projects. Errors for
@@ -414,4 +408,3 @@ func dedupEventKey(e source.Event) string {
 
 	return b.String()
 }
-

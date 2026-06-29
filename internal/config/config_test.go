@@ -126,6 +126,51 @@ cran = "single-pkg"
 	}
 }
 
+func TestProjectSourcesIncludeAllRegisteredSources(t *testing.T) {
+	p := Project{
+		GitHubEvents:  StringList{"org/repo"},
+		GitHubTraffic: StringList{"org/repo"},
+		PyPI:          StringList{"pkg"},
+		CRAN:          StringList{"cranpkg"},
+		Homebrew:      StringList{"tap/formula"},
+		Plausible:     StringList{"example.com"},
+		OpenVSX:       StringList{"pub/ext"},
+		YouTube:       StringList{"@channel"},
+		LinkedIn:      StringList{"urn:li:organization:123"},
+	}
+
+	got := p.SourceNames()
+	want := []string{"github", "github-traffic", "pypi", "cran", "homebrew", "plausible", "openvsx", "youtube", "linkedin"}
+	if len(got) != len(want) {
+		t.Fatalf("SourceNames length = %d, want %d: %v", len(got), len(want), got)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("SourceNames[%d] = %q, want %q (all: %v)", i, got[i], want[i], got)
+		}
+	}
+}
+
+func TestSourceDirNamesIncludeMetricsEventsAndContent(t *testing.T) {
+	got := map[string]bool{}
+	for _, path := range SourceDirNames() {
+		got[path] = true
+	}
+
+	for _, want := range []string{
+		"events/github",
+		"metrics/github-traffic",
+		"metrics/youtube",
+		"metrics/linkedin",
+		"content/youtube",
+		"content/linkedin",
+	} {
+		if !got[want] {
+			t.Fatalf("SourceDirNames missing %q: %v", want, SourceDirNames())
+		}
+	}
+}
+
 func TestLoadMissingFile(t *testing.T) {
 	_, err := Load("/nonexistent/path/velocirepo.toml")
 	if err == nil {

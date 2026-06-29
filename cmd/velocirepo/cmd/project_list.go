@@ -40,6 +40,8 @@ func listProjectsCmd() *cobra.Command {
 					Homebrew      []string `json:"homebrew,omitempty"`
 					Plausible     []string `json:"plausible,omitempty"`
 					OpenVSX       []string `json:"openvsx,omitempty"`
+					YouTube       []string `json:"youtube,omitempty"`
+					LinkedIn      []string `json:"linkedin,omitempty"`
 				}
 				var list []projectJSON
 				for id, p := range projects {
@@ -53,6 +55,8 @@ func listProjectsCmd() *cobra.Command {
 						Homebrew:      []string(p.Homebrew),
 						Plausible:     []string(p.Plausible),
 						OpenVSX:       []string(p.OpenVSX),
+						YouTube:       []string(p.YouTube),
+						LinkedIn:      []string(p.LinkedIn),
 					})
 				}
 				enc := json.NewEncoder(out)
@@ -66,17 +70,20 @@ func listProjectsCmd() *cobra.Command {
 			}
 
 			w := tabwriter.NewWriter(out, 0, 0, 2, ' ', 0)
-			fmt.Fprintln(w, "ID\tNAME\tGITHUB-EVENTS\tPYPI\tCRAN\tHOMEBREW\tPLAUSIBLE\tOPENVSX")
+			fmt.Fprintln(w, "ID\tNAME\tGITHUB-EVENTS\tGITHUB-TRAFFIC\tPYPI\tCRAN\tHOMEBREW\tPLAUSIBLE\tOPENVSX\tYOUTUBE\tLINKEDIN")
 			for id, p := range projects {
-				fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+				fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
 					id,
 					valOrDash(p.Name),
 					sliceOrDash(p.GitHubEvents),
+					sliceOrDash(p.GitHubTraffic),
 					sliceOrDash(p.PyPI),
 					sliceOrDash(p.CRAN),
 					sliceOrDash(p.Homebrew),
 					sliceOrDash(p.Plausible),
 					sliceOrDash(p.OpenVSX),
+					sliceOrDash(p.YouTube),
+					sliceOrDash(p.LinkedIn),
 				)
 			}
 			return w.Flush()

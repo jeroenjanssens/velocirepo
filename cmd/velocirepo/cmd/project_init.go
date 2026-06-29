@@ -100,26 +100,10 @@ func initCmd() *cobra.Command {
 
 func formatSection(id string, p config.Project) string {
 	s := fmt.Sprintf("[projects.%s]\nname = %q\n", id, p.Name)
-	if !p.GitHubEvents.IsEmpty() {
-		s += fmt.Sprintf("github = %q\n", p.GitHubEvents.First())
-	}
-	if !p.GitHubTraffic.IsEmpty() {
-		s += fmt.Sprintf("github-traffic = %q\n", p.GitHubTraffic.First())
-	}
-	if !p.PyPI.IsEmpty() {
-		s += fmt.Sprintf("pypi = %q\n", p.PyPI.First())
-	}
-	if !p.CRAN.IsEmpty() {
-		s += fmt.Sprintf("cran = %q\n", p.CRAN.First())
-	}
-	if !p.Homebrew.IsEmpty() {
-		s += fmt.Sprintf("homebrew = %q\n", p.Homebrew.First())
-	}
-	if !p.Plausible.IsEmpty() {
-		s += fmt.Sprintf("plausible = %q\n", p.Plausible.First())
-	}
-	if !p.OpenVSX.IsEmpty() {
-		s += fmt.Sprintf("openvsx = %q\n", p.OpenVSX.First())
+	for _, src := range p.Sources() {
+		if !src.Values.IsEmpty() {
+			s += fmt.Sprintf("%s = %q\n", src.Name, src.Values.First())
+		}
 	}
 	return s
 }

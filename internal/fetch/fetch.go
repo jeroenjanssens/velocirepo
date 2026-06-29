@@ -24,13 +24,13 @@ type Options struct {
 
 type Result struct {
 	Source    string        `json:"source"`
-	ProjectID string       `json:"project_id"`
-	Records   int          `json:"records"`
-	StartDate string       `json:"start_date"`
-	EndDate   string       `json:"end_date"`
+	ProjectID string        `json:"project_id"`
+	Records   int           `json:"records"`
+	StartDate string        `json:"start_date"`
+	EndDate   string        `json:"end_date"`
 	Duration  time.Duration `json:"duration,omitempty"`
-	Skipped   string       `json:"skipped,omitempty"`
-	Error     string       `json:"error,omitempty"`
+	Skipped   string        `json:"skipped,omitempty"`
+	Error     string        `json:"error,omitempty"`
 }
 
 type Tokens struct {
@@ -95,7 +95,51 @@ func filterProjects(projects map[string]config.Project, projectID string) map[st
 	return map[string]config.Project{projectID: p}
 }
 
-func All(ctx context.Context, cfg *config.Config, tokens Tokens, opts Options) ([]Result, error) {
+type fetchJob struct {
+	sourceName   string
+	projectID    string
+	sources      []source.Source
+	eventSources []source.EventSource
+	startDate    time.Time
+	startErr     error
+}
+
+type jobKey struct {
+	sourceName string
+	projectID  string
+}
+
+func addMetricJob(jobs map[jobKey]*fetchJob, order *[]jobKey, sourceName, projectID string, src source.Source) {
+	key := jobKey{sourceName: sourceName, projectID: projectID}
+	job := jobs[key]
+	if job == nil {
+		job = &fetchJob{sourceName: sourceName, projectID: projectID}
+		jobs[key] = job
+		*order = append(*order, key)
+	}
+	job.sources = append(job.sources, src)
+}
+
+func addEventJob(jobs map[jobKey]*fetchJob, order *[]jobKey, sourceName, projectID string, src source.EventSource) {
+	key := jobKey{sourceName: sourceName, projectID: projectID}
+	job := jobs[key]
+	if job == nil {
+		job = &fetchJob{sourceName: sourceName, projectID: projectID}
+		jobs[key] = job
+		*order = append(*order, key)
+	}
+	job.eventSources = append(job.eventSources, src)
+}
+
+func orderedJobs(jobs map[jobKey]*fetchJob, order []jobKey) []fetchJob {
+	out := make([]fetchJob, 0, len(order))
+	for _, key := range order {
+		out = append(out, *jobs[key])
+	}
+	return out
+}
+
+func selectedProjects(cfg *config.Config, opts Options) (map[string]config.Project, error) {
 	projects := cfg.Projects
 	if len(projects) == 0 {
 		return nil, fmt.Errorf("no projects configured")
@@ -105,419 +149,307 @@ func All(ctx context.Context, cfg *config.Config, tokens Tokens, opts Options) (
 	if projects == nil {
 		return nil, fmt.Errorf("project %q not found in config", opts.Project)
 	}
+	return projects, nil
+}
 
+func runJobs(ctx context.Context, cfg *config.Config, opts Options, jobs []fetchJob, concurrency int) ([]Result, error) {
 	endDate, err := resolveEndDate(cfg, opts.EndDate)
 	if err != nil {
 		return nil, fmt.Errorf("parse end date: %w", err)
 	}
 
 	dataDir := cfg.DataDir()
-	client := &http.Client{Timeout: 30 * time.Second}
-
-	type fetchJob struct {
-		sourceName string
-		projectID  string
-		src        source.Source
-		eventSrc   source.EventSource
+	for i := range jobs {
+		startDate, err := resolveStartDate(dataDir, jobs[i].sourceName, jobs[i].projectID, opts.StartDate)
+		jobs[i].startDate = startDate
+		jobs[i].startErr = err
 	}
+
+	resultsCh := make(chan []Result, len(jobs))
+
+	if concurrency <= 0 {
+		concurrency = 1
+	}
+
+	g, gctx := errgroup.WithContext(ctx)
+	g.SetLimit(concurrency)
+
+	for _, job := range jobs {
+		job := job
+		g.Go(func() error {
+			resultsCh <- runJob(gctx, dataDir, endDate, job)
+			return nil
+		})
+	}
+
+	if err := g.Wait(); err != nil {
+		return nil, err
+	}
+	close(resultsCh)
+
+	results := make([]Result, 0, len(jobs))
+	for jobResults := range resultsCh {
+		results = append(results, jobResults...)
+	}
+
+	if !opts.NoConcatenate {
+		if err := store.Aggregate(dataDir, time.Now().UTC()); err != nil {
+			return results, fmt.Errorf("concatenation: %w", err)
+		}
+	}
+
+	return results, nil
+}
+
+func runJob(ctx context.Context, dataDir string, endDate time.Time, job fetchJob) []Result {
+	started := time.Now()
+	if job.startErr != nil {
+		return []Result{{
+			Source:    job.sourceName,
+			ProjectID: job.projectID,
+			Duration:  time.Since(started),
+			Error:     fmt.Sprintf("resolve start date: %v", job.startErr),
+		}}
+	}
+
+	if !job.startDate.Before(endDate.AddDate(0, 0, 1)) {
+		return []Result{{
+			Source:    job.sourceName,
+			ProjectID: job.projectID,
+			Duration:  time.Since(started),
+			Skipped:   "already up to date",
+		}}
+	}
+
+	if len(job.eventSources) > 0 {
+		return runEventJob(ctx, dataDir, job, source.FetchOptions{
+			ProjectID: job.projectID,
+			StartDate: job.startDate,
+			EndDate:   endDate,
+		}, started)
+	}
+
+	if len(job.sources) == 0 {
+		return []Result{{
+			Source:    job.sourceName,
+			ProjectID: job.projectID,
+			Duration:  time.Since(started),
+			Error:     "no fetcher configured",
+		}}
+	}
+
+	return runMetricJob(ctx, dataDir, job, source.FetchOptions{
+		ProjectID: job.projectID,
+		StartDate: job.startDate,
+		EndDate:   endDate,
+	}, started)
+}
+
+func runEventJob(ctx context.Context, dataDir string, job fetchJob, opts source.FetchOptions, started time.Time) []Result {
+	var results []Result
+	var events []source.Event
+	for _, eventSrc := range job.eventSources {
+		fetched, err := eventSrc.FetchEvents(ctx, opts)
+		if err != nil {
+			results = append(results, Result{
+				Source:    job.sourceName,
+				ProjectID: job.projectID,
+				Duration:  time.Since(started),
+				Error:     err.Error(),
+			})
+			continue
+		}
+		events = append(events, fetched...)
+	}
+
+	if len(results) > 0 {
+		return results
+	}
+
+	if len(events) == 0 {
+		return []Result{{
+			Source:    job.sourceName,
+			ProjectID: job.projectID,
+			Duration:  time.Since(started),
+			Skipped:   "no new events",
+		}}
+	}
+
+	if err := store.WriteEvents(dataDir, job.sourceName, job.projectID, events); err != nil {
+		return append(results, Result{
+			Source:    job.sourceName,
+			ProjectID: job.projectID,
+			Duration:  time.Since(started),
+			Error:     fmt.Sprintf("write: %v", err),
+		})
+	}
+
+	return append(results, Result{
+		Source:    job.sourceName,
+		ProjectID: job.projectID,
+		Records:   len(events),
+		StartDate: opts.StartDate.Format("2006-01-02"),
+		EndDate:   opts.EndDate.Format("2006-01-02"),
+		Duration:  time.Since(started),
+	})
+}
+
+func runMetricJob(ctx context.Context, dataDir string, job fetchJob, opts source.FetchOptions, started time.Time) []Result {
+	var results []Result
+	var records []source.Record
+	contentByFilename := make(map[string][]source.ContentEntry)
+
+	for _, src := range job.sources {
+		fetched, err := src.Fetch(ctx, opts)
+		if err != nil {
+			results = append(results, Result{
+				Source:    job.sourceName,
+				ProjectID: job.projectID,
+				Duration:  time.Since(started),
+				Error:     err.Error(),
+			})
+			continue
+		}
+		if len(fetched) == 0 {
+			continue
+		}
+		records = append(records, fetched...)
+		if cp, ok := src.(source.ContentProvider); ok {
+			if entries := cp.ContentEntries(); len(entries) > 0 {
+				contentByFilename[cp.ContentFilename()] = append(contentByFilename[cp.ContentFilename()], entries...)
+			}
+		}
+	}
+
+	if len(results) > 0 {
+		return results
+	}
+
+	if len(records) == 0 {
+		return []Result{{
+			Source:    job.sourceName,
+			ProjectID: job.projectID,
+			Duration:  time.Since(started),
+			Skipped:   "no new records",
+		}}
+	}
+
+	if err := store.WriteRecords(dataDir, job.sourceName, job.projectID, records); err != nil {
+		return append(results, Result{
+			Source:    job.sourceName,
+			ProjectID: job.projectID,
+			Duration:  time.Since(started),
+			Error:     fmt.Sprintf("write: %v", err),
+		})
+	}
+
+	for filename, entries := range contentByFilename {
+		if err := store.WriteContent(dataDir, job.sourceName, job.projectID, filename, entries); err != nil {
+			slog.Warn("write content failed", "source", job.sourceName, "project", job.projectID, "error", err)
+		}
+	}
+
+	return append(results, Result{
+		Source:    job.sourceName,
+		ProjectID: job.projectID,
+		Records:   len(records),
+		StartDate: opts.StartDate.Format("2006-01-02"),
+		EndDate:   opts.EndDate.Format("2006-01-02"),
+		Duration:  time.Since(started),
+	})
+}
+
+func All(ctx context.Context, cfg *config.Config, tokens Tokens, opts Options) ([]Result, error) {
+	projects, err := selectedProjects(cfg, opts)
+	if err != nil {
+		return nil, err
+	}
+
+	client := &http.Client{Timeout: 30 * time.Second}
 
 	if tokens.LinkedIn != "" {
 		auth.CheckLinkedInTokenExpiry(ctx, tokens.LinkedIn, os.Getenv("LINKEDIN_CLIENT_ID"), os.Getenv("LINKEDIN_CLIENT_SECRET"))
 	}
 
-	var jobs []fetchJob
+	jobsByKey := make(map[jobKey]*fetchJob)
+	var jobOrder []jobKey
 	for id, proj := range projects {
 		for _, repo := range proj.GitHubTraffic {
-			jobs = append(jobs, fetchJob{sourceName: "github-traffic", projectID: id, src: &source.GitHubTraffic{Client: client, Token: tokens.GitHub, Repo: repo}})
+			addMetricJob(jobsByKey, &jobOrder, "github-traffic", id, &source.GitHubTraffic{Client: client, Token: tokens.GitHub, Repo: repo})
 		}
 		for _, repo := range proj.GitHubEvents {
-			jobs = append(jobs, fetchJob{sourceName: "github", projectID: id, eventSrc: &source.GitHubEvents{Client: client, Token: tokens.GitHub, Repo: repo}})
+			addEventJob(jobsByKey, &jobOrder, "github", id, &source.GitHubEvents{Client: client, Token: tokens.GitHub, Repo: repo})
 		}
 		for _, pkg := range proj.PyPI {
-			jobs = append(jobs, fetchJob{sourceName: "pypi", projectID: id, src: &source.PyPI{Client: client, Package: pkg}})
+			addMetricJob(jobsByKey, &jobOrder, "pypi", id, &source.PyPI{Client: client, Package: pkg})
 		}
 		for _, pkg := range proj.CRAN {
-			jobs = append(jobs, fetchJob{sourceName: "cran", projectID: id, src: &source.CRAN{Client: client, Package: pkg}})
+			addMetricJob(jobsByKey, &jobOrder, "cran", id, &source.CRAN{Client: client, Package: pkg})
 		}
 		for _, formula := range proj.Homebrew {
-			jobs = append(jobs, fetchJob{sourceName: "homebrew", projectID: id, src: &source.Homebrew{Client: client, Formula: formula}})
+			addMetricJob(jobsByKey, &jobOrder, "homebrew", id, &source.Homebrew{Client: client, Formula: formula})
 		}
 		if tokens.Plausible != "" {
 			for _, site := range proj.Plausible {
-				jobs = append(jobs, fetchJob{sourceName: "plausible", projectID: id, src: &source.Plausible{Client: client, APIKey: tokens.Plausible, SiteID: site}})
+				addMetricJob(jobsByKey, &jobOrder, "plausible", id, &source.Plausible{Client: client, APIKey: tokens.Plausible, SiteID: site})
 			}
 		}
 		for _, ext := range proj.OpenVSX {
-			jobs = append(jobs, fetchJob{sourceName: "openvsx", projectID: id, src: &source.OpenVSX{Client: client, ExtensionID: ext}})
+			addMetricJob(jobsByKey, &jobOrder, "openvsx", id, &source.OpenVSX{Client: client, ExtensionID: ext})
 		}
 		if tokens.YouTube != "" {
 			for _, target := range proj.YouTube {
-				jobs = append(jobs, fetchJob{sourceName: "youtube", projectID: id, src: &source.YouTube{Client: client, APIKey: tokens.YouTube, Target: target}})
+				addMetricJob(jobsByKey, &jobOrder, "youtube", id, &source.YouTube{Client: client, APIKey: tokens.YouTube, Target: target})
 			}
 		}
 		if tokens.LinkedIn != "" {
 			for _, target := range proj.LinkedIn {
-				jobs = append(jobs, fetchJob{sourceName: "linkedin", projectID: id, src: &source.LinkedIn{Client: client, Token: tokens.LinkedIn, Target: target}})
+				addMetricJob(jobsByKey, &jobOrder, "linkedin", id, &source.LinkedIn{Client: client, Token: tokens.LinkedIn, Target: target})
 			}
 		}
 	}
 
-	var results []Result
-	resultsCh := make(chan Result, len(jobs))
-
-	g, gctx := errgroup.WithContext(ctx)
-	g.SetLimit(4)
-
-	for _, job := range jobs {
-		job := job
-		g.Go(func() error {
-			started := time.Now()
-			startDate, err := resolveStartDate(dataDir, job.sourceName, job.projectID, opts.StartDate)
-			if err != nil {
-				resultsCh <- Result{
-					Source:    job.sourceName,
-					ProjectID: job.projectID,
-					Duration:  time.Since(started),
-					Error:     fmt.Sprintf("resolve start date: %v", err),
-				}
-				return nil
-			}
-
-			if !startDate.Before(endDate.AddDate(0, 0, 1)) {
-				resultsCh <- Result{
-					Source:    job.sourceName,
-					ProjectID: job.projectID,
-					Duration:  time.Since(started),
-					Skipped:   "already up to date",
-				}
-				return nil
-			}
-
-			if job.eventSrc != nil {
-				events, err := job.eventSrc.FetchEvents(gctx, source.FetchOptions{
-					ProjectID: job.projectID,
-					StartDate: startDate,
-					EndDate:   endDate,
-				})
-				if err != nil {
-					resultsCh <- Result{
-						Source:    job.sourceName,
-						ProjectID: job.projectID,
-						Duration:  time.Since(started),
-						Error:     err.Error(),
-					}
-					return nil
-				}
-
-				if len(events) == 0 {
-					resultsCh <- Result{
-						Source:    job.sourceName,
-						ProjectID: job.projectID,
-						Duration:  time.Since(started),
-						Skipped:   "no new events",
-					}
-					return nil
-				}
-
-				if err := store.WriteEvents(dataDir, job.sourceName, job.projectID, events); err != nil {
-					resultsCh <- Result{
-						Source:    job.sourceName,
-						ProjectID: job.projectID,
-						Duration:  time.Since(started),
-						Error:     fmt.Sprintf("write: %v", err),
-					}
-					return nil
-				}
-
-				resultsCh <- Result{
-					Source:    job.sourceName,
-					ProjectID: job.projectID,
-					Records:   len(events),
-					StartDate: startDate.Format("2006-01-02"),
-					EndDate:   endDate.Format("2006-01-02"),
-					Duration:  time.Since(started),
-				}
-			} else {
-				records, err := job.src.Fetch(gctx, source.FetchOptions{
-					ProjectID: job.projectID,
-					StartDate: startDate,
-					EndDate:   endDate,
-				})
-				if err != nil {
-					resultsCh <- Result{
-						Source:    job.sourceName,
-						ProjectID: job.projectID,
-						Duration:  time.Since(started),
-						Error:     err.Error(),
-					}
-					return nil
-				}
-
-				if len(records) == 0 {
-					resultsCh <- Result{
-						Source:    job.sourceName,
-						ProjectID: job.projectID,
-						Duration:  time.Since(started),
-						Skipped:   "no new records",
-					}
-					return nil
-				}
-
-				if err := store.WriteRecords(dataDir, job.sourceName, job.projectID, records); err != nil {
-					resultsCh <- Result{
-						Source:    job.sourceName,
-						ProjectID: job.projectID,
-						Duration:  time.Since(started),
-						Error:     fmt.Sprintf("write: %v", err),
-					}
-					return nil
-				}
-
-				if cp, ok := job.src.(source.ContentProvider); ok {
-					if entries := cp.ContentEntries(); len(entries) > 0 {
-						if err := store.WriteContent(dataDir, job.sourceName, job.projectID, cp.ContentFilename(), entries); err != nil {
-							slog.Warn("write content failed", "source", job.sourceName, "project", job.projectID, "error", err)
-						}
-					}
-				}
-
-				resultsCh <- Result{
-					Source:    job.sourceName,
-					ProjectID: job.projectID,
-					Records:   len(records),
-					StartDate: startDate.Format("2006-01-02"),
-					EndDate:   endDate.Format("2006-01-02"),
-					Duration:  time.Since(started),
-				}
-			}
-
-			return nil
-		})
-	}
-
-	g.Wait()
-	close(resultsCh)
-
-	for r := range resultsCh {
-		results = append(results, r)
-	}
-
-	if !opts.NoConcatenate {
-		if err := store.Aggregate(dataDir, time.Now().UTC()); err != nil {
-			return results, fmt.Errorf("concatenation: %w", err)
-		}
-	}
-
-	return results, nil
+	return runJobs(ctx, cfg, opts, orderedJobs(jobsByKey, jobOrder), 4)
 }
 
-func Source(ctx context.Context, cfg *config.Config, tokens Tokens, sourceName string, opts Options, createSources func(id string, proj config.Project) []source.Source) ([]Result, error) {
-	projects := cfg.Projects
-	if len(projects) == 0 {
-		return nil, fmt.Errorf("no projects configured")
-	}
-
-	projects = filterProjects(projects, opts.Project)
-	if projects == nil {
-		return nil, fmt.Errorf("project %q not found in config", opts.Project)
-	}
-
-	endDate, err := resolveEndDate(cfg, opts.EndDate)
+func Source(ctx context.Context, cfg *config.Config, _ Tokens, sourceName string, opts Options, createSources func(id string, proj config.Project) []source.Source) ([]Result, error) {
+	projects, err := selectedProjects(cfg, opts)
 	if err != nil {
-		return nil, fmt.Errorf("parse end date: %w", err)
+		return nil, err
 	}
 
-	dataDir := cfg.DataDir()
-	var results []Result
+	var jobs []fetchJob
 
 	for id, proj := range projects {
 		sources := createSources(id, proj)
-		if len(sources) == 0 {
-			continue
-		}
-
-		startDate, err := resolveStartDate(dataDir, sourceName, id, opts.StartDate)
-		if err != nil {
-			results = append(results, Result{
-				Source:    sourceName,
-				ProjectID: id,
-				Error:     fmt.Sprintf("resolve start date: %v", err),
-			})
-			continue
-		}
-
-		if !startDate.Before(endDate.AddDate(0, 0, 1)) {
-			results = append(results, Result{
-				Source:    sourceName,
-				ProjectID: id,
-				Skipped:   "already up to date",
-			})
-			continue
-		}
-
-		for _, src := range sources {
-			started := time.Now()
-			records, err := src.Fetch(ctx, source.FetchOptions{
-				ProjectID: id,
-				StartDate: startDate,
-				EndDate:   endDate,
-			})
-			if err != nil {
-				results = append(results, Result{
-					Source:    sourceName,
-					ProjectID: id,
-					Duration:  time.Since(started),
-					Error:     err.Error(),
-				})
-				continue
-			}
-
-			if len(records) == 0 {
-				results = append(results, Result{
-					Source:    sourceName,
-					ProjectID: id,
-					Duration:  time.Since(started),
-					Skipped:   "no new records",
-				})
-				continue
-			}
-
-			if err := store.WriteRecords(dataDir, sourceName, id, records); err != nil {
-				results = append(results, Result{
-					Source:    sourceName,
-					ProjectID: id,
-					Duration:  time.Since(started),
-					Error:     fmt.Sprintf("write: %v", err),
-				})
-				continue
-			}
-
-			if cp, ok := src.(source.ContentProvider); ok {
-				if entries := cp.ContentEntries(); len(entries) > 0 {
-					if err := store.WriteContent(dataDir, sourceName, id, cp.ContentFilename(), entries); err != nil {
-						slog.Warn("write content failed", "source", sourceName, "project", id, "error", err)
-					}
-				}
-			}
-
-			results = append(results, Result{
-				Source:    sourceName,
-				ProjectID: id,
-				Records:   len(records),
-				StartDate: startDate.Format("2006-01-02"),
-				EndDate:   endDate.Format("2006-01-02"),
-				Duration:  time.Since(started),
-			})
+		if len(sources) > 0 {
+			jobs = append(jobs, fetchJob{sourceName: sourceName, projectID: id, sources: sources})
 		}
 	}
 
-	if !opts.NoConcatenate {
-		if err := store.Aggregate(dataDir, time.Now().UTC()); err != nil {
-			return results, fmt.Errorf("concatenation: %w", err)
-		}
-	}
-
-	return results, nil
+	return runJobs(ctx, cfg, opts, jobs, 1)
 }
 
 func GitHub(ctx context.Context, cfg *config.Config, tokens Tokens, opts Options) ([]Result, error) {
-	projects := cfg.Projects
-	if len(projects) == 0 {
-		return nil, fmt.Errorf("no projects configured")
-	}
-
-	projects = filterProjects(projects, opts.Project)
-	if projects == nil {
-		return nil, fmt.Errorf("project %q not found in config", opts.Project)
-	}
-
-	endDate, err := resolveEndDate(cfg, opts.EndDate)
+	projects, err := selectedProjects(cfg, opts)
 	if err != nil {
-		return nil, fmt.Errorf("parse end date: %w", err)
+		return nil, err
 	}
 
-	dataDir := cfg.DataDir()
 	client := &http.Client{Timeout: 30 * time.Second}
-	var results []Result
+	var jobs []fetchJob
 
 	for id, proj := range projects {
+		var eventSources []source.EventSource
 		for _, repo := range proj.GitHubEvents {
-			started := time.Now()
-			startDate, err := resolveStartDate(dataDir, "github", id, opts.StartDate)
-			if err != nil {
-				results = append(results, Result{
-					Source:    "github",
-					ProjectID: id,
-					Duration:  time.Since(started),
-					Error:     fmt.Sprintf("resolve start date: %v", err),
-				})
-				continue
-			}
-
-			if !startDate.Before(endDate.AddDate(0, 0, 1)) {
-				results = append(results, Result{
-					Source:    "github",
-					ProjectID: id,
-					Duration:  time.Since(started),
-					Skipped:   "already up to date",
-				})
-				continue
-			}
-
-			src := &source.GitHubEvents{Client: client, Token: tokens.GitHub, Repo: repo}
-			events, err := src.FetchEvents(ctx, source.FetchOptions{
-				ProjectID: id,
-				StartDate: startDate,
-				EndDate:   endDate,
-			})
-			if err != nil {
-				results = append(results, Result{
-					Source:    "github",
-					ProjectID: id,
-					Duration:  time.Since(started),
-					Error:     err.Error(),
-				})
-				continue
-			}
-
-			if len(events) == 0 {
-				results = append(results, Result{
-					Source:    "github",
-					ProjectID: id,
-					Duration:  time.Since(started),
-					Skipped:   "no new events",
-				})
-				continue
-			}
-
-			if err := store.WriteEvents(dataDir, "github", id, events); err != nil {
-				results = append(results, Result{
-					Source:    "github",
-					ProjectID: id,
-					Duration:  time.Since(started),
-					Error:     fmt.Sprintf("write: %v", err),
-				})
-				continue
-			}
-
-			results = append(results, Result{
-				Source:    "github",
-				ProjectID: id,
-				Records:   len(events),
-				StartDate: startDate.Format("2006-01-02"),
-				EndDate:   endDate.Format("2006-01-02"),
-				Duration:  time.Since(started),
-			})
+			eventSources = append(eventSources, &source.GitHubEvents{Client: client, Token: tokens.GitHub, Repo: repo})
+		}
+		if len(eventSources) > 0 {
+			jobs = append(jobs, fetchJob{sourceName: "github", projectID: id, eventSources: eventSources})
 		}
 	}
 
-	if !opts.NoConcatenate {
-		if err := store.Aggregate(dataDir, time.Now().UTC()); err != nil {
-			return results, fmt.Errorf("concatenation: %w", err)
-		}
-	}
-
-	return results, nil
+	return runJobs(ctx, cfg, opts, jobs, 1)
 }
 
 func Traffic(ctx context.Context, cfg *config.Config, tokens Tokens, opts Options) ([]Result, error) {

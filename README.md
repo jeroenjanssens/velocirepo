@@ -167,6 +167,7 @@ github = ["owner/other", "owner/other-utils"]
 cran = "other"
 homebrew = "other"
 youtube = "@ChannelHandle"
+linkedin = "urn:li:organization:123456"
 ```
 
 Each source field accepts either a single string or an array of strings, so you can track multiple repositories or packages under one project.
@@ -194,7 +195,7 @@ velocirepo uses API tokens to authenticate with external services. Tokens can be
 | `GITHUB_TOKEN` | GitHub Events, GitHub Traffic | [Create a personal access token](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens) — use a fine-grained token with **Contents:read** (add **Administration:read** for traffic data) |
 | `PLAUSIBLE_TOKEN` | Plausible | [Create an API key](https://plausible.io/docs/stats-api#authentication) in your Plausible site settings |
 | `YOUTUBE_TOKEN` | YouTube | [Create an API key](https://developers.google.com/youtube/v3/getting-started#before-you-start) in the Google Cloud Console with the YouTube Data API v3 enabled |
-| `LINKEDIN_TOKEN` | LinkedIn (coming soon) | [Create an access token](https://learn.microsoft.com/en-us/linkedin/shared/authentication/getting-access) via a LinkedIn app with the Marketing Developer Platform |
+| `LINKEDIN_TOKEN` | LinkedIn | [Create an access token](https://learn.microsoft.com/en-us/linkedin/shared/authentication/getting-access) via a LinkedIn app with the Marketing Developer Platform |
 | `VELOCIREPO_CONFIG` | — | Path to config file (not a token, but supported as an env var) |
 
 ## Usage
@@ -209,6 +210,7 @@ velocirepo fetch-homebrew        Fetch Homebrew install counts
 velocirepo fetch-plausible       Fetch Plausible analytics
 velocirepo fetch-openvsx         Fetch Open VSX extension metrics
 velocirepo fetch-youtube         Fetch YouTube metrics
+velocirepo fetch-linkedin        Fetch LinkedIn post metrics and content
 
 velocirepo query <sql>           Run a SQL query against the metrics data
 velocirepo schema                Show table schemas
@@ -260,7 +262,7 @@ All data is stored as JSONL files under `velocirepo/data/`. This entire director
 
 ### Metrics sources
 
-Sources like PyPI, CRAN, Homebrew, Plausible, OpenVSX, and GitHub Traffic store one JSON object per metric per day:
+Sources like PyPI, CRAN, Homebrew, Plausible, OpenVSX, GitHub Traffic, YouTube, and LinkedIn store one JSON object per metric per day:
 
 ```json
 {"source":"pypi","metric":"daily_downloads","project_id":"plotnine","target":"plotnine","date":"2026-06-15","value":1523}
@@ -273,7 +275,7 @@ Fields:
 
 | Field | Description |
 |-------|-------------|
-| `source` | Source name (pypi, cran, homebrew, plausible, openvsx, github-traffic) |
+| `source` | Source name (pypi, cran, homebrew, plausible, openvsx, github-traffic, youtube, linkedin) |
 | `metric` | Metric name (e.g., `daily_downloads`, `total_views`, `daily_pageviews`) |
 | `project_id` | Project ID from your config |
 | `target` | Specific package, repo, site, or extension being tracked |
@@ -307,13 +309,13 @@ These events are automatically aggregated into daily counts in the `metrics` Duc
 
 Sources that implement the `ContentProvider` interface also write entity data to `data/content/<source>/<project-id>/<name>.jsonl`. These files use upsert-by-id (new entries are merged with existing ones) rather than date-partitioned concatenation.
 
-Currently, YouTube is the only content source. It writes video metadata to `velocirepo/data/content/youtube/<project-id>/videos.jsonl`:
+Currently, YouTube and LinkedIn are content sources. YouTube writes video metadata to `velocirepo/data/content/youtube/<project-id>/videos.jsonl`:
 
 ```json
 {"source":"youtube","target":"@Fireship","id":"ML3q7Ok4hJg","title":"God-Tier Developer Roadmap","published_at":"2024-03-15T16:00:00Z","duration":423,"tags":["programming","roadmap"]}
 ```
 
-This is exposed as the `content` DuckDB view. Filter with `WHERE source = 'youtube'` to query YouTube videos specifically.
+LinkedIn writes post metadata to `velocirepo/data/content/linkedin/<project-id>/posts.jsonl`. Content is exposed as the `content` DuckDB view; filter by `source` to query source-specific entities.
 
 ### Concatenation
 
@@ -953,6 +955,7 @@ Add to your project's `.mcp.json`:
 | `fetch_plausible` | Fetch Plausible analytics |
 | `fetch_openvsx` | Fetch Open VSX metrics |
 | `fetch_youtube` | Fetch YouTube metrics |
+| `fetch_linkedin` | Fetch LinkedIn post metrics and content |
 | `list_projects` | List configured projects |
 | `show_project` | Show project details and fetch stats |
 | `add_project` | Add a project to the config |

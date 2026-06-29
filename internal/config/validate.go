@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"net/http"
 	"time"
+
+	"github.com/jeroenjanssens/velocirepo/internal/sourceinfo"
 )
 
 type ValidationResult struct {
@@ -25,6 +27,11 @@ func ValidateSource(ctx context.Context, opts ValidationOptions, sourceType stri
 	result := ValidationResult{Source: sourceType, Value: value}
 
 	var url string
+	if _, ok := sourceinfo.Get(sourceType); !ok {
+		result.Error = "unknown source type"
+		return result
+	}
+
 	switch sourceType {
 	case "github", "github-traffic":
 		url = "https://api.github.com/repos/" + value
@@ -36,11 +43,11 @@ func ValidateSource(ctx context.Context, opts ValidationOptions, sourceType stri
 		url = "https://formulae.brew.sh/api/formula/" + value + ".json"
 	case "openvsx":
 		url = "https://open-vsx.org/api/" + value
-	case "youtube":
+	case "plausible", "youtube", "linkedin":
 		result.OK = true
 		return result
 	default:
-		result.Error = "unknown source type"
+		result.Error = "source validation is not configured"
 		return result
 	}
 

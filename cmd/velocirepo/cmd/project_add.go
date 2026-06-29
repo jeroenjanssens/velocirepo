@@ -15,7 +15,7 @@ var validIDRe = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
 var validGitHubRe = regexp.MustCompile(`^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$`)
 
 func addProjectCmd() *cobra.Command {
-	var name, githubEvents, githubTraffic, pypi, cran, homebrew, plausible, openvsx, youtube string
+	var name, githubEvents, githubTraffic, pypi, cran, homebrew, plausible, openvsx, youtube, linkedin string
 
 	cmd := &cobra.Command{
 		Use:     "add-project [id]",
@@ -31,7 +31,7 @@ func addProjectCmd() *cobra.Command {
 			}
 
 			flagsProvided := githubEvents != "" || githubTraffic != "" || pypi != "" || cran != "" ||
-				homebrew != "" || plausible != "" || openvsx != "" || youtube != ""
+				homebrew != "" || plausible != "" || openvsx != "" || youtube != "" || linkedin != ""
 
 			if !flagsProvided && isInteractive() {
 				return projectAddInteractive(cfgPath, id)
@@ -70,6 +70,7 @@ func addProjectCmd() *cobra.Command {
 				Plausible:     toStringList(plausible),
 				OpenVSX:       toStringList(openvsx),
 				YouTube:       toStringList(youtube),
+				LinkedIn:      toStringList(linkedin),
 			}
 
 			if err := config.AppendProject(cfgPath, id, proj); err != nil {
@@ -92,6 +93,7 @@ func addProjectCmd() *cobra.Command {
 	cmd.Flags().StringVar(&plausible, "plausible", "", "Plausible site ID")
 	cmd.Flags().StringVar(&openvsx, "openvsx", "", "OpenVSX extension (publisher/extension)")
 	cmd.Flags().StringVar(&youtube, "youtube", "", "YouTube channel (@handle), playlist (PLxxx), or video ID")
+	cmd.Flags().StringVar(&linkedin, "linkedin", "", "LinkedIn URN (urn:li:organization:ID)")
 
 	return cmd
 }
@@ -189,6 +191,10 @@ func projectAddInteractive(cfgPath string, id string) error {
 	if err != nil {
 		return err
 	}
+	linkedin, _, err := promptWithHint(os.Stdout, reader, "LinkedIn URN", "", "", suppress)
+	if err != nil {
+		return err
+	}
 
 	for _, repo := range parseCommaSeparated(githubEvents) {
 		if !validGitHubRe.MatchString(repo) {
@@ -211,6 +217,7 @@ func projectAddInteractive(cfgPath string, id string) error {
 		Plausible:     toStringList(plausible),
 		OpenVSX:       toStringList(openvsx),
 		YouTube:       toStringList(youtube),
+		LinkedIn:      toStringList(linkedin),
 	}
 
 	sources := listSources(proj)
