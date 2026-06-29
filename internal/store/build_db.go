@@ -37,9 +37,6 @@ func BuildDB(dataDir string, projects []ProjectInfo, indicators []IndicatorDef) 
 	if err := createContentViewRelative(db, absDir); err != nil {
 		return err
 	}
-	if err := createYouTubeIndexView(db); err != nil {
-		return err
-	}
 	if err := createProjectsTable(db, projects); err != nil {
 		return err
 	}

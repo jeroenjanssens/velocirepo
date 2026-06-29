@@ -56,7 +56,7 @@ func SchemaLive(dataDir string, projects []ProjectInfo, indicators []IndicatorDe
 	}
 	defer db.Close()
 
-	rows, err := db.Query("SELECT table_name, column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name IN ('content', 'events', 'indicators', 'metrics', 'projects', 'youtube_index') ORDER BY table_name, ordinal_position")
+	rows, err := db.Query("SELECT table_name, column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name IN ('content', 'events', 'indicators', 'metrics', 'projects') ORDER BY table_name, ordinal_position")
 	if err != nil {
 		return nil, fmt.Errorf("query schema: %w", err)
 	}
@@ -96,11 +96,6 @@ func openLiveDB(dataDir string, projects []ProjectInfo, indicators []IndicatorDe
 	}
 
 	if err := createContentView(db, absDir); err != nil {
-		db.Close()
-		return nil, err
-	}
-
-	if err := createYouTubeIndexView(db); err != nil {
 		db.Close()
 		return nil, err
 	}
@@ -261,22 +256,6 @@ func createEmptyContentView(db *sql.DB) error {
 	return nil
 }
 
-func createYouTubeIndexView(db *sql.DB) error {
-	_, err := db.Exec(`CREATE OR REPLACE VIEW youtube_index AS
-		SELECT
-			id AS video_id,
-			title,
-			published_at,
-			target AS channel,
-			duration,
-			tags
-		FROM content
-		WHERE source = 'youtube'`)
-	if err != nil {
-		return fmt.Errorf("create youtube_index alias view: %w", err)
-	}
-	return nil
-}
 
 func createProjectsView(db *sql.DB, projects []ProjectInfo) error {
 	if len(projects) == 0 {

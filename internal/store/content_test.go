@@ -76,36 +76,6 @@ func TestWriteContentMerge(t *testing.T) {
 	}
 }
 
-func TestYouTubeIndexDuckDBView(t *testing.T) {
-	dir := t.TempDir()
-	dataDir := filepath.Join(dir, "data")
-
-	dur := int64(330)
-	contentEntries := []source.ContentEntry{
-		{Source: "youtube", Target: "@TestChan", ID: "abc123", Title: "Test Video", PublishedAt: "2025-06-01T10:00:00Z", Duration: &dur, Tags: []string{"go", "tutorial"}, Type: "video"},
-	}
-	if err := WriteContent(dataDir, "youtube", "proj", "videos.jsonl", contentEntries); err != nil {
-		t.Fatal(err)
-	}
-
-	results, _, err := QueryLive(dataDir, nil, nil, "SELECT video_id, title, channel, duration FROM youtube_index")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(results) != 1 {
-		t.Fatalf("expected 1 row, got %d", len(results))
-	}
-	if results[0]["video_id"] != "abc123" {
-		t.Errorf("expected video_id=abc123, got %v", results[0]["video_id"])
-	}
-	if results[0]["title"] != "Test Video" {
-		t.Errorf("expected title=Test Video, got %v", results[0]["title"])
-	}
-	if results[0]["duration"].(int64) != 330 {
-		t.Errorf("expected duration=330, got %v", results[0]["duration"])
-	}
-}
-
 func TestContentDuckDBView(t *testing.T) {
 	dir := t.TempDir()
 	dataDir := filepath.Join(dir, "data")

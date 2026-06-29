@@ -42,7 +42,6 @@ func Export(opts ExportOptions) ([]string, error) {
 		{"metrics", buildExportQuery("metrics", opts)},
 		{"events", buildExportQuery("events", opts)},
 		{"content", buildExportQuery("content", opts)},
-		{"youtube_index", buildExportQuery("youtube_index", opts)},
 		{"indicators", buildExportQuery("indicators", opts)},
 		{"projects", buildExportQuery("projects", opts)},
 	}
@@ -90,9 +89,6 @@ func buildExportQuery(table string, opts ExportOptions) string {
 		if table == "projects" {
 			col = "id"
 		}
-		if table == "youtube_index" {
-			col = "channel"
-		}
 		if table == "content" {
 			col = "target"
 		}
@@ -116,8 +112,6 @@ func buildExportQuery(table string, opts ExportOptions) string {
 		query += " ORDER BY project, type, datetime"
 	case "content":
 		query += " ORDER BY source, target, published_at"
-	case "youtube_index":
-		query += " ORDER BY channel, published_at"
 	case "indicators":
 		query += " ORDER BY project, source, metric, indicator, date"
 	case "projects":
@@ -132,7 +126,7 @@ func matchesSource(table, source string) bool {
 	case "github":
 		return table == "events"
 	case "youtube":
-		return table == "metrics" || table == "youtube_index" || table == "content"
+		return table == "metrics" || table == "content"
 	case "projects":
 		return table == "projects"
 	default:

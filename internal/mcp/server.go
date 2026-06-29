@@ -64,7 +64,6 @@ Schema:
   metrics: project VARCHAR, source VARCHAR, target VARCHAR, metric VARCHAR, date DATE, value BIGINT, tags JSON
   events: project VARCHAR, source VARCHAR, type VARCHAR, target VARCHAR, datetime TIMESTAMP, tags JSON
   content: source VARCHAR, target VARCHAR, id VARCHAR, title VARCHAR, description VARCHAR, published_at TIMESTAMP, url VARCHAR, duration BIGINT, tags JSON, type VARCHAR, metadata JSON
-  youtube_index: video_id VARCHAR, title VARCHAR, published_at TIMESTAMP, channel VARCHAR, duration BIGINT, tags JSON (alias for content WHERE source='youtube')
   projects: id VARCHAR, name VARCHAR, description VARCHAR, color VARCHAR, tags VARCHAR[], website VARCHAR, logo VARCHAR
 
 Notes:
@@ -80,7 +79,7 @@ Notes:
 
 func schemaTool() mcp.Tool {
 	return mcp.NewTool("schema",
-		mcp.WithDescription("Show column definitions for all DuckDB views: metrics, events, content, youtube_index, projects."),
+		mcp.WithDescription("Show column definitions for all DuckDB views: metrics, events, content, projects."),
 	)
 }
 

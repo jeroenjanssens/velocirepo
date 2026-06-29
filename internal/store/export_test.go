@@ -30,8 +30,8 @@ func TestExportParquet(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if len(written) != 6 {
-		t.Fatalf("expected 6 files, got %d", len(written))
+	if len(written) != 5 {
+		t.Fatalf("expected 5 files, got %d", len(written))
 	}
 
 	metricsPath := filepath.Join(outDir, "metrics.parquet")
@@ -66,8 +66,8 @@ func TestExportCSV(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if len(written) != 6 {
-		t.Fatalf("expected 6 files, got %d", len(written))
+	if len(written) != 5 {
+		t.Fatalf("expected 5 files, got %d", len(written))
 	}
 
 	data, err := os.ReadFile(filepath.Join(outDir, "metrics.csv"))
@@ -167,7 +167,7 @@ func TestExportEmptyData(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if len(written) != 6 {
-		t.Fatalf("expected 6 files even for empty data, got %d", len(written))
+	if len(written) != 5 {
+		t.Fatalf("expected 5 files even for empty data, got %d", len(written))
 	}
 }

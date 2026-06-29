@@ -313,7 +313,7 @@ Currently, YouTube is the only content source. It writes video metadata to `velo
 {"source":"youtube","target":"@Fireship","id":"ML3q7Ok4hJg","title":"God-Tier Developer Roadmap","published_at":"2024-03-15T16:00:00Z","duration":423,"tags":["programming","roadmap"]}
 ```
 
-This is exposed as both the `content` DuckDB view (for all content sources) and the `youtube_index` convenience view (filtered to YouTube with familiar column names like `video_id` and `channel`).
+This is exposed as the `content` DuckDB view. Filter with `WHERE source = 'youtube'` to query YouTube videos specifically.
 
 ### Concatenation
 
@@ -347,7 +347,7 @@ This is safe to run repeatedly — all migrations are idempotent.
 
 ## Querying the data
 
-The `query` command reads JSONL files directly using DuckDB and exposes five views:
+The `query` command reads JSONL files directly using DuckDB and exposes these views:
 
 | View | Description |
 |------|-------------|
@@ -355,7 +355,6 @@ The `query` command reads JSONL files directly using DuckDB and exposes five vie
 | `indicators` | Derived growth rate and trend for daily metrics (28-day windows) |
 | `events` | Raw events with timestamp and tags (e.g., GitHub stars, forks, issues, PRs) |
 | `content` | Entity data from content providers (e.g., YouTube video metadata) |
-| `youtube_index` | Convenience view over `content` filtered to YouTube videos |
 | `projects` | Project metadata from your config |
 
 ### Daily star counts
@@ -439,9 +438,9 @@ velocirepo query "
 
 ```bash
 velocirepo query "
-  SELECT yi.title, m.value AS views
+  SELECT c.title, m.value AS views
   FROM metrics m
-  JOIN youtube_index yi ON m.tags->>'video_id' = yi.video_id
+  JOIN content c ON m.tags->>'video_id' = c.id
   WHERE m.source = 'youtube' AND m.metric = 'total_views'
   ORDER BY m.value DESC
   LIMIT 5
@@ -531,12 +530,6 @@ velocirepo schema
 │ projects      │ tags         │ VARCHAR[] │
 │ projects      │ website      │ VARCHAR   │
 │ projects      │ logo         │ VARCHAR   │
-│ youtube_index │ video_id     │ VARCHAR   │
-│ youtube_index │ title        │ VARCHAR   │
-│ youtube_index │ published_at │ TIMESTAMP │
-│ youtube_index │ channel      │ VARCHAR   │
-│ youtube_index │ duration     │ BIGINT    │
-│ youtube_index │ tags         │ JSON      │
 └───────────────┴──────────────┴───────────┘
 ```
 
@@ -554,7 +547,6 @@ This writes one file per table:
   out/metrics.parquet (257 KB)
   out/events.parquet (2.9 MB)
   out/content.parquet (15 KB)
-  out/youtube_index.parquet (4 KB)
   out/indicators.parquet (42 KB)
   out/projects.parquet (2 KB)
 ```
@@ -950,7 +942,7 @@ Add to your project's `.mcp.json`:
 
 | Tool | Description |
 |------|-------------|
-| `query` | Run SQL against metrics, events, youtube_index, projects views |
+| `query` | Run SQL against metrics, events, content, projects views |
 | `schema` | Show all table columns and types |
 | `fetch` | Fetch from all configured sources |
 | `fetch_github` | Fetch GitHub events |
