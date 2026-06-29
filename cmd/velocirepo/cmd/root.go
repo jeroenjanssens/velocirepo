@@ -40,7 +40,7 @@ func newRootCmd() *cobra.Command {
 
 			godotenv.Load(filepath.Join(cfg.Dir, ".env"))
 
-			if cmd.Name() != "migrate" && cmd.Name() != "mcp" && cmd.Name() != "linkedin" {
+			if cmd.Name() != "migrate" && cmd.Name() != "mcp" && !isAuthCmd(cmd) {
 				if err := store.CheckSchemaVersion(cfg.DataDir()); err != nil {
 					return err
 				}
@@ -123,6 +123,15 @@ func newRootCmd() *cobra.Command {
 func isCompletionCmd(cmd *cobra.Command) bool {
 	for c := cmd; c != nil; c = c.Parent() {
 		if c.Name() == "completion" || c.Name() == "__complete" {
+			return true
+		}
+	}
+	return false
+}
+
+func isAuthCmd(cmd *cobra.Command) bool {
+	for c := cmd; c != nil; c = c.Parent() {
+		if c.Name() == "auth" {
 			return true
 		}
 	}

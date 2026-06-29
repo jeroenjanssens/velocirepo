@@ -85,19 +85,18 @@ func runAuthLinkedIn(cmd *cobra.Command, args []string) error {
 		Scopes:       []string{"r_organization_social"},
 	}
 
-	authURL := flow.BuildAuthURL("")
 	fmt.Println()
-	fmt.Println("Opening browser for authorization...")
-	fmt.Printf("If it doesn't open, visit: %s\n", authURL)
-	fmt.Println()
-	openBrowser(authURL)
-
 	fmt.Println("Waiting for callback...")
 
 	ctx, cancel := context.WithTimeout(cmd.Context(), 5*time.Minute)
 	defer cancel()
 
-	tokenResp, err := flow.Run(ctx)
+	tokenResp, err := flow.Run(ctx, func(authURL string) {
+		fmt.Println("Opening browser for authorization...")
+		fmt.Printf("If it doesn't open, visit: %s\n", authURL)
+		fmt.Println()
+		openBrowser(authURL)
+	})
 	if err != nil {
 		return fmt.Errorf("authentication failed: %w", err)
 	}

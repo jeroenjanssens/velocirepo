@@ -27,7 +27,7 @@ type TokenResponse struct {
 	ExpiresIn   int64  `json:"expires_in"`
 }
 
-func (f *OAuthFlow) Run(ctx context.Context) (*TokenResponse, error) {
+func (f *OAuthFlow) Run(ctx context.Context, onReady func(authURL string)) (*TokenResponse, error) {
 	state, err := randomState()
 	if err != nil {
 		return nil, fmt.Errorf("generate state: %w", err)
@@ -69,6 +69,10 @@ func (f *OAuthFlow) Run(ctx context.Context) (*TokenResponse, error) {
 	go srv.Serve(listener)
 	defer srv.Close()
 
+	if onReady != nil {
+		onReady(f.BuildAuthURL(state))
+	}
+
 	var code string
 	select {
 	case code = <-codeCh:
@@ -79,19 +83,6 @@ func (f *OAuthFlow) Run(ctx context.Context) (*TokenResponse, error) {
 	}
 
 	return f.exchangeCode(ctx, code)
-}
-
-func (f *OAuthFlow) AuthorizationURL() string {
-	params := url.Values{
-		"response_type": {"code"},
-		"client_id":     {f.ClientID},
-		"redirect_uri":  {f.RedirectURI},
-		"state":         {""},
-		"scope":         {strings.Join(f.Scopes, " ")},
-	}
-	state, _ := randomState()
-	params.Set("state", state)
-	return f.AuthURL + "?" + params.Encode()
 }
 
 func (f *OAuthFlow) BuildAuthURL(state string) string {

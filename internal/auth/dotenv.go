@@ -22,7 +22,7 @@ func UpsertEnvFile(path string, updates map[string]string) error {
 	for _, line := range lines {
 		key := envKey(line)
 		if key != "" && remaining[key] {
-			result = append(result, key+"="+updates[key])
+			result = append(result, key+"="+quoteEnvValue(updates[key]))
 			delete(remaining, key)
 		} else {
 			result = append(result, line)
@@ -31,7 +31,7 @@ func UpsertEnvFile(path string, updates map[string]string) error {
 
 	for key, val := range updates {
 		if remaining[key] {
-			result = append(result, key+"="+val)
+			result = append(result, key+"="+quoteEnvValue(val))
 		} else {
 			_ = val
 		}
@@ -87,4 +87,11 @@ func envKey(line string) string {
 		return ""
 	}
 	return strings.TrimSpace(parts[0])
+}
+
+func quoteEnvValue(val string) string {
+	if strings.ContainsAny(val, " \t#=\"'\\$`!") {
+		return "\"" + strings.ReplaceAll(strings.ReplaceAll(val, "\\", "\\\\"), "\"", "\\\"") + "\""
+	}
+	return val
 }
