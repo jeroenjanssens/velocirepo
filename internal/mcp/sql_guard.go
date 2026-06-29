@@ -73,14 +73,16 @@ var mcpForbiddenFunctions = map[string]bool{
 	"read_text":       true,
 }
 
+const defaultMCPQueryLimit = 1000
+
 func prepareMCPQuery(query string, limit int) (string, error) {
 	if _, err := validateMCPQuery(query); err != nil {
 		return "", err
 	}
-	if limit > 0 {
-		return fmt.Sprintf("SELECT * FROM (%s) AS velocirepo_mcp_query LIMIT %d", query, limit), nil
+	if limit <= 0 {
+		limit = defaultMCPQueryLimit
 	}
-	return query, nil
+	return fmt.Sprintf("SELECT * FROM (%s) AS velocirepo_mcp_query LIMIT %d", query, limit), nil
 }
 
 func validateMCPQuery(query string) ([]sqlToken, error) {

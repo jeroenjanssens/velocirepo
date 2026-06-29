@@ -54,30 +54,53 @@ func TestValidateMCPQueryRejectsUnsafeSQL(t *testing.T) {
 }
 
 func TestPrepareMCPQueryAlwaysAddsOuterLimit(t *testing.T) {
-	query, err := prepareMCPQuery("SELECT * FROM metrics", 10)
-	if err != nil {
-		t.Fatal(err)
-	}
-	want := "SELECT * FROM (SELECT * FROM metrics) AS velocirepo_mcp_query LIMIT 10"
-	if query != want {
-		t.Fatalf("query = %q, want %q", query, want)
+	tests := []struct {
+		name  string
+		input string
+		limit int
+		want  string
+	}{
+		{
+			name:  "simple query",
+			input: "SELECT * FROM metrics",
+			limit: 10,
+			want:  "SELECT * FROM (SELECT * FROM metrics) AS velocirepo_mcp_query LIMIT 10",
+		},
+		{
+			name:  "inner limit",
+			input: "SELECT * FROM metrics LIMIT 5",
+			limit: 10,
+			want:  "SELECT * FROM (SELECT * FROM metrics LIMIT 5) AS velocirepo_mcp_query LIMIT 10",
+		},
+		{
+			name:  "quoted limit identifier",
+			input: `SELECT *, 1 AS "limit" FROM metrics`,
+			limit: 10,
+			want:  `SELECT * FROM (SELECT *, 1 AS "limit" FROM metrics) AS velocirepo_mcp_query LIMIT 10`,
+		},
+		{
+			name:  "zero limit defaults",
+			input: "SELECT * FROM metrics",
+			limit: 0,
+			want:  "SELECT * FROM (SELECT * FROM metrics) AS velocirepo_mcp_query LIMIT 1000",
+		},
+		{
+			name:  "negative limit defaults",
+			input: "SELECT * FROM metrics",
+			limit: -5,
+			want:  "SELECT * FROM (SELECT * FROM metrics) AS velocirepo_mcp_query LIMIT 1000",
+		},
 	}
 
-	query, err = prepareMCPQuery("SELECT * FROM metrics LIMIT 5", 10)
-	if err != nil {
-		t.Fatal(err)
-	}
-	want = "SELECT * FROM (SELECT * FROM metrics LIMIT 5) AS velocirepo_mcp_query LIMIT 10"
-	if query != want {
-		t.Fatalf("query = %q, want %q", query, want)
-	}
-
-	query, err = prepareMCPQuery(`SELECT *, 1 AS "limit" FROM metrics`, 10)
-	if err != nil {
-		t.Fatal(err)
-	}
-	want = `SELECT * FROM (SELECT *, 1 AS "limit" FROM metrics) AS velocirepo_mcp_query LIMIT 10`
-	if query != want {
-		t.Fatalf("query = %q, want %q", query, want)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			query, err := prepareMCPQuery(tt.input, tt.limit)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if query != tt.want {
+				t.Fatalf("query = %q, want %q", query, tt.want)
+			}
+		})
 	}
 }

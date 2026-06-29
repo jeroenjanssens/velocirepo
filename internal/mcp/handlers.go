@@ -71,7 +71,7 @@ func (h *handlers) handleQuery(ctx context.Context, req mcp.CallToolRequest) (*m
 		return errorResult(err.Error()), nil
 	}
 
-	limit := req.GetInt("limit", 1000)
+	limit := req.GetInt("limit", defaultMCPQueryLimit)
 	sql, err = prepareMCPQuery(sql, limit)
 	if err != nil {
 		return errorResult(err.Error()), nil
