@@ -2,6 +2,8 @@ package auth
 
 import (
 	"context"
+	"fmt"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -22,19 +24,20 @@ func TestRunOnReadyCallback(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	var gotURL string
+	urlCh := make(chan string, 1)
 	go func() {
 		flow.Run(ctx, func(authURL string) {
-			gotURL = authURL
+			urlCh <- authURL
 		})
 	}()
 
-	time.Sleep(100 * time.Millisecond)
-	cancel()
-
-	if gotURL == "" {
+	var gotURL string
+	select {
+	case gotURL = <-urlCh:
+	case <-time.After(2 * time.Second):
 		t.Fatal("onReady was not called")
 	}
+	cancel()
 
 	u, err := url.Parse(gotURL)
 	if err != nil {
@@ -52,12 +55,19 @@ func TestRunOnReadyCallback(t *testing.T) {
 }
 
 func TestRunStateMismatch(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	port := ln.Addr().(*net.TCPAddr).Port
+	ln.Close()
+
 	flow := &OAuthFlow{
 		AuthURL:      "https://example.com/authorize",
 		TokenURL:     "https://example.com/token",
 		ClientID:     "test-client",
 		ClientSecret: "test-secret",
-		RedirectURI:  "http://127.0.0.1:19876/callback",
+		RedirectURI:  fmt.Sprintf("http://127.0.0.1:%d/callback", port),
 		Scopes:       []string{"read"},
 	}
 
@@ -67,7 +77,8 @@ func TestRunStateMismatch(t *testing.T) {
 	errCh := make(chan error, 1)
 	go func() {
 		_, err := flow.Run(ctx, func(authURL string) {
-			resp, err := http.Get("http://127.0.0.1:19876/callback?state=wrong&code=abc")
+			callbackURL := fmt.Sprintf("http://127.0.0.1:%d/callback?state=wrong&code=abc", port)
+			resp, err := http.Get(callbackURL)
 			if err == nil {
 				resp.Body.Close()
 			}
