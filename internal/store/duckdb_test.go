@@ -69,6 +69,46 @@ func TestQueryLive(t *testing.T) {
 	}
 }
 
+func TestQueryLiveRestricted(t *testing.T) {
+	dir := t.TempDir()
+	dataDir := filepath.Join(dir, "data")
+
+	records := []source.Record{
+		{Metric: "downloads", ProjectID: "my-proj", Date: "2025-06-01", Value: 500},
+	}
+	if err := WriteRecords(dataDir, "pypi", "my-proj", records); err != nil {
+		t.Fatal(err)
+	}
+
+	results, _, err := QueryLiveRestricted(dataDir, nil, nil, "SELECT COUNT(*) AS cnt FROM metrics")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cnt := results[0]["cnt"].(int64)
+	if cnt != 1 {
+		t.Fatalf("expected 1 row, got %d", cnt)
+	}
+}
+
+func TestQueryLiveRestrictedBlocksExternalFiles(t *testing.T) {
+	dir := t.TempDir()
+	dataDir := filepath.Join(dir, "data")
+	if err := os.MkdirAll(dataDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	secretPath := filepath.Join(dir, "secret.txt")
+	if err := os.WriteFile(secretPath, []byte("secret"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	query := "SELECT content FROM read_text(" + SQLStringLiteral(secretPath) + ")"
+	_, _, err := QueryLiveRestricted(dataDir, nil, nil, query)
+	if err == nil {
+		t.Fatal("expected external file read to fail")
+	}
+}
+
 func TestQueryLiveAggregation(t *testing.T) {
 	dir := t.TempDir()
 	dataDir := filepath.Join(dir, "data")
@@ -282,4 +322,3 @@ func TestQueryLiveGitHubView(t *testing.T) {
 		t.Errorf("unexpected star row: %v", results[1])
 	}
 }
-

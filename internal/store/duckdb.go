@@ -37,6 +37,23 @@ func QueryLive(dataDir string, projects []ProjectInfo, indicators []IndicatorDef
 	return queryRows(db, query)
 }
 
+func QueryLiveRestricted(dataDir string, projects []ProjectInfo, indicators []IndicatorDef, query string) ([]map[string]interface{}, []string, error) {
+	db, err := openLiveDB(dataDir, projects, indicators)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer db.Close()
+
+	if err := materializeRestrictedTables(db); err != nil {
+		return nil, nil, err
+	}
+	if _, err := db.Exec("SET enable_external_access = false"); err != nil {
+		return nil, nil, fmt.Errorf("disable external access: %w", err)
+	}
+
+	return queryRows(db, query)
+}
+
 func QueryLiveParquet(dataDir string, projects []ProjectInfo, indicators []IndicatorDef, query string, outPath string) error {
 	db, err := openLiveDB(dataDir, projects, indicators)
 	if err != nil {
@@ -78,6 +95,7 @@ func openLiveDB(dataDir string, projects []ProjectInfo, indicators []IndicatorDe
 	if err != nil {
 		return nil, fmt.Errorf("open in-memory duckdb: %w", err)
 	}
+	db.SetMaxOpenConns(1)
 
 	absDir, err := filepath.Abs(dataDir)
 	if err != nil {
@@ -111,6 +129,31 @@ func openLiveDB(dataDir string, projects []ProjectInfo, indicators []IndicatorDe
 	}
 
 	return db, nil
+}
+
+func materializeRestrictedTables(db *sql.DB) error {
+	tables := []string{"events", "metrics", "content", "projects", "indicators"}
+	for _, table := range tables {
+		query := fmt.Sprintf("CREATE TABLE __velocirepo_%s AS SELECT * FROM %s", table, table)
+		if _, err := db.Exec(query); err != nil {
+			return fmt.Errorf("materialize %s: %w", table, err)
+		}
+	}
+
+	for _, view := range []string{"indicators", "projects", "content", "metrics", "events"} {
+		if _, err := db.Exec("DROP VIEW IF EXISTS " + view); err != nil {
+			return fmt.Errorf("drop %s view: %w", view, err)
+		}
+	}
+
+	for _, table := range tables {
+		query := fmt.Sprintf("ALTER TABLE __velocirepo_%s RENAME TO %s", table, table)
+		if _, err := db.Exec(query); err != nil {
+			return fmt.Errorf("rename %s table: %w", table, err)
+		}
+	}
+
+	return nil
 }
 
 func createMetricsView(db *sql.DB, absDir string) error {
@@ -212,7 +255,6 @@ func createEmptyEventsView(db *sql.DB) error {
 	return nil
 }
 
-
 func createContentView(db *sql.DB, absDir string) error {
 	glob := filepath.ToSlash(filepath.Join(absDir, "content", "*", "*", "*.jsonl"))
 
@@ -255,7 +297,6 @@ func createEmptyContentView(db *sql.DB) error {
 	}
 	return nil
 }
-
 
 func createProjectsView(db *sql.DB, projects []ProjectInfo) error {
 	if len(projects) == 0 {
@@ -366,6 +407,10 @@ func createEmptyIndicatorsView(db *sql.DB) error {
 
 func escapeSQLString(s string) string {
 	return strings.ReplaceAll(s, "'", "''")
+}
+
+func SQLStringLiteral(s string) string {
+	return "'" + escapeSQLString(s) + "'"
 }
 
 func queryRows(db *sql.DB, query string) ([]map[string]interface{}, []string, error) {

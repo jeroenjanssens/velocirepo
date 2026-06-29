@@ -9,7 +9,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-
 func badgeCmd() *cobra.Command {
 	var (
 		project    string
@@ -29,11 +28,16 @@ func badgeCmd() *cobra.Command {
 		Long: `Generate shields.io-style SVG badges. Available types: stars, forks, downloads, pageviews, custom.
 
 For custom badges, provide --query and --label.`,
-		Args:    cobra.ExactArgs(1),
-		GroupID: "badge",
+		Args:      cobra.ExactArgs(1),
+		GroupID:   "badge",
 		ValidArgs: []string{"stars", "forks", "downloads", "pageviews", "custom"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			badgeType := args[0]
+			if project != "" {
+				if _, err := cfg.GetProject(project); err != nil {
+					return err
+				}
+			}
 
 			if badgeType == "custom" {
 				if query == "" {
@@ -45,7 +49,7 @@ For custom badges, provide --query and --label.`,
 
 				q := query
 				if project != "" {
-					q = fmt.Sprintf("SELECT * FROM (%s) WHERE project = '%s'", q, project)
+					q = fmt.Sprintf("SELECT * FROM (%s) AS velocirepo_badge_query WHERE project = %s", q, store.SQLStringLiteral(project))
 				}
 
 				msg, err := queryBadgeValue(q)
@@ -75,7 +79,7 @@ For custom badges, provide --query and --label.`,
 
 			q := preset.Query
 			if project != "" {
-				q += fmt.Sprintf(" AND project = '%s'", project)
+				q += fmt.Sprintf(" AND project = %s", store.SQLStringLiteral(project))
 			}
 
 			msg, err := queryBadgeValue(q)

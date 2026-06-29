@@ -72,11 +72,12 @@ func (h *handlers) handleQuery(ctx context.Context, req mcp.CallToolRequest) (*m
 	}
 
 	limit := req.GetInt("limit", 1000)
-	if limit > 0 && !strings.Contains(strings.ToUpper(sql), "LIMIT") {
-		sql = fmt.Sprintf("SELECT * FROM (%s) LIMIT %d", sql, limit)
+	sql, err = prepareMCPQuery(sql, limit)
+	if err != nil {
+		return errorResult(err.Error()), nil
 	}
 
-	results, cols, err := store.QueryLive(h.cfg.DataDir(), h.projectInfos(), h.indicatorDefs(), sql)
+	results, cols, err := store.QueryLiveRestricted(h.cfg.DataDir(), h.projectInfos(), h.indicatorDefs(), sql)
 	if err != nil {
 		return errorResult(fmt.Sprintf("query error: %v", err)), nil
 	}
@@ -234,8 +235,6 @@ func (h *handlers) handleShowProject(ctx context.Context, req mcp.CallToolReques
 	return jsonResult(output), nil
 }
 
-
-
 func (h *handlers) handleBadge(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	badgeType, err := req.RequireString("type")
 	if err != nil {
@@ -248,6 +247,12 @@ func (h *handlers) handleBadge(ctx context.Context, req mcp.CallToolRequest) (*m
 	style := req.GetString("style", "flat")
 	color := req.GetString("color", "")
 
+	if project != "" {
+		if _, err := h.cfg.GetProject(project); err != nil {
+			return errorResult(err.Error()), nil
+		}
+	}
+
 	var q string
 	if badgeType == "custom" {
 		if query == "" {
@@ -256,9 +261,12 @@ func (h *handlers) handleBadge(ctx context.Context, req mcp.CallToolRequest) (*m
 		if label == "" {
 			return errorResult("--label is required for custom badges"), nil
 		}
+		if _, err := validateMCPQuery(query); err != nil {
+			return errorResult(err.Error()), nil
+		}
 		q = query
 		if project != "" {
-			q = fmt.Sprintf("SELECT * FROM (%s) WHERE project = '%s'", q, project)
+			q = fmt.Sprintf("SELECT * FROM (%s) AS velocirepo_badge_query WHERE project = %s", q, store.SQLStringLiteral(project))
 		}
 		if color == "" {
 			color = "#007ec6"
@@ -270,7 +278,7 @@ func (h *handlers) handleBadge(ctx context.Context, req mcp.CallToolRequest) (*m
 		}
 		q = preset.Query
 		if project != "" {
-			q += fmt.Sprintf(" AND project = '%s'", project)
+			q += fmt.Sprintf(" AND project = %s", store.SQLStringLiteral(project))
 		}
 		if label == "" {
 			label = preset.Label
@@ -280,7 +288,7 @@ func (h *handlers) handleBadge(ctx context.Context, req mcp.CallToolRequest) (*m
 		}
 	}
 
-	results, _, err := store.QueryLive(h.cfg.DataDir(), h.projectInfos(), h.indicatorDefs(), q)
+	results, _, err := store.QueryLiveRestricted(h.cfg.DataDir(), h.projectInfos(), h.indicatorDefs(), q)
 	if err != nil {
 		return errorResult(fmt.Sprintf("badge query: %v", err)), nil
 	}
@@ -640,7 +648,6 @@ func (h *handlers) handleImportProjects(ctx context.Context, req mcp.CallToolReq
 	return textResult(fmt.Sprintf("Imported %d projects: %s", len(added), strings.Join(added, ", "))), nil
 }
 
-
 func (h *handlers) handleValidateProjects(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	projects := h.cfg.Projects
 	if len(projects) == 0 {
@@ -828,7 +835,10 @@ func (h *handlers) handleAddView(ctx context.Context, req mcp.CallToolRequest) (
 	}
 
 	viewsDir := h.cfg.ViewsDir()
-	viewDir := filepath.Join(viewsDir, name)
+	viewDir, err := views.ScaffoldDir(viewsDir, name)
+	if err != nil {
+		return errorResult(err.Error()), nil
+	}
 
 	var dbPath, dataDir string
 	if source == "duckdb" {

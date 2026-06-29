@@ -208,3 +208,39 @@ func TestScaffoldAlreadyExists(t *testing.T) {
 		t.Error("expected error for existing directory")
 	}
 }
+
+func TestScaffoldRejectsPathTraversal(t *testing.T) {
+	root := t.TempDir()
+	viewsDir := filepath.Join(root, "views")
+
+	_, err := Scaffold(ScaffoldOptions{
+		ViewsDir:  viewsDir,
+		Name:      "../outside",
+		Framework: FrameworkQuarto,
+		Source:    "duckdb",
+		DBPath:    "../../data/velocirepo.duckdb",
+	})
+	if err == nil {
+		t.Fatal("expected error for path traversal")
+	}
+
+	outside := filepath.Join(root, "outside")
+	if _, statErr := os.Stat(outside); !os.IsNotExist(statErr) {
+		t.Fatalf("outside directory was created: %v", statErr)
+	}
+}
+
+func TestScaffoldRejectsAbsoluteName(t *testing.T) {
+	viewsDir := t.TempDir()
+
+	_, err := Scaffold(ScaffoldOptions{
+		ViewsDir:  viewsDir,
+		Name:      filepath.Join(viewsDir, "absolute"),
+		Framework: FrameworkQuarto,
+		Source:    "duckdb",
+		DBPath:    "../../data/velocirepo.duckdb",
+	})
+	if err == nil {
+		t.Fatal("expected error for absolute view name")
+	}
+}

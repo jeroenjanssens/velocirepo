@@ -35,7 +35,10 @@ func addViewCmd() *cobra.Command {
 			}
 
 			viewsDir := cfg.ViewsDir()
-			viewDir := filepath.Join(viewsDir, name)
+			viewDir, err := views.ScaffoldDir(viewsDir, name)
+			if err != nil {
+				return err
+			}
 
 			var dbPath, dataDir string
 			if source == "duckdb" {

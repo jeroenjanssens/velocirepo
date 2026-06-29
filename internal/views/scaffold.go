@@ -40,14 +40,14 @@ func ParseFramework(s string) (Framework, error) {
 }
 
 type ScaffoldOptions struct {
-	ViewsDir string
-	Name     string
+	ViewsDir  string
+	Name      string
 	Framework Framework
-	Source   string
-	DBPath   string
-	DataDir  string
-	NoUV     bool
-	Renv     bool
+	Source    string
+	DBPath    string
+	DataDir   string
+	NoUV      bool
+	Renv      bool
 }
 
 type scaffoldData struct {
@@ -57,7 +57,10 @@ type scaffoldData struct {
 }
 
 func Scaffold(opts ScaffoldOptions) (string, error) {
-	dir := filepath.Join(opts.ViewsDir, opts.Name)
+	dir, err := ScaffoldDir(opts.ViewsDir, opts.Name)
+	if err != nil {
+		return "", err
+	}
 	if _, err := os.Stat(dir); err == nil {
 		return "", fmt.Errorf("view directory %q already exists", dir)
 	}
@@ -102,6 +105,31 @@ func Scaffold(opts ScaffoldOptions) (string, error) {
 	}
 
 	return dir, nil
+}
+
+func ScaffoldDir(viewsDir, name string) (string, error) {
+	cleanName := filepath.Clean(name)
+	if cleanName == "." || !filepath.IsLocal(cleanName) {
+		return "", fmt.Errorf("invalid view name %q: must be a relative path inside the views directory", name)
+	}
+
+	absViewsDir, err := filepath.Abs(viewsDir)
+	if err != nil {
+		return "", fmt.Errorf("resolve views directory: %w", err)
+	}
+	dir := filepath.Join(absViewsDir, cleanName)
+	absDir, err := filepath.Abs(dir)
+	if err != nil {
+		return "", fmt.Errorf("resolve view directory: %w", err)
+	}
+	rel, err := filepath.Rel(absViewsDir, absDir)
+	if err != nil {
+		return "", fmt.Errorf("check view directory: %w", err)
+	}
+	if rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) || filepath.IsAbs(rel) {
+		return "", fmt.Errorf("invalid view name %q: must stay inside %s", name, absViewsDir)
+	}
+	return absDir, nil
 }
 
 func renderShTemplate(fw Framework, renv bool) string {
