@@ -28,7 +28,7 @@ func newRootCmd() *cobra.Command {
 			cmd.SilenceUsage = true
 			setupLogging()
 
-			if cmd.Name() == "version" || cmd.Name() == "init" {
+			if cmd.Name() == "version" || cmd.Name() == "init" || isCompletionCmd(cmd) {
 				return nil
 			}
 
@@ -115,6 +115,15 @@ func newRootCmd() *cobra.Command {
 	rootCmd.AddCommand(versionCmd())
 
 	return rootCmd
+}
+
+func isCompletionCmd(cmd *cobra.Command) bool {
+	for c := cmd; c != nil; c = c.Parent() {
+		if c.Name() == "completion" || c.Name() == "__complete" {
+			return true
+		}
+	}
+	return false
 }
 
 func setupLogging() {
