@@ -141,7 +141,7 @@ func TestQueryLiveAggregation(t *testing.T) {
 func TestQueryLiveEmptyDir(t *testing.T) {
 	dir := t.TempDir()
 	dataDir := filepath.Join(dir, "data")
-	os.MkdirAll(dataDir, 0755)
+	_ = os.MkdirAll(dataDir, 0755)
 
 	results, _, err := QueryLive(dataDir, nil, nil, "SELECT COUNT(*) AS cnt FROM metrics")
 	if err != nil {
@@ -156,7 +156,7 @@ func TestQueryLiveEmptyDir(t *testing.T) {
 func TestQueryLiveInvalidSQL(t *testing.T) {
 	dir := t.TempDir()
 	dataDir := filepath.Join(dir, "data")
-	os.MkdirAll(dataDir, 0755)
+	_ = os.MkdirAll(dataDir, 0755)
 
 	_, _, err := QueryLive(dataDir, nil, nil, "SELECT * FROM nonexistent_table")
 	if err == nil {

@@ -130,25 +130,25 @@ func trashProjectDataDirs(dataDir, id string) (string, []dataMove, error) {
 			if os.IsNotExist(err) {
 				continue
 			}
-			rollbackDataMoves(moves)
-			os.RemoveAll(trashRoot)
+			_ = rollbackDataMoves(moves)
+			_ = os.RemoveAll(trashRoot)
 			return "", nil, err
 		}
 		if err := os.MkdirAll(filepath.Dir(trashDir), 0755); err != nil {
-			rollbackDataMoves(moves)
-			os.RemoveAll(trashRoot)
+			_ = rollbackDataMoves(moves)
+			_ = os.RemoveAll(trashRoot)
 			return "", nil, err
 		}
 		if err := os.Rename(oldDir, trashDir); err != nil {
-			rollbackDataMoves(moves)
-			os.RemoveAll(trashRoot)
+			_ = rollbackDataMoves(moves)
+			_ = os.RemoveAll(trashRoot)
 			return "", nil, err
 		}
 		moves = append(moves, dataMove{from: oldDir, to: trashDir})
 	}
 
 	if len(moves) == 0 {
-		os.RemoveAll(trashRoot)
+		_ = os.RemoveAll(trashRoot)
 		return "", nil, nil
 	}
 	return trashRoot, moves, nil
@@ -639,7 +639,7 @@ func (h *handlers) handleRemoveProject(ctx context.Context, req mcp.CallToolRequ
 			if rollbackErr := rollbackDataMoves(dataMoves); rollbackErr != nil {
 				return errorResult(fmt.Sprintf("remove project: %v (rollback data: %v)", err, rollbackErr)), nil
 			}
-			os.RemoveAll(trashRoot)
+			_ = os.RemoveAll(trashRoot)
 		}
 		return errorResult(fmt.Sprintf("remove project: %v", err)), nil
 	}

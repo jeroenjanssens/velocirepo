@@ -40,7 +40,7 @@ func TestCheckSchemaVersionNoDataDir(t *testing.T) {
 
 func TestCheckSchemaVersionStale(t *testing.T) {
 	dir := t.TempDir()
-	writeSchemaVersion(dir, 0)
+	_ = writeSchemaVersion(dir, 0)
 	err := CheckSchemaVersion(dir)
 	if err == nil {
 		t.Fatal("expected error for stale schema")
@@ -49,7 +49,7 @@ func TestCheckSchemaVersionStale(t *testing.T) {
 
 func TestCheckSchemaVersionCurrent(t *testing.T) {
 	dir := t.TempDir()
-	writeSchemaVersion(dir, LatestSchemaVersion)
+	_ = writeSchemaVersion(dir, LatestSchemaVersion)
 	err := CheckSchemaVersion(dir)
 	if err != nil {
 		t.Errorf("expected nil for current schema, got: %v", err)
@@ -58,7 +58,7 @@ func TestCheckSchemaVersionCurrent(t *testing.T) {
 
 func TestCheckSchemaVersionFuture(t *testing.T) {
 	dir := t.TempDir()
-	writeSchemaVersion(dir, LatestSchemaVersion+1)
+	_ = writeSchemaVersion(dir, LatestSchemaVersion+1)
 	err := CheckSchemaVersion(dir)
 	if err == nil {
 		t.Fatal("expected error for future schema")
@@ -122,7 +122,7 @@ func TestMigrate0to1(t *testing.T) {
 
 func TestMigrate4to5YouTubeIndex(t *testing.T) {
 	dir := t.TempDir()
-	writeSchemaVersion(dir, 4)
+	_ = writeSchemaVersion(dir, 4)
 
 	// Set up a YouTube index in the old location
 	oldIndexPath := metricsPath(dir, "youtube", "my-proj", "index")
@@ -181,7 +181,7 @@ func TestMigrate4to5YouTubeIndex(t *testing.T) {
 
 func TestMigrateAlreadyCurrent(t *testing.T) {
 	dir := t.TempDir()
-	writeSchemaVersion(dir, LatestSchemaVersion)
+	_ = writeSchemaVersion(dir, LatestSchemaVersion)
 
 	applied, err := Migrate(dir)
 	if err != nil {
@@ -202,7 +202,7 @@ func TestEnsureSchemaVersion(t *testing.T) {
 	}
 
 	// Should not overwrite existing version
-	writeSchemaVersion(dir, 0)
+	_ = writeSchemaVersion(dir, 0)
 	ensureSchemaVersion(dir)
 	v, _ = SchemaVersion(dir)
 	if v != 0 {

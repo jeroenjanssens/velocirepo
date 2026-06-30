@@ -50,7 +50,7 @@ func syncSecretsCmd() *cobra.Command {
 				return fmt.Errorf("read .env: %w", err)
 			}
 			if len(secrets) == 0 {
-				fmt.Fprintln(cmd.OutOrStdout(), "No secrets found in .env file")
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "No secrets found in .env file")
 				return nil
 			}
 
@@ -64,14 +64,14 @@ func syncSecretsCmd() *cobra.Command {
 			}
 
 			if len(secrets) == 0 {
-				fmt.Fprintln(cmd.OutOrStdout(), "No secrets to sync")
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "No secrets to sync")
 				return nil
 			}
 
 			if dryRun {
-				fmt.Fprintf(cmd.OutOrStdout(), "Would sync %d secret(s) to %s:\n", len(secrets), repo)
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Would sync %d secret(s) to %s:\n", len(secrets), repo)
 				for name := range secrets {
-					fmt.Fprintf(cmd.OutOrStdout(), "  %s\n", name)
+					_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  %s\n", name)
 				}
 				return nil
 			}
@@ -107,7 +107,7 @@ func syncSecretsCmd() *cobra.Command {
 						return err
 					}
 					if !ok {
-						fmt.Fprintf(cmd.OutOrStdout(), "  %s (skipped)\n", name)
+						_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  %s (skipped)\n", name)
 						continue
 					}
 				}
@@ -120,10 +120,10 @@ func syncSecretsCmd() *cobra.Command {
 					return fmt.Errorf("set secret %s: %w", name, err)
 				}
 				synced++
-				fmt.Fprintf(cmd.OutOrStdout(), "  %s ✓\n", name)
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  %s ✓\n", name)
 			}
 
-			fmt.Fprintf(cmd.OutOrStdout(), "Synced %d secret(s) to %s\n", synced, repo)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Synced %d secret(s) to %s\n", synced, repo)
 			return nil
 		},
 	}
@@ -175,7 +175,7 @@ func getRepoPublicKey(client *http.Client, token, repo string) ([]byte, string, 
 	if err != nil {
 		return nil, "", err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -234,7 +234,7 @@ func putSecret(client *http.Client, token, repo, name, encryptedValue, keyID str
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusNoContent {
 		respBody, _ := io.ReadAll(resp.Body)

@@ -387,7 +387,7 @@ func (g *GitHubEvents) doGraphQL(ctx context.Context, query string, vars map[str
 	if err != nil {
 		return nil, fmt.Errorf("graphql request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("graphql returned %d", resp.StatusCode)

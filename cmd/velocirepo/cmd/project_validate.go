@@ -53,22 +53,22 @@ func validateProjectsCmd() *cobra.Command {
 			var totalSources, passed, failed int
 
 			for id, proj := range projects {
-				fmt.Fprintf(os.Stdout, "%s\n", id)
+				_, _ = fmt.Fprintf(os.Stdout, "%s\n", id)
 				results := config.ValidateProject(ctx, opts, id, proj)
 				for _, r := range results {
 					totalSources++
 					if r.OK {
 						passed++
-						fmt.Fprintf(os.Stdout, "  ✓ %-12s %s\n", r.Source, r.Value)
+						_, _ = fmt.Fprintf(os.Stdout, "  ✓ %-12s %s\n", r.Source, r.Value)
 					} else {
 						failed++
-						fmt.Fprintf(os.Stdout, "  ✗ %-12s %s — %s\n", r.Source, r.Value, r.Error)
+						_, _ = fmt.Fprintf(os.Stdout, "  ✗ %-12s %s — %s\n", r.Source, r.Value, r.Error)
 					}
 				}
-				fmt.Fprintln(os.Stdout)
+				_, _ = fmt.Fprintln(os.Stdout)
 			}
 
-			fmt.Fprintf(os.Stdout, "%d projects, %d sources: %d passed, %d failed\n",
+			_, _ = fmt.Fprintf(os.Stdout, "%d projects, %d sources: %d passed, %d failed\n",
 				len(projects), totalSources, passed, failed)
 
 			if failed > 0 {

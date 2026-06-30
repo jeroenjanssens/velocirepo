@@ -36,11 +36,11 @@ func validateDataCmd() *cobra.Command {
 				return err
 			}
 
-			fmt.Fprintf(os.Stdout, "Scanned %d files, %d lines, %d records\n\n",
+			_, _ = fmt.Fprintf(os.Stdout, "Scanned %d files, %d lines, %d records\n\n",
 				result.FilesRead, result.LinesRead, result.RecordCount)
 
 			if len(result.Issues) == 0 {
-				fmt.Fprintln(os.Stdout, "No issues found.")
+				_, _ = fmt.Fprintln(os.Stdout, "No issues found.")
 				return nil
 			}
 
@@ -49,23 +49,23 @@ func validateDataCmd() *cobra.Command {
 
 			for _, t := range types {
 				issues := grouped[t]
-				fmt.Fprintf(os.Stdout, "%s (%d)\n", t, len(issues))
+				_, _ = fmt.Fprintf(os.Stdout, "%s (%d)\n", t, len(issues))
 				for _, issue := range issues {
 					marker := "  ✗"
 					if issue.Fixable {
 						marker = "  ⚠"
 					}
-					fmt.Fprintf(os.Stdout, "%s %s: %s\n", marker, relativePath(dataDir, issue.Path), issue.Message)
+					_, _ = fmt.Fprintf(os.Stdout, "%s %s: %s\n", marker, relativePath(dataDir, issue.Path), issue.Message)
 				}
-				fmt.Fprintln(os.Stdout)
+				_, _ = fmt.Fprintln(os.Stdout)
 			}
 
 			fixable := countFixable(result.Issues)
-			fmt.Fprintf(os.Stdout, "%d issue(s), %d fixable\n", len(result.Issues), fixable)
+			_, _ = fmt.Fprintf(os.Stdout, "%d issue(s), %d fixable\n", len(result.Issues), fixable)
 
 			if fixable == 0 || !fix {
 				if fixable > 0 && !fix {
-					fmt.Fprintln(os.Stdout, "\nRun with --fix to apply fixes interactively.")
+					_, _ = fmt.Fprintln(os.Stdout, "\nRun with --fix to apply fixes interactively.")
 				}
 				if len(result.Issues) > 0 {
 					return fmt.Errorf("%d issue(s) found", len(result.Issues))
@@ -73,7 +73,7 @@ func validateDataCmd() *cobra.Command {
 				return nil
 			}
 
-			fmt.Fprintln(os.Stdout)
+			_, _ = fmt.Fprintln(os.Stdout)
 
 			if !isInteractive() {
 				return fmt.Errorf("--fix requires an interactive terminal")
@@ -235,7 +235,7 @@ func runDataFixHandlers(reader *bufio.Reader, grouped map[store.IssueType][]stor
 }
 
 func printDataFixResult(result *store.FixResult, successFormat string) {
-	fmt.Fprintf(os.Stdout, successFormat, result.Fixed)
+	_, _ = fmt.Fprintf(os.Stdout, successFormat, result.Fixed)
 	for _, e := range result.Errors {
 		ui.Errorf("  %v", e)
 	}

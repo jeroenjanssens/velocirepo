@@ -26,7 +26,7 @@ func TestRunOnReadyCallback(t *testing.T) {
 
 	urlCh := make(chan string, 1)
 	go func() {
-		flow.Run(ctx, func(authURL string) {
+		_, _ = flow.Run(ctx, func(authURL string) {
 			urlCh <- authURL
 		})
 	}()
@@ -60,7 +60,7 @@ func TestRunStateMismatch(t *testing.T) {
 		t.Fatalf("listen: %v", err)
 	}
 	port := ln.Addr().(*net.TCPAddr).Port
-	ln.Close()
+	_ = ln.Close()
 
 	flow := &OAuthFlow{
 		AuthURL:      "https://example.com/authorize",
@@ -80,7 +80,7 @@ func TestRunStateMismatch(t *testing.T) {
 			callbackURL := fmt.Sprintf("http://127.0.0.1:%d/callback?state=wrong&code=abc", port)
 			resp, err := http.Get(callbackURL)
 			if err == nil {
-				resp.Body.Close()
+				_ = resp.Body.Close()
 			}
 		})
 		errCh <- err

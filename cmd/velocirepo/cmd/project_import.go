@@ -103,14 +103,14 @@ func importProjectsCmd() *cobra.Command {
 				return nil
 			}
 
-			fmt.Fprintf(os.Stdout, "Projects to add (%d):\n", len(toAdd))
+			_, _ = fmt.Fprintf(os.Stdout, "Projects to add (%d):\n", len(toAdd))
 			for _, p := range toAdd {
-				fmt.Fprintf(os.Stdout, "  %s (%s)\n", p.ID, p.Project.GitHubEvents.String())
+				_, _ = fmt.Fprintf(os.Stdout, "  %s (%s)\n", p.ID, p.Project.GitHubEvents.String())
 			}
 			if skipped > 0 {
-				fmt.Fprintf(os.Stdout, "  (%d skipped as existing)\n", skipped)
+				_, _ = fmt.Fprintf(os.Stdout, "  (%d skipped as existing)\n", skipped)
 			}
-			fmt.Fprintln(os.Stdout)
+			_, _ = fmt.Fprintln(os.Stdout)
 
 			if dryRun {
 				fmt.Println("Dry run — no changes made.")
@@ -139,7 +139,7 @@ func importProjectsCmd() *cobra.Command {
 				}
 			}
 
-			fmt.Fprintf(os.Stdout, "Added %d projects.\n", len(toAdd))
+			_, _ = fmt.Fprintf(os.Stdout, "Added %d projects.\n", len(toAdd))
 			rebuildDB()
 			return nil
 		},
@@ -219,7 +219,7 @@ func loadFromCSV(path string) ([]fetch.ImportEntry, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	reader := csv.NewReader(f)
 	header, err := reader.Read()

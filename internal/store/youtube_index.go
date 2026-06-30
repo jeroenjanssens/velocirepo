@@ -13,7 +13,7 @@ func readYouTubeIndex(path string) ([]source.YouTubeIndexEntry, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	var entries []source.YouTubeIndexEntry
 	scanner := bufio.NewScanner(f)

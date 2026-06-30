@@ -155,7 +155,7 @@ func TestExportWithProjectFilter(t *testing.T) {
 func TestExportEmptyData(t *testing.T) {
 	dir := t.TempDir()
 	dataDir := filepath.Join(dir, "data")
-	os.MkdirAll(dataDir, 0755)
+	_ = os.MkdirAll(dataDir, 0755)
 
 	outDir := filepath.Join(dir, "out")
 	written, err := Export(ExportOptions{

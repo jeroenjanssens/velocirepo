@@ -53,27 +53,27 @@ func rewriteProjectIDFile(path, oldID, newID string) error {
 	w := bufio.NewWriter(tmp)
 	for _, line := range lines {
 		if _, err := w.Write(line); err != nil {
-			tmp.Close()
-			os.Remove(tmpPath)
+			_ = tmp.Close()
+			_ = os.Remove(tmpPath)
 			return err
 		}
 		if err := w.WriteByte('\n'); err != nil {
-			tmp.Close()
-			os.Remove(tmpPath)
+			_ = tmp.Close()
+			_ = os.Remove(tmpPath)
 			return err
 		}
 	}
 	if err := w.Flush(); err != nil {
-		tmp.Close()
-		os.Remove(tmpPath)
+		_ = tmp.Close()
+		_ = os.Remove(tmpPath)
 		return err
 	}
 	if err := tmp.Close(); err != nil {
-		os.Remove(tmpPath)
+		_ = os.Remove(tmpPath)
 		return err
 	}
 	if err := os.Rename(tmpPath, path); err != nil {
-		os.Remove(tmpPath)
+		_ = os.Remove(tmpPath)
 		return err
 	}
 	return nil

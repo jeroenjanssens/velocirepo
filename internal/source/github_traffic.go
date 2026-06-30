@@ -126,7 +126,7 @@ func (g *GitHubTraffic) get(ctx context.Context, url string, result interface{})
 	if err != nil {
 		return fmt.Errorf("request %s: %w", url, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("github traffic API %s returned %d", req.URL.Path, resp.StatusCode)

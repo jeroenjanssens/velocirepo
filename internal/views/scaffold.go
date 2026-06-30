@@ -245,7 +245,7 @@ func writeTemplate(dir, filename, tmplPath string, data scaffoldData, perm os.Fi
 	if err != nil {
 		return fmt.Errorf("create %s: %w", filename, err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	if err := tmpl.Execute(f, data); err != nil {
 		return fmt.Errorf("execute template %s: %w", tmplPath, err)

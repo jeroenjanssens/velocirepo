@@ -62,7 +62,7 @@ func writeTestRaw(t *testing.T, path string, lines []string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	for _, line := range lines {
 		if _, err := f.WriteString(line + "\n"); err != nil {
 			t.Fatal(err)
@@ -83,16 +83,6 @@ func readRawLines(t *testing.T, path string) []string {
 		}
 	}
 	return lines
-}
-
-func testRecord(metric, project, date string, value int64) source.Record {
-	return source.Record{
-		Metric:    metric,
-		ProjectID: project,
-		Target:    project,
-		Date:      date,
-		Value:     value,
-	}
 }
 
 func assertIssueTypes(t *testing.T, got []Issue, want ...IssueType) {

@@ -39,25 +39,25 @@ func WriteContent(dataDir, sourceName, projectID, filename string, entries []sou
 	for _, e := range merged {
 		data, err := json.Marshal(e)
 		if err != nil {
-			tmp.Close()
-			os.Remove(tmpPath)
+			_ = tmp.Close()
+			_ = os.Remove(tmpPath)
 			return fmt.Errorf("marshal content entry: %w", err)
 		}
-		w.Write(data)
-		w.WriteByte('\n')
+		_, _ = w.Write(data)
+		_ = w.WriteByte('\n')
 	}
 
 	if err := w.Flush(); err != nil {
-		tmp.Close()
-		os.Remove(tmpPath)
+		_ = tmp.Close()
+		_ = os.Remove(tmpPath)
 		return err
 	}
 	if err := tmp.Close(); err != nil {
-		os.Remove(tmpPath)
+		_ = os.Remove(tmpPath)
 		return err
 	}
 	if err := os.Rename(tmpPath, path); err != nil {
-		os.Remove(tmpPath)
+		_ = os.Remove(tmpPath)
 		return err
 	}
 
@@ -70,7 +70,7 @@ func ReadContent(path string) ([]source.ContentEntry, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	var entries []source.ContentEntry
 	scanner := bufio.NewScanner(f)

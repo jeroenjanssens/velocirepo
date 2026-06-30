@@ -149,9 +149,9 @@ func measureLayout(opts Options, height int) badgeLayout {
 }
 
 func renderSVGHeader(sb *strings.Builder, opts Options, style styleConfig, layout badgeLayout) {
-	sb.WriteString(fmt.Sprintf(`<svg xmlns="http://www.w3.org/2000/svg" width="%.0f" height="%d" role="img" aria-label="%s: %s">`,
-		layout.totalWidth, style.height, escXML(opts.Label), escXML(opts.Message)))
-	sb.WriteString(fmt.Sprintf(`<title>%s: %s</title>`, escXML(opts.Label), escXML(opts.Message)))
+	fmt.Fprintf(sb, `<svg xmlns="http://www.w3.org/2000/svg" width="%.0f" height="%d" role="img" aria-label="%s: %s">`,
+		layout.totalWidth, style.height, escXML(opts.Label), escXML(opts.Message))
+	fmt.Fprintf(sb, `<title>%s: %s</title>`, escXML(opts.Label), escXML(opts.Message))
 }
 
 func renderGradients(sb *strings.Builder, style Style) {
@@ -165,41 +165,41 @@ func renderGradients(sb *strings.Builder, style Style) {
 
 func renderBackground(sb *strings.Builder, opts Options, style styleConfig, layout badgeLayout) {
 	if style.radius > 0 {
-		sb.WriteString(fmt.Sprintf(`<clipPath id="r"><rect width="%.0f" height="%d" rx="%d" fill="#fff"/></clipPath>`, layout.totalWidth, style.height, style.radius))
+		fmt.Fprintf(sb, `<clipPath id="r"><rect width="%.0f" height="%d" rx="%d" fill="#fff"/></clipPath>`, layout.totalWidth, style.height, style.radius)
 		sb.WriteString(`<g clip-path="url(#r)">`)
 	} else {
 		sb.WriteString(`<g shape-rendering="crispEdges">`)
 	}
 
 	if layout.labelWidth > 0 {
-		sb.WriteString(fmt.Sprintf(`<rect width="%.0f" height="%d" fill="%s"/>`, layout.labelWidth, style.height, opts.LabelColor))
+		fmt.Fprintf(sb, `<rect width="%.0f" height="%d" fill="%s"/>`, layout.labelWidth, style.height, opts.LabelColor)
 	}
-	sb.WriteString(fmt.Sprintf(`<rect x="%.0f" width="%.0f" height="%d" fill="%s"/>`, layout.labelWidth, layout.msgWidth, style.height, opts.Color))
+	fmt.Fprintf(sb, `<rect x="%.0f" width="%.0f" height="%d" fill="%s"/>`, layout.labelWidth, layout.msgWidth, style.height, opts.Color)
 
 	if opts.Style == StyleFlat || opts.Style == StylePlastic {
-		sb.WriteString(fmt.Sprintf(`<rect width="%.0f" height="%d" fill="url(#s)"/>`, layout.totalWidth, style.height))
+		fmt.Fprintf(sb, `<rect width="%.0f" height="%d" fill="url(#s)"/>`, layout.totalWidth, style.height)
 	}
 	sb.WriteString(`</g>`)
 }
 
 func renderText(sb *strings.Builder, opts Options, style styleConfig, layout badgeLayout) {
-	sb.WriteString(fmt.Sprintf(`<g fill="#fff" text-anchor="middle" font-family="Verdana,Geneva,DejaVu Sans,sans-serif" text-rendering="geometricPrecision" font-size="%d">`, layout.fontSize))
+	fmt.Fprintf(sb, `<g fill="#fff" text-anchor="middle" font-family="Verdana,Geneva,DejaVu Sans,sans-serif" text-rendering="geometricPrecision" font-size="%d">`, layout.fontSize)
 
 	if layout.labelWidth > 0 {
 		if style.hasShadow {
-			sb.WriteString(fmt.Sprintf(`<text aria-hidden="true" x="%.0f" y="%d" fill="#010101" fill-opacity=".3" transform="scale(.1)" textLength="%d">%s</text>`,
-				layout.labelTextX*10, layout.shadowY, layout.labelTextW, escXML(opts.Label)))
+			fmt.Fprintf(sb, `<text aria-hidden="true" x="%.0f" y="%d" fill="#010101" fill-opacity=".3" transform="scale(.1)" textLength="%d">%s</text>`,
+				layout.labelTextX*10, layout.shadowY, layout.labelTextW, escXML(opts.Label))
 		}
-		sb.WriteString(fmt.Sprintf(`<text x="%.0f" y="%d" transform="scale(.1)" textLength="%d">%s</text>`,
-			layout.labelTextX*10, layout.textY, layout.labelTextW, escXML(opts.Label)))
+		fmt.Fprintf(sb, `<text x="%.0f" y="%d" transform="scale(.1)" textLength="%d">%s</text>`,
+			layout.labelTextX*10, layout.textY, layout.labelTextW, escXML(opts.Label))
 	}
 
 	if style.hasShadow {
-		sb.WriteString(fmt.Sprintf(`<text aria-hidden="true" x="%.0f" y="%d" fill="#010101" fill-opacity=".3" transform="scale(.1)" textLength="%d">%s</text>`,
-			layout.msgTextX*10, layout.shadowY, layout.msgTextW, escXML(opts.Message)))
+		fmt.Fprintf(sb, `<text aria-hidden="true" x="%.0f" y="%d" fill="#010101" fill-opacity=".3" transform="scale(.1)" textLength="%d">%s</text>`,
+			layout.msgTextX*10, layout.shadowY, layout.msgTextW, escXML(opts.Message))
 	}
-	sb.WriteString(fmt.Sprintf(`<text x="%.0f" y="%d" transform="scale(.1)" textLength="%d">%s</text>`,
-		layout.msgTextX*10, layout.textY, layout.msgTextW, escXML(opts.Message)))
+	fmt.Fprintf(sb, `<text x="%.0f" y="%d" transform="scale(.1)" textLength="%d">%s</text>`,
+		layout.msgTextX*10, layout.textY, layout.msgTextW, escXML(opts.Message))
 
 	sb.WriteString(`</g>`)
 }

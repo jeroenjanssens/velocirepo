@@ -26,11 +26,11 @@ func showIndicatorsCmd() *cobra.Command {
 
 			for i, ind := range indicators {
 				if i > 0 {
-					fmt.Fprintln(os.Stdout)
+					_, _ = fmt.Fprintln(os.Stdout)
 				}
-				fmt.Fprintf(os.Stdout, "[indicators.%s]\n", ind.Name)
-				fmt.Fprintf(os.Stdout, "description = %q\n", ind.Description)
-				fmt.Fprintf(os.Stdout, "query = \"\"\"\n%s\n\"\"\"\n", strings.TrimSpace(ind.Query))
+				_, _ = fmt.Fprintf(os.Stdout, "[indicators.%s]\n", ind.Name)
+				_, _ = fmt.Fprintf(os.Stdout, "description = %q\n", ind.Description)
+				_, _ = fmt.Fprintf(os.Stdout, "query = \"\"\"\n%s\n\"\"\"\n", strings.TrimSpace(ind.Query))
 			}
 			return nil
 		},

@@ -36,7 +36,7 @@ func TestPlausibleFetch(t *testing.T) {
 				"meta": map[string]int{"total_rows": 3},
 			}
 		}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -86,13 +86,13 @@ func TestPlausiblePagination(t *testing.T) {
 	callCount := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var body map[string]interface{}
-		json.NewDecoder(r.Body).Decode(&body)
+		_ = json.NewDecoder(r.Body).Decode(&body)
 
 		dims, _ := body["dimensions"].([]interface{})
 		hasTwoDims := len(dims) == 2
 
 		if !hasTwoDims {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
 				"results": []map[string]interface{}{
 					{"dimensions": []string{"2025-06-01"}, "metrics": []int64{100, 50, 60}},
 				},
@@ -122,7 +122,7 @@ func TestPlausiblePagination(t *testing.T) {
 				"meta": map[string]int{"total_rows": 15000},
 			}
 		}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 

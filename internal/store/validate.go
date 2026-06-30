@@ -169,7 +169,7 @@ func validateJSONLFile(path, fileDateRange string, result *ValidationResult, val
 	if err != nil {
 		return
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	result.FilesRead++
 
@@ -453,7 +453,7 @@ func fixSourceInFile(path string) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	scanner := bufio.NewScanner(f)
 	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
@@ -473,7 +473,7 @@ func fixSourceInFile(path string) (int, error) {
 
 		var src string
 		if s, ok := raw["source"]; ok {
-			json.Unmarshal(s, &src)
+			_ = json.Unmarshal(s, &src)
 		}
 
 		if src != "" && src != sourceName {
@@ -496,7 +496,7 @@ func fixSourceInFile(path string) (int, error) {
 	if err := scanner.Err(); err != nil {
 		return 0, err
 	}
-	f.Close()
+	_ = f.Close()
 
 	if fixed == 0 {
 		return 0, nil
@@ -510,7 +510,7 @@ func removeLinesFromFile(path string, badLines []int) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	bad := make(map[int]bool, len(badLines))
 	for _, l := range badLines {
@@ -532,7 +532,7 @@ func removeLinesFromFile(path string, badLines []int) error {
 	if err := scanner.Err(); err != nil {
 		return err
 	}
-	f.Close()
+	_ = f.Close()
 
 	if len(kept) == 0 {
 		return os.Remove(path)
@@ -768,7 +768,7 @@ func validateContentFile(path, sourceName string, result *ValidationResult) {
 	if err != nil {
 		return
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	result.FilesRead++
 
@@ -880,17 +880,17 @@ func writeLines(path string, lines [][]byte) error {
 
 	w := bufio.NewWriter(tmp)
 	for _, line := range lines {
-		w.Write(line)
-		w.WriteByte('\n')
+		_, _ = w.Write(line)
+		_ = w.WriteByte('\n')
 	}
 
 	if err := w.Flush(); err != nil {
-		tmp.Close()
-		os.Remove(tmpPath)
+		_ = tmp.Close()
+		_ = os.Remove(tmpPath)
 		return err
 	}
 	if err := tmp.Close(); err != nil {
-		os.Remove(tmpPath)
+		_ = os.Remove(tmpPath)
 		return err
 	}
 	return os.Rename(tmpPath, path)

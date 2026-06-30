@@ -71,7 +71,7 @@ func ValidateSource(ctx context.Context, opts ValidationOptions, sourceType stri
 		result.Error = err.Error()
 		return result
 	}
-	resp.Body.Close()
+	_ = resp.Body.Close()
 
 	result.StatusCode = resp.StatusCode
 	if resp.StatusCode >= 200 && resp.StatusCode < 400 {

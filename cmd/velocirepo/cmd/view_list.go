@@ -43,10 +43,10 @@ func listViewsCmd() *cobra.Command {
 				if rel, err := filepath.Rel(".", dir); err == nil {
 					dir = rel
 				}
-				table.Append([]string{v.Name, dir})
+				_ = table.Append([]string{v.Name, dir})
 			}
 
-			table.Render()
+			_ = table.Render()
 			return nil
 		},
 	}

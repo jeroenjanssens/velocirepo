@@ -18,15 +18,15 @@ func graphqlHandler(responses map[string]string) http.Handler {
 			Query     string                 `json:"query"`
 			Variables map[string]interface{} `json:"variables"`
 		}
-		json.Unmarshal(body, &req)
+		_ = json.Unmarshal(body, &req)
 
 		for key, resp := range responses {
 			if contains(req.Query, key) {
-				w.Write([]byte(resp))
+				_, _ = w.Write([]byte(resp))
 				return
 			}
 		}
-		w.Write([]byte(`{"data":{}}`))
+		_, _ = w.Write([]byte(`{"data":{}}`))
 	})
 }
 
@@ -185,26 +185,26 @@ func TestGitHubEventsPagination(t *testing.T) {
 			Query     string                 `json:"query"`
 			Variables map[string]interface{} `json:"variables"`
 		}
-		json.Unmarshal(body, &req)
+		_ = json.Unmarshal(body, &req)
 
 		if !contains(req.Query, "stargazers") {
 			if contains(req.Query, "forks") {
-				w.Write([]byte(`{"data":{"repository":{"forks":{"nodes":[],"pageInfo":{"hasNextPage":false,"endCursor":""}}}}}`))
+				_, _ = w.Write([]byte(`{"data":{"repository":{"forks":{"nodes":[],"pageInfo":{"hasNextPage":false,"endCursor":""}}}}}`))
 			} else if contains(req.Query, "issues") {
-				w.Write([]byte(`{"data":{"repository":{"issues":{"nodes":[],"pageInfo":{"hasNextPage":false,"endCursor":""}}}}}`))
+				_, _ = w.Write([]byte(`{"data":{"repository":{"issues":{"nodes":[],"pageInfo":{"hasNextPage":false,"endCursor":""}}}}}`))
 			} else {
-				w.Write([]byte(`{"data":{"repository":{"pullRequests":{"nodes":[],"pageInfo":{"hasNextPage":false,"endCursor":""}}}}}`))
+				_, _ = w.Write([]byte(`{"data":{"repository":{"pullRequests":{"nodes":[],"pageInfo":{"hasNextPage":false,"endCursor":""}}}}}`))
 			}
 			return
 		}
 
 		callCount++
 		if callCount == 1 {
-			w.Write([]byte(`{"data":{"repository":{"stargazers":{"edges":[
+			_, _ = w.Write([]byte(`{"data":{"repository":{"stargazers":{"edges":[
 				{"starredAt":"2025-06-10T12:00:00Z","node":{"login":"alice"}}
 			],"pageInfo":{"hasNextPage":true,"endCursor":"cursor1"}}}}}`))
 		} else {
-			w.Write([]byte(`{"data":{"repository":{"stargazers":{"edges":[
+			_, _ = w.Write([]byte(`{"data":{"repository":{"stargazers":{"edges":[
 				{"starredAt":"2025-06-10T11:00:00Z","node":{"login":"bob"}}
 			],"pageInfo":{"hasNextPage":false,"endCursor":"cursor2"}}}}}`))
 		}
@@ -247,7 +247,7 @@ func TestGitHubEventsAuthHeader(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		called.Store(true)
 		assertBearerToken(t, r, "my-secret-token")
-		w.Write([]byte(`{"data":{"repository":{"stargazers":{"edges":[],"pageInfo":{"hasNextPage":false,"endCursor":""}},"forks":{"nodes":[],"pageInfo":{"hasNextPage":false,"endCursor":""}},"issues":{"nodes":[],"pageInfo":{"hasNextPage":false,"endCursor":""}},"pullRequests":{"nodes":[],"pageInfo":{"hasNextPage":false,"endCursor":""}}}}}`))
+		_, _ = w.Write([]byte(`{"data":{"repository":{"stargazers":{"edges":[],"pageInfo":{"hasNextPage":false,"endCursor":""}},"forks":{"nodes":[],"pageInfo":{"hasNextPage":false,"endCursor":""}},"issues":{"nodes":[],"pageInfo":{"hasNextPage":false,"endCursor":""}},"pullRequests":{"nodes":[],"pageInfo":{"hasNextPage":false,"endCursor":""}}}}}`))
 	}))
 	defer srv.Close()
 
@@ -333,7 +333,7 @@ func TestGitHubEventsIssueCloseOutOfRange(t *testing.T) {
 
 func TestGitHubEventsGraphQLError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(`{"errors":[{"message":"Bad credentials"}]}`))
+		_, _ = w.Write([]byte(`{"errors":[{"message":"Bad credentials"}]}`))
 	}))
 	defer srv.Close()
 

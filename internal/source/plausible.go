@@ -126,7 +126,7 @@ func (p *Plausible) query(ctx context.Context, payload interface{}, result inter
 	if err != nil {
 		return fmt.Errorf("request plausible: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("plausible returned %d", resp.StatusCode)

@@ -38,27 +38,27 @@ func TestDiscover(t *testing.T) {
 	dir := t.TempDir()
 
 	// Create view directories with render.sh
-	os.MkdirAll(filepath.Join(dir, "overview"), 0755)
-	os.WriteFile(filepath.Join(dir, "overview", "render.sh"), []byte("#!/bin/bash\n"), 0755)
+	_ = os.MkdirAll(filepath.Join(dir, "overview"), 0755)
+	_ = os.WriteFile(filepath.Join(dir, "overview", "render.sh"), []byte("#!/bin/bash\n"), 0755)
 
-	os.MkdirAll(filepath.Join(dir, "weekly", "stars"), 0755)
-	os.WriteFile(filepath.Join(dir, "weekly", "stars", "render.sh"), []byte("#!/bin/bash\n"), 0755)
+	_ = os.MkdirAll(filepath.Join(dir, "weekly", "stars"), 0755)
+	_ = os.WriteFile(filepath.Join(dir, "weekly", "stars", "render.sh"), []byte("#!/bin/bash\n"), 0755)
 
-	os.MkdirAll(filepath.Join(dir, "weekly", "forks"), 0755)
-	os.WriteFile(filepath.Join(dir, "weekly", "forks", "render.sh"), []byte("#!/bin/bash\n"), 0755)
+	_ = os.MkdirAll(filepath.Join(dir, "weekly", "forks"), 0755)
+	_ = os.WriteFile(filepath.Join(dir, "weekly", "forks", "render.sh"), []byte("#!/bin/bash\n"), 0755)
 
 	// Directories without render.sh should be skipped
-	os.MkdirAll(filepath.Join(dir, "draft"), 0755)
-	os.WriteFile(filepath.Join(dir, "draft", "notes.txt"), []byte("not a view"), 0644)
+	_ = os.MkdirAll(filepath.Join(dir, "draft"), 0755)
+	_ = os.WriteFile(filepath.Join(dir, "draft", "notes.txt"), []byte("not a view"), 0644)
 
 	// _output and _data dirs should be skipped
-	os.MkdirAll(filepath.Join(dir, "_output"), 0755)
-	os.WriteFile(filepath.Join(dir, "_output", "render.sh"), []byte("#!/bin/bash\n"), 0755)
-	os.MkdirAll(filepath.Join(dir, "_data"), 0755)
+	_ = os.MkdirAll(filepath.Join(dir, "_output"), 0755)
+	_ = os.WriteFile(filepath.Join(dir, "_output", "render.sh"), []byte("#!/bin/bash\n"), 0755)
+	_ = os.MkdirAll(filepath.Join(dir, "_data"), 0755)
 
 	// Hidden dirs should be skipped
-	os.MkdirAll(filepath.Join(dir, ".hidden"), 0755)
-	os.WriteFile(filepath.Join(dir, ".hidden", "render.sh"), []byte("#!/bin/bash\n"), 0755)
+	_ = os.MkdirAll(filepath.Join(dir, ".hidden"), 0755)
+	_ = os.WriteFile(filepath.Join(dir, ".hidden", "render.sh"), []byte("#!/bin/bash\n"), 0755)
 
 	views, err := Discover(dir)
 	if err != nil {

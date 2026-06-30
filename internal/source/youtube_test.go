@@ -13,12 +13,12 @@ func TestYouTubeFetchChannel(t *testing.T) {
 
 	mux.HandleFunc("/channels", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Query().Get("forHandle") != "" {
-			json.NewEncoder(w).Encode(channelListResponse{
+			_ = json.NewEncoder(w).Encode(channelListResponse{
 				Items: []channelItem{{ID: "UCsBjURrPoezykLs9EqgamOA"}},
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(channelListResponse{
+		_ = json.NewEncoder(w).Encode(channelListResponse{
 			Items: []channelItem{{
 				ID: "UCsBjURrPoezykLs9EqgamOA",
 				Statistics: channelStats{
@@ -31,7 +31,7 @@ func TestYouTubeFetchChannel(t *testing.T) {
 	})
 
 	mux.HandleFunc("/playlistItems", func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(playlistItemsResponse{
+		_ = json.NewEncoder(w).Encode(playlistItemsResponse{
 			Items: []playlistItem{
 				{ContentDetails: struct {
 					VideoID string `json:"videoId"`
@@ -47,7 +47,7 @@ func TestYouTubeFetchChannel(t *testing.T) {
 		likes1 := int64(10)
 		comments1 := int64(5)
 		likes2 := int64(20)
-		json.NewEncoder(w).Encode(videoListResponse{
+		_ = json.NewEncoder(w).Encode(videoListResponse{
 			Items: []videoItem{
 				{
 					ID:             "vid1",
@@ -137,7 +137,7 @@ func TestYouTubeFetchSingleVideo(t *testing.T) {
 	likes := int64(100)
 	comments := int64(50)
 	mux.HandleFunc("/videos", func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(videoListResponse{
+		_ = json.NewEncoder(w).Encode(videoListResponse{
 			Items: []videoItem{
 				{
 					ID:             "dQw4w9WgXcQ",
@@ -186,7 +186,7 @@ func TestYouTubeFetchPlaylist(t *testing.T) {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/playlistItems", func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(playlistItemsResponse{
+		_ = json.NewEncoder(w).Encode(playlistItemsResponse{
 			Items: []playlistItem{
 				{ContentDetails: struct {
 					VideoID string `json:"videoId"`
@@ -197,7 +197,7 @@ func TestYouTubeFetchPlaylist(t *testing.T) {
 
 	likes := int64(5)
 	mux.HandleFunc("/videos", func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(videoListResponse{
+		_ = json.NewEncoder(w).Encode(videoListResponse{
 			Items: []videoItem{
 				{
 					ID:             "abc12345678",
@@ -235,7 +235,7 @@ func TestYouTubePagination(t *testing.T) {
 	mux.HandleFunc("/playlistItems", func(w http.ResponseWriter, r *http.Request) {
 		callCount++
 		if r.URL.Query().Get("pageToken") == "" {
-			json.NewEncoder(w).Encode(playlistItemsResponse{
+			_ = json.NewEncoder(w).Encode(playlistItemsResponse{
 				Items: []playlistItem{
 					{ContentDetails: struct {
 						VideoID string `json:"videoId"`
@@ -244,7 +244,7 @@ func TestYouTubePagination(t *testing.T) {
 				NextPageToken: "page2token",
 			})
 		} else {
-			json.NewEncoder(w).Encode(playlistItemsResponse{
+			_ = json.NewEncoder(w).Encode(playlistItemsResponse{
 				Items: []playlistItem{
 					{ContentDetails: struct {
 						VideoID string `json:"videoId"`
@@ -256,7 +256,7 @@ func TestYouTubePagination(t *testing.T) {
 
 	mux.HandleFunc("/videos", func(w http.ResponseWriter, r *http.Request) {
 		likes := int64(1)
-		json.NewEncoder(w).Encode(videoListResponse{
+		_ = json.NewEncoder(w).Encode(videoListResponse{
 			Items: []videoItem{
 				{ID: "page1vid", Snippet: videoSnippet{Title: "P1", PublishedAt: "2025-01-01T00:00:00Z"}, ContentDetails: videoContentDetails{Duration: "PT1M"}, Statistics: videoStats{ViewCount: 10, LikeCount: &likes}},
 				{ID: "page2vid", Snippet: videoSnippet{Title: "P2", PublishedAt: "2025-01-02T00:00:00Z"}, ContentDetails: videoContentDetails{Duration: "PT2M"}, Statistics: videoStats{ViewCount: 20, LikeCount: &likes}},
@@ -291,7 +291,7 @@ func TestYouTubeNullableLikesComments(t *testing.T) {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/videos", func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(videoListResponse{
+		_ = json.NewEncoder(w).Encode(videoListResponse{
 			Items: []videoItem{
 				{
 					ID:             "nolikescomm",
@@ -329,7 +329,7 @@ func TestYouTubeZeroDurationIsNil(t *testing.T) {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/videos", func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(videoListResponse{
+		_ = json.NewEncoder(w).Encode(videoListResponse{
 			Items: []videoItem{
 				{
 					ID:             "livestream1",

@@ -39,7 +39,7 @@ func (p *PyPI) Fetch(ctx context.Context, opts FetchOptions) ([]Record, error) {
 	if err != nil {
 		return nil, fmt.Errorf("request pypistats: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("pypistats returned %d", resp.StatusCode)

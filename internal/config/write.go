@@ -12,7 +12,6 @@ func FindSection(lines []string, header string) (start, end int, found bool) {
 		trimmed := strings.TrimSpace(line)
 		if trimmed == target {
 			start = i
-			found = true
 			for j := i + 1; j < len(lines); j++ {
 				trimmed := strings.TrimSpace(lines[j])
 				if strings.HasPrefix(trimmed, "[") {

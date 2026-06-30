@@ -81,7 +81,7 @@ func TestRoundTrip(t *testing.T) {
 		if got != val {
 			t.Errorf("round-trip failed for %q: got %q", val, got)
 		}
-		os.Remove(path)
+		_ = os.Remove(path)
 	}
 }
 
@@ -89,7 +89,7 @@ func TestUpsertEnvFilePreservesOtherKeys(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, ".env")
 
-	os.WriteFile(path, []byte("A=1\nB=2\n"), 0600)
+	_ = os.WriteFile(path, []byte("A=1\nB=2\n"), 0600)
 
 	if err := UpsertEnvFile(path, map[string]string{"B": "updated"}); err != nil {
 		t.Fatal(err)

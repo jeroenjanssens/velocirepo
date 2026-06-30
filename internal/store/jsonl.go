@@ -55,25 +55,25 @@ func writeFileAtomic(path string, records []source.Record) error {
 	for _, r := range records {
 		data, err := json.Marshal(r)
 		if err != nil {
-			tmp.Close()
-			os.Remove(tmpPath)
+			_ = tmp.Close()
+			_ = os.Remove(tmpPath)
 			return fmt.Errorf("marshal record: %w", err)
 		}
-		w.Write(data)
-		w.WriteByte('\n')
+		_, _ = w.Write(data)
+		_ = w.WriteByte('\n')
 	}
 
 	if err := w.Flush(); err != nil {
-		tmp.Close()
-		os.Remove(tmpPath)
+		_ = tmp.Close()
+		_ = os.Remove(tmpPath)
 		return fmt.Errorf("flush %s: %w", tmpPath, err)
 	}
 	if err := tmp.Close(); err != nil {
-		os.Remove(tmpPath)
+		_ = os.Remove(tmpPath)
 		return fmt.Errorf("close %s: %w", tmpPath, err)
 	}
 	if err := os.Rename(tmpPath, path); err != nil {
-		os.Remove(tmpPath)
+		_ = os.Remove(tmpPath)
 		return fmt.Errorf("rename %s -> %s: %w", tmpPath, path, err)
 	}
 	return nil
@@ -84,7 +84,7 @@ func ReadRecords(path string) ([]source.Record, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open %s: %w", path, err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	var records []source.Record
 	scanner := bufio.NewScanner(f)
@@ -194,25 +194,25 @@ func writeEventsFileAtomic(path string, events []source.Event) error {
 	for _, e := range events {
 		data, err := json.Marshal(e)
 		if err != nil {
-			tmp.Close()
-			os.Remove(tmpPath)
+			_ = tmp.Close()
+			_ = os.Remove(tmpPath)
 			return fmt.Errorf("marshal event: %w", err)
 		}
-		w.Write(data)
-		w.WriteByte('\n')
+		_, _ = w.Write(data)
+		_ = w.WriteByte('\n')
 	}
 
 	if err := w.Flush(); err != nil {
-		tmp.Close()
-		os.Remove(tmpPath)
+		_ = tmp.Close()
+		_ = os.Remove(tmpPath)
 		return fmt.Errorf("flush %s: %w", tmpPath, err)
 	}
 	if err := tmp.Close(); err != nil {
-		os.Remove(tmpPath)
+		_ = os.Remove(tmpPath)
 		return fmt.Errorf("close %s: %w", tmpPath, err)
 	}
 	if err := os.Rename(tmpPath, path); err != nil {
-		os.Remove(tmpPath)
+		_ = os.Remove(tmpPath)
 		return fmt.Errorf("rename %s -> %s: %w", tmpPath, path, err)
 	}
 	return nil
@@ -223,7 +223,7 @@ func ReadEvents(path string) ([]source.Event, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open %s: %w", path, err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	var events []source.Event
 	scanner := bufio.NewScanner(f)

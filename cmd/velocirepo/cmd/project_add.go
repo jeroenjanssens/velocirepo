@@ -66,7 +66,7 @@ func addProjectCmd() *cobra.Command {
 			}
 
 			sources := listSources(proj)
-			fmt.Fprintf(os.Stdout, "Added project '%s' with sources: %s\n", id, strings.Join(sources, ", "))
+			_, _ = fmt.Fprintf(os.Stdout, "Added project '%s' with sources: %s\n", id, strings.Join(sources, ", "))
 			rebuildDB()
 			return nil
 		},
@@ -106,8 +106,8 @@ func projectAddInteractive(cfgPath string, id string) error {
 		return fmt.Errorf("project %q already exists (use 'update-project' to modify)", id)
 	}
 
-	fmt.Fprintln(os.Stdout, "Tip: use commas to specify multiple values (e.g., owner/repo-a, owner/repo-b)")
-	fmt.Fprintln(os.Stdout)
+	_, _ = fmt.Fprintln(os.Stdout, "Tip: use commas to specify multiple values (e.g., owner/repo-a, owner/repo-b)")
+	_, _ = fmt.Fprintln(os.Stdout)
 
 	var overridden bool
 
@@ -149,7 +149,7 @@ func projectAddInteractive(cfgPath string, id string) error {
 		return err
 	}
 
-	fmt.Fprintf(os.Stdout, "\nAdded project '%s' with sources: %s\n", id, strings.Join(sources, ", "))
+	_, _ = fmt.Fprintf(os.Stdout, "\nAdded project '%s' with sources: %s\n", id, strings.Join(sources, ", "))
 	rebuildDB()
 	return nil
 }

@@ -46,7 +46,7 @@ func FetchGitHubRepos(ctx context.Context, token string, endpoint string, opts I
 		}
 
 		if resp.StatusCode != 200 {
-			resp.Body.Close()
+			_ = resp.Body.Close()
 			return nil, fmt.Errorf("GitHub API returned %d", resp.StatusCode)
 		}
 
@@ -57,10 +57,10 @@ func FetchGitHubRepos(ctx context.Context, token string, endpoint string, opts I
 			Archived bool   `json:"archived"`
 		}
 		if err := json.NewDecoder(resp.Body).Decode(&repos); err != nil {
-			resp.Body.Close()
+			_ = resp.Body.Close()
 			return nil, fmt.Errorf("parse GitHub response: %w", err)
 		}
-		resp.Body.Close()
+		_ = resp.Body.Close()
 
 		if len(repos) == 0 {
 			break

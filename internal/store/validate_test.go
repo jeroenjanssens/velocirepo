@@ -299,7 +299,7 @@ func TestFixDateMismatches(t *testing.T) {
 func TestFixOrphanDirs(t *testing.T) {
 	dir := t.TempDir()
 	orphanPath := filepath.Join(dir, "data", "metrics", "pypi", "orphan")
-	os.MkdirAll(orphanPath, 0755)
+	_ = os.MkdirAll(orphanPath, 0755)
 
 	result := FixOrphanDirs([]string{orphanPath})
 	if result.Fixed != 1 {
@@ -335,21 +335,21 @@ func TestFixSourceMismatches(t *testing.T) {
 
 	// First record: source rewritten from "github" to "youtube"
 	var rec0 map[string]interface{}
-	json.Unmarshal([]byte(lines[0]), &rec0)
+	_ = json.Unmarshal([]byte(lines[0]), &rec0)
 	if rec0["source"] != "youtube" {
 		t.Errorf("expected source youtube, got %v", rec0["source"])
 	}
 
 	// Second record: already correct, unchanged
 	var rec1 map[string]interface{}
-	json.Unmarshal([]byte(lines[1]), &rec1)
+	_ = json.Unmarshal([]byte(lines[1]), &rec1)
 	if rec1["source"] != "youtube" {
 		t.Errorf("expected source youtube, got %v", rec1["source"])
 	}
 
 	// Third record: empty source should NOT be rewritten
 	var rec2 map[string]interface{}
-	json.Unmarshal([]byte(lines[2]), &rec2)
+	_ = json.Unmarshal([]byte(lines[2]), &rec2)
 	if _, ok := rec2["source"]; ok {
 		t.Errorf("expected no source field, got %v", rec2["source"])
 	}

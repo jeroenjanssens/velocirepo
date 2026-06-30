@@ -64,7 +64,7 @@ func updateProjectCmd() *cobra.Command {
 			for _, u := range unset {
 				changes = append(changes, fmt.Sprintf("-%s", u))
 			}
-			fmt.Fprintf(os.Stdout, "Updated project '%s': %s\n", id, strings.Join(changes, ", "))
+			_, _ = fmt.Fprintf(os.Stdout, "Updated project '%s': %s\n", id, strings.Join(changes, ", "))
 			rebuildDB()
 			return nil
 		},
@@ -88,9 +88,9 @@ func sourceFlagsChanged(cmd *cobra.Command) bool {
 
 func projectUpdateInteractive(cfgPath string, id string, proj config.Project) error {
 	reader := bufio.NewReader(os.Stdin)
-	fmt.Fprintf(os.Stdout, "Updating project '%s' (press Enter to keep current value):\n", id)
-	fmt.Fprintln(os.Stdout, "Tip: use commas to specify multiple values (e.g., owner/repo-a, owner/repo-b)")
-	fmt.Fprintln(os.Stdout)
+	_, _ = fmt.Fprintf(os.Stdout, "Updating project '%s' (press Enter to keep current value):\n", id)
+	_, _ = fmt.Fprintln(os.Stdout, "Tip: use commas to specify multiple values (e.g., owner/repo-a, owner/repo-b)")
+	_, _ = fmt.Fprintln(os.Stdout)
 
 	name, err := prompt(os.Stdout, reader, "Name", proj.Name, "")
 	if err != nil {
@@ -136,7 +136,7 @@ func projectUpdateInteractive(cfgPath string, id string, proj config.Project) er
 		return err
 	}
 
-	fmt.Fprintf(os.Stdout, "\nUpdated project '%s'\n", id)
+	_, _ = fmt.Fprintf(os.Stdout, "\nUpdated project '%s'\n", id)
 	rebuildDB()
 	return nil
 }

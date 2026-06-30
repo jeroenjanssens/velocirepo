@@ -24,7 +24,7 @@ func listProjectsCmd() *cobra.Command {
 
 			if quietOutput {
 				for id := range projects {
-					fmt.Fprintln(out, id)
+					_, _ = fmt.Fprintln(out, id)
 				}
 				return nil
 			}
@@ -65,14 +65,14 @@ func listProjectsCmd() *cobra.Command {
 			}
 
 			if len(projects) == 0 {
-				fmt.Fprintln(out, "No projects configured.")
+				_, _ = fmt.Fprintln(out, "No projects configured.")
 				return nil
 			}
 
 			w := tabwriter.NewWriter(out, 0, 0, 2, ' ', 0)
-			fmt.Fprintln(w, "ID\tNAME\tGITHUB-EVENTS\tGITHUB-TRAFFIC\tPYPI\tCRAN\tHOMEBREW\tPLAUSIBLE\tOPENVSX\tYOUTUBE\tLINKEDIN")
+			_, _ = fmt.Fprintln(w, "ID\tNAME\tGITHUB-EVENTS\tGITHUB-TRAFFIC\tPYPI\tCRAN\tHOMEBREW\tPLAUSIBLE\tOPENVSX\tYOUTUBE\tLINKEDIN")
 			for id, p := range projects {
-				fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+				_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
 					id,
 					valOrDash(p.Name),
 					sliceOrDash(p.GitHubEvents),

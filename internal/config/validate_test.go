@@ -105,11 +105,12 @@ func TestValidateSourceCancellation(t *testing.T) {
 
 func TestValidateProject(t *testing.T) {
 	srv := newValidationServer(t, func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/repos/org/repo" {
+		switch r.URL.Path {
+		case "/repos/org/repo":
 			w.WriteHeader(200)
-		} else if r.URL.Path == "/pypi/mypkg/json" {
+		case "/pypi/mypkg/json":
 			w.WriteHeader(200)
-		} else {
+		default:
 			w.WriteHeader(404)
 		}
 	})

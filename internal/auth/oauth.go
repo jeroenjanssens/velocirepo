@@ -46,7 +46,7 @@ func (f *OAuthFlow) Run(ctx context.Context, onReady func(authURL string)) (*Tok
 		if errMsg := r.URL.Query().Get("error"); errMsg != "" {
 			desc := r.URL.Query().Get("error_description")
 			errCh <- fmt.Errorf("oauth error: %s: %s", errMsg, desc)
-			fmt.Fprintf(w, "Authorization failed: %s", desc)
+			_, _ = fmt.Fprintf(w, "Authorization failed: %s", desc)
 			return
 		}
 		code := r.URL.Query().Get("code")
@@ -56,7 +56,7 @@ func (f *OAuthFlow) Run(ctx context.Context, onReady func(authURL string)) (*Tok
 			return
 		}
 		codeCh <- code
-		fmt.Fprint(w, "Authorization successful! You can close this tab.")
+		_, _ = fmt.Fprint(w, "Authorization successful! You can close this tab.")
 	})
 
 	host, port := splitHostPort(f.RedirectURI)
@@ -66,8 +66,8 @@ func (f *OAuthFlow) Run(ctx context.Context, onReady func(authURL string)) (*Tok
 	}
 
 	srv := &http.Server{Handler: mux}
-	go srv.Serve(listener)
-	defer srv.Close()
+	go func() { _ = srv.Serve(listener) }()
+	defer func() { _ = srv.Close() }()
 
 	if onReady != nil {
 		onReady(f.BuildAuthURL(state))
@@ -116,11 +116,11 @@ func (f *OAuthFlow) exchangeCode(ctx context.Context, code string) (*TokenRespon
 	if err != nil {
 		return nil, fmt.Errorf("token exchange request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		var body map[string]interface{}
-		json.NewDecoder(resp.Body).Decode(&body)
+		_ = json.NewDecoder(resp.Body).Decode(&body)
 		return nil, fmt.Errorf("token exchange failed (%d): %v", resp.StatusCode, body)
 	}
 

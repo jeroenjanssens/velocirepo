@@ -33,9 +33,9 @@ func TestGitHubTrafficFetch(t *testing.T) {
 		}
 		switch r.URL.Path {
 		case "/repos/owner/repo/traffic/views":
-			w.Write([]byte(viewsResp))
+			_, _ = w.Write([]byte(viewsResp))
 		case "/repos/owner/repo/traffic/clones":
-			w.Write([]byte(clonesResp))
+			_, _ = w.Write([]byte(clonesResp))
 		default:
 			http.NotFound(w, r)
 		}
@@ -103,9 +103,9 @@ func TestGitHubTrafficDateFiltering(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/repos/owner/repo/traffic/views":
-			w.Write([]byte(viewsResp))
+			_, _ = w.Write([]byte(viewsResp))
 		case "/repos/owner/repo/traffic/clones":
-			w.Write([]byte(clonesResp))
+			_, _ = w.Write([]byte(clonesResp))
 		default:
 			http.NotFound(w, r)
 		}
@@ -148,7 +148,7 @@ func TestGitHubTrafficAuthHeader(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		called.Store(true)
 		assertBearerToken(t, r, "my-secret-token")
-		w.Write([]byte(`{"count": 0, "uniques": 0, "views": []}`))
+		_, _ = w.Write([]byte(`{"count": 0, "uniques": 0, "views": []}`))
 	}))
 	defer srv.Close()
 

@@ -305,7 +305,7 @@ func (y *YouTube) get(ctx context.Context, url string, result interface{}) error
 	if err != nil {
 		return fmt.Errorf("request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)

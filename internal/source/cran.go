@@ -38,7 +38,7 @@ func (c *CRAN) Fetch(ctx context.Context, opts FetchOptions) ([]Record, error) {
 	if err != nil {
 		return nil, fmt.Errorf("request cranlogs: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("cranlogs returned %d", resp.StatusCode)

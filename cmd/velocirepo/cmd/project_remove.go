@@ -52,12 +52,12 @@ func removeProjectCmd() *cobra.Command {
 				for _, src := range config.SourceDirNames() {
 					dir := filepath.Join(dataDir, src, id)
 					if _, err := os.Stat(dir); err == nil {
-						os.RemoveAll(dir)
+						_ = os.RemoveAll(dir)
 					}
 				}
-				fmt.Fprintf(os.Stdout, "Removed project '%s' and its data\n", id)
+				_, _ = fmt.Fprintf(os.Stdout, "Removed project '%s' and its data\n", id)
 			} else {
-				fmt.Fprintf(os.Stdout, "Removed project '%s'\n", id)
+				_, _ = fmt.Fprintf(os.Stdout, "Removed project '%s'\n", id)
 			}
 
 			rebuildDB()

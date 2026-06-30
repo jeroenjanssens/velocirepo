@@ -192,7 +192,7 @@ github = "org/found"
 	testutil.WriteTempFile(t, dir, "velocirepo.toml", content)
 
 	oldWd, _ := os.Getwd()
-	defer os.Chdir(oldWd)
+	defer func() { _ = os.Chdir(oldWd) }()
 	if err := os.Chdir(sub); err != nil {
 		t.Fatal(err)
 	}

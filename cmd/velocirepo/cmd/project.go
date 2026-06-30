@@ -23,12 +23,12 @@ func isInteractive() bool {
 func prompt(w io.Writer, r *bufio.Reader, label string, defaultVal string, source string) (string, error) {
 	if defaultVal != "" {
 		if source != "" {
-			fmt.Fprintf(w, "%s [%s] (from %s): ", label, defaultVal, source)
+			_, _ = fmt.Fprintf(w, "%s [%s] (from %s): ", label, defaultVal, source)
 		} else {
-			fmt.Fprintf(w, "%s [%s]: ", label, defaultVal)
+			_, _ = fmt.Fprintf(w, "%s [%s]: ", label, defaultVal)
 		}
 	} else {
-		fmt.Fprintf(w, "%s: ", label)
+		_, _ = fmt.Fprintf(w, "%s: ", label)
 	}
 
 	sigCh := make(chan os.Signal, 1)
@@ -48,11 +48,11 @@ func prompt(w io.Writer, r *bufio.Reader, label string, defaultVal string, sourc
 
 	select {
 	case <-sigCh:
-		fmt.Fprintln(w)
+		_, _ = fmt.Fprintln(w)
 		return "", errAborted
 	case err := <-errCh:
 		_ = err
-		fmt.Fprintln(w)
+		_, _ = fmt.Fprintln(w)
 		return "", errAborted
 	case input := <-inputCh:
 		input = strings.TrimSpace(input)
@@ -79,10 +79,10 @@ func promptWithHint(w io.Writer, r *bufio.Reader, label string, defaultVal strin
 }
 
 func confirm(w io.Writer, r *bufio.Reader, message string) (bool, error) {
-	fmt.Fprintf(w, "%s [y/N]: ", message)
+	_, _ = fmt.Fprintf(w, "%s [y/N]: ", message)
 	input, err := r.ReadString('\n')
 	if err != nil {
-		fmt.Fprintln(w)
+		_, _ = fmt.Fprintln(w)
 		return false, errAborted
 	}
 	input = strings.TrimSpace(strings.ToLower(input))

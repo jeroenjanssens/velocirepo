@@ -19,14 +19,14 @@ func BuildDB(dataDir string, projects []ProjectInfo, indicators []IndicatorDef) 
 
 	dbPath := filepath.Join(absDir, "velocirepo.duckdb")
 
-	os.Remove(dbPath)
-	os.Remove(dbPath + ".wal")
+	_ = os.Remove(dbPath)
+	_ = os.Remove(dbPath + ".wal")
 
 	db, err := sql.Open("duckdb", dbPath)
 	if err != nil {
 		return fmt.Errorf("open duckdb file: %w", err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	if err := createEventsViewRelative(db, absDir); err != nil {
 		return err

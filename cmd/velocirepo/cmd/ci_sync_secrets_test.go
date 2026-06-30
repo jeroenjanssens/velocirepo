@@ -108,7 +108,7 @@ func TestCiSyncSecretsIntegration(t *testing.T) {
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/repos/owner/repo/actions/secrets/public-key" {
-			json.NewEncoder(w).Encode(map[string]string{
+			_ = json.NewEncoder(w).Encode(map[string]string{
 				"key":    base64.StdEncoding.EncodeToString(publicKey[:]),
 				"key_id": "key-123",
 			})
@@ -118,7 +118,7 @@ func TestCiSyncSecretsIntegration(t *testing.T) {
 		if r.Method == "PUT" && strings.HasPrefix(r.URL.Path, "/repos/owner/repo/actions/secrets/") {
 			name := strings.TrimPrefix(r.URL.Path, "/repos/owner/repo/actions/secrets/")
 			var body map[string]string
-			json.NewDecoder(r.Body).Decode(&body)
+			_ = json.NewDecoder(r.Body).Decode(&body)
 			secretsSet[name] = body["encrypted_value"]
 			w.WriteHeader(http.StatusCreated)
 			return

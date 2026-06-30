@@ -120,7 +120,7 @@ func installCICmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("create workflow file: %w", err)
 			}
-			defer f.Close()
+			defer func() { _ = f.Close() }()
 
 			// Normalize version to a ref suitable for uses:
 			actionRef := ver

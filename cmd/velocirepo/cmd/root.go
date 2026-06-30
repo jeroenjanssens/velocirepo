@@ -43,7 +43,7 @@ func newRootCmd() *cobra.Command {
 				return fmt.Errorf("load config: %w", err)
 			}
 
-			godotenv.Load(filepath.Join(cfg.Dir, ".env"))
+			_ = godotenv.Load(filepath.Join(cfg.Dir, ".env"))
 
 			if commandRequiresSchema(cmd) {
 				if err := store.CheckSchemaVersion(cfg.DataDir()); err != nil {

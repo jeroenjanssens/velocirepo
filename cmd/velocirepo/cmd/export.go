@@ -40,7 +40,7 @@ func exportCmd() *cobra.Command {
 					continue
 				}
 				name := filepath.Join(outDir, filepath.Base(path))
-				fmt.Fprintf(os.Stdout, "  %s (%s)\n", name, formatSize(info.Size()))
+				_, _ = fmt.Fprintf(os.Stdout, "  %s (%s)\n", name, formatSize(info.Size()))
 			}
 			return nil
 		},

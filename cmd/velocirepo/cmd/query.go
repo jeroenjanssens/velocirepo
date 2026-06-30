@@ -80,9 +80,9 @@ func schemaCmd() *cobra.Command {
 				return printJSON(results)
 			case csvFlag:
 				w := csv.NewWriter(os.Stdout)
-				w.Write([]string{"table", "column", "type"})
+				_ = w.Write([]string{"table", "column", "type"})
 				for _, c := range cols {
-					w.Write([]string{c.Table, c.Column, c.Type})
+					_ = w.Write([]string{c.Table, c.Column, c.Type})
 				}
 				w.Flush()
 				return w.Error()
@@ -97,9 +97,9 @@ func schemaCmd() *cobra.Command {
 				)
 				table.Header([]string{"TABLE", "COLUMN", "TYPE"})
 				for _, c := range cols {
-					table.Append([]string{c.Table, c.Column, c.Type})
+					_ = table.Append([]string{c.Table, c.Column, c.Type})
 				}
-				table.Render()
+				_ = table.Render()
 				return nil
 			}
 		},
@@ -117,8 +117,8 @@ func writeParquet(query string) error {
 		return err
 	}
 	tmpPath := tmp.Name()
-	tmp.Close()
-	defer os.Remove(tmpPath)
+	_ = tmp.Close()
+	defer func() { _ = os.Remove(tmpPath) }()
 
 	if err := store.QueryLiveParquet(cfg.DataDir(), projectInfos(), indicatorDefs(), query, tmpPath); err != nil {
 		return err
@@ -128,7 +128,7 @@ func writeParquet(query string) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	_, err = io.Copy(os.Stdout, f)
 	return err
@@ -153,10 +153,10 @@ func printTable(results []map[string]interface{}, cols []string) error {
 		for i, col := range cols {
 			vals[i] = formatValue(row[col])
 		}
-		table.Append(vals)
+		_ = table.Append(vals)
 	}
 
-	table.Render()
+	_ = table.Render()
 	return nil
 }
 
@@ -173,14 +173,14 @@ func printCSV(results []map[string]interface{}, cols []string, noHeader bool) er
 
 	w := csv.NewWriter(os.Stdout)
 	if !noHeader {
-		w.Write(cols)
+		_ = w.Write(cols)
 	}
 	for _, row := range results {
 		vals := make([]string, len(cols))
 		for i, col := range cols {
 			vals[i] = formatValue(row[col])
 		}
-		w.Write(vals)
+		_ = w.Write(vals)
 	}
 	w.Flush()
 	return w.Error()

@@ -195,7 +195,7 @@ func TestScaffoldSubdirectory(t *testing.T) {
 func TestScaffoldAlreadyExists(t *testing.T) {
 	viewsDir := t.TempDir()
 
-	os.MkdirAll(filepath.Join(viewsDir, "existing"), 0755)
+	_ = os.MkdirAll(filepath.Join(viewsDir, "existing"), 0755)
 
 	_, err := Scaffold(ScaffoldOptions{
 		ViewsDir:  viewsDir,

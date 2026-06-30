@@ -43,20 +43,20 @@ func initCmd() *cobra.Command {
 				reader := bufio.NewReader(os.Stdin)
 
 				if detected.ProjectID != "" || detected.GitHub != "" {
-					fmt.Fprintln(os.Stdout, "Detected project information:")
+					_, _ = fmt.Fprintln(os.Stdout, "Detected project information:")
 					if detected.GitHub != "" {
-						fmt.Fprintf(os.Stdout, "  GitHub: %s (from %s)\n", detected.GitHub, detected.GitHubSource)
+						_, _ = fmt.Fprintf(os.Stdout, "  GitHub: %s (from %s)\n", detected.GitHub, detected.GitHubSource)
 					}
 					if detected.PyPI != "" {
-						fmt.Fprintf(os.Stdout, "  PyPI: %s (from %s)\n", detected.PyPI, detected.PyPISource)
+						_, _ = fmt.Fprintf(os.Stdout, "  PyPI: %s (from %s)\n", detected.PyPI, detected.PyPISource)
 					}
 					if detected.CRAN != "" {
-						fmt.Fprintf(os.Stdout, "  CRAN: %s (from %s)\n", detected.CRAN, detected.CRANSource)
+						_, _ = fmt.Fprintf(os.Stdout, "  CRAN: %s (from %s)\n", detected.CRAN, detected.CRANSource)
 					}
 					if detected.OpenVSX != "" {
-						fmt.Fprintf(os.Stdout, "  OpenVSX: %s (from %s)\n", detected.OpenVSX, detected.OpenVSXSource)
+						_, _ = fmt.Fprintf(os.Stdout, "  OpenVSX: %s (from %s)\n", detected.OpenVSX, detected.OpenVSXSource)
 					}
-					fmt.Fprintln(os.Stdout)
+					_, _ = fmt.Fprintln(os.Stdout)
 
 					ok, err := confirm(os.Stdout, reader, "Add this project to config?")
 					if err == nil && ok {
@@ -72,7 +72,7 @@ func initCmd() *cobra.Command {
 							OpenVSX:      toStringList(detected.OpenVSX),
 						}
 						content += "\n" + formatSection(id, proj)
-						fmt.Fprintf(os.Stdout, "\nAdded project '%s'\n", id)
+						_, _ = fmt.Fprintf(os.Stdout, "\nAdded project '%s'\n", id)
 					}
 				}
 			}
@@ -87,7 +87,7 @@ func initCmd() *cobra.Command {
 				return fmt.Errorf("create data directory: %w", err)
 			}
 
-			fmt.Fprintf(os.Stdout, "Created %s\n", cfgPath)
+			_, _ = fmt.Fprintf(os.Stdout, "Created %s\n", cfgPath)
 			return nil
 		},
 	}

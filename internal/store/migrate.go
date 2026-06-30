@@ -40,7 +40,7 @@ func writeSchemaVersion(dataDir string, version int) error {
 func ensureSchemaVersion(dataDir string) {
 	path := filepath.Join(dataDir, schemaVersionFile)
 	if _, err := os.Stat(path); os.IsNotExist(err) {
-		writeSchemaVersion(dataDir, LatestSchemaVersion)
+		_ = writeSchemaVersion(dataDir, LatestSchemaVersion)
 	}
 }
 
@@ -257,7 +257,7 @@ func rewriteEventFields(path string) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	var lines [][]byte
 	modified := false
@@ -315,7 +315,7 @@ func rewriteEventFields(path string) error {
 	if err := scanner.Err(); err != nil {
 		return err
 	}
-	f.Close()
+	_ = f.Close()
 
 	if !modified {
 		return nil
@@ -329,16 +329,16 @@ func rewriteEventFields(path string) error {
 
 	w := bufio.NewWriter(tmp)
 	for _, line := range lines {
-		w.Write(line)
-		w.WriteByte('\n')
+		_, _ = w.Write(line)
+		_ = w.WriteByte('\n')
 	}
 	if err := w.Flush(); err != nil {
-		tmp.Close()
-		os.Remove(tmpPath)
+		_ = tmp.Close()
+		_ = os.Remove(tmpPath)
 		return err
 	}
 	if err := tmp.Close(); err != nil {
-		os.Remove(tmpPath)
+		_ = os.Remove(tmpPath)
 		return err
 	}
 	return os.Rename(tmpPath, path)
@@ -403,29 +403,29 @@ func migrate4to5(dataDir string) error {
 			}
 			data, err := json.Marshal(ce)
 			if err != nil {
-				tmp.Close()
-				os.Remove(tmpPath)
+				_ = tmp.Close()
+				_ = os.Remove(tmpPath)
 				return fmt.Errorf("marshal content entry: %w", err)
 			}
-			w.Write(data)
-			w.WriteByte('\n')
+			_, _ = w.Write(data)
+			_ = w.WriteByte('\n')
 		}
 
 		if err := w.Flush(); err != nil {
-			tmp.Close()
-			os.Remove(tmpPath)
+			_ = tmp.Close()
+			_ = os.Remove(tmpPath)
 			return err
 		}
 		if err := tmp.Close(); err != nil {
-			os.Remove(tmpPath)
+			_ = os.Remove(tmpPath)
 			return err
 		}
 		if err := os.Rename(tmpPath, contentPath); err != nil {
-			os.Remove(tmpPath)
+			_ = os.Remove(tmpPath)
 			return err
 		}
 
-		os.Remove(indexPath)
+		_ = os.Remove(indexPath)
 	}
 
 	return nil
@@ -448,7 +448,7 @@ func renameMetricsInFile(path string, renames map[string]string) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	var lines [][]byte
 	modified := false
@@ -481,7 +481,7 @@ func renameMetricsInFile(path string, renames map[string]string) error {
 	if err := scanner.Err(); err != nil {
 		return err
 	}
-	f.Close()
+	_ = f.Close()
 
 	if !modified {
 		return nil
@@ -495,16 +495,16 @@ func renameMetricsInFile(path string, renames map[string]string) error {
 
 	w := bufio.NewWriter(tmp)
 	for _, line := range lines {
-		w.Write(line)
-		w.WriteByte('\n')
+		_, _ = w.Write(line)
+		_ = w.WriteByte('\n')
 	}
 	if err := w.Flush(); err != nil {
-		tmp.Close()
-		os.Remove(tmpPath)
+		_ = tmp.Close()
+		_ = os.Remove(tmpPath)
 		return err
 	}
 	if err := tmp.Close(); err != nil {
-		os.Remove(tmpPath)
+		_ = os.Remove(tmpPath)
 		return err
 	}
 	return os.Rename(tmpPath, path)

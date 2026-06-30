@@ -17,7 +17,7 @@ func TestLinkedInFetchOrganization(t *testing.T) {
 			t.Errorf("LinkedIn-Version = %q, want %q", got, "202406")
 		}
 
-		json.NewEncoder(w).Encode(postsResponse{
+		_ = json.NewEncoder(w).Encode(postsResponse{
 			Elements: []linkedinPost{
 				{
 					ID:         "urn:li:share:7123456789012345678",
@@ -46,7 +46,7 @@ func TestLinkedInFetchOrganization(t *testing.T) {
 	})
 
 	mux.HandleFunc("/rest/organizationalEntityShareStatistics", func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(statsResponse{
+		_ = json.NewEncoder(w).Encode(statsResponse{
 			Elements: []statsElement{
 				{
 					Stats: shareStats{ImpressionCount: 4521, LikeCount: 85, CommentCount: 14, ShareCount: 12, ClickCount: 234},
@@ -61,7 +61,7 @@ func TestLinkedInFetchOrganization(t *testing.T) {
 	})
 
 	mux.HandleFunc("/rest/networkSizes/", func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(followerResponse{FirstDegreeSize: 15420})
+		_ = json.NewEncoder(w).Encode(followerResponse{FirstDegreeSize: 15420})
 	})
 
 	srv := httptest.NewServer(mux)
@@ -135,7 +135,7 @@ func TestLinkedInFetchPagination(t *testing.T) {
 		start := r.URL.Query().Get("start")
 
 		if start == "0" || start == "" {
-			json.NewEncoder(w).Encode(postsResponse{
+			_ = json.NewEncoder(w).Encode(postsResponse{
 				Elements: []linkedinPost{
 					{ID: "urn:li:share:1", CreatedAt: 1719792000000, Commentary: "Post 1"},
 					{ID: "urn:li:share:2", CreatedAt: 1719791000000, Commentary: "Post 2"},
@@ -147,7 +147,7 @@ func TestLinkedInFetchPagination(t *testing.T) {
 				}{Count: 2, Start: 0, Total: 3},
 			})
 		} else {
-			json.NewEncoder(w).Encode(postsResponse{
+			_ = json.NewEncoder(w).Encode(postsResponse{
 				Elements: []linkedinPost{
 					{ID: "urn:li:share:3", CreatedAt: 1719790000000, Commentary: "Post 3"},
 				},
@@ -161,7 +161,7 @@ func TestLinkedInFetchPagination(t *testing.T) {
 	})
 
 	mux.HandleFunc("/rest/organizationalEntityShareStatistics", func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(statsResponse{Elements: []statsElement{}})
+		_ = json.NewEncoder(w).Encode(statsResponse{Elements: []statsElement{}})
 	})
 
 	srv := httptest.NewServer(mux)
@@ -193,7 +193,7 @@ func TestLinkedInPersonalNoFollowers(t *testing.T) {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/rest/posts", func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(postsResponse{
+		_ = json.NewEncoder(w).Encode(postsResponse{
 			Elements: []linkedinPost{
 				{ID: "urn:li:share:1", CreatedAt: 1719792000000, Commentary: "Hello"},
 			},
@@ -206,7 +206,7 @@ func TestLinkedInPersonalNoFollowers(t *testing.T) {
 	})
 
 	mux.HandleFunc("/rest/organizationalEntityShareStatistics", func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(statsResponse{
+		_ = json.NewEncoder(w).Encode(statsResponse{
 			Elements: []statsElement{
 				{Stats: shareStats{ImpressionCount: 100, LikeCount: 5}, Share: "urn:li:share:1"},
 			},
@@ -254,7 +254,7 @@ func TestLinkedInTitleTruncation(t *testing.T) {
 func TestLinkedInAPIError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
-		w.Write([]byte(`{"message":"Expired token"}`))
+		_, _ = w.Write([]byte(`{"message":"Expired token"}`))
 	}))
 	defer srv.Close()
 

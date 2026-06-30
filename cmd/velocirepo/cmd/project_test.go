@@ -178,7 +178,7 @@ github ="org/alpha"
 	dir := filepath.Dir(cfgPath)
 
 	dataDir := filepath.Join(dir, "data", "events", "github", "alpha")
-	os.MkdirAll(dataDir, 0755)
+	_ = os.MkdirAll(dataDir, 0755)
 	writeTempFile(t, dataDir, "2025-01-01.jsonl", `{}`)
 	writeTempFile(t, filepath.Join(dir, "data"), ".schema-version", "5\n")
 
@@ -247,7 +247,7 @@ github ="org/alpha"
 	dir := filepath.Dir(cfgPath)
 
 	dataDir := filepath.Join(dir, "data", "events", "github", "alpha")
-	os.MkdirAll(dataDir, 0755)
+	_ = os.MkdirAll(dataDir, 0755)
 	writeTempFile(t, dataDir, "2025-01-01.jsonl", `{"source":"github","event_type":"star","project_id":"alpha","github_repo":"org/alpha","datetime":"2025-01-01T10:00:00Z","user":"alice"}`+"\n")
 	writeTempFile(t, filepath.Join(dir, "data"), ".schema-version", "5\n")
 
@@ -307,7 +307,7 @@ github ="org/old"
 	dir := filepath.Dir(cfgPath)
 
 	dataDir := filepath.Join(dir, "data", "events", "github", "old-name")
-	os.MkdirAll(dataDir, 0755)
+	_ = os.MkdirAll(dataDir, 0755)
 	writeTempFile(t, dataDir, "2025-01-01.jsonl", `{"source":"github","type":"star","project_id":"old-name","target":"org/old","datetime":"2025-01-01T00:00:00Z"}`+"\n")
 	writeTempFile(t, filepath.Join(dir, "data"), ".schema-version", "5\n")
 

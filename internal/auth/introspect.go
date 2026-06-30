@@ -42,7 +42,7 @@ func introspectWithURL(ctx context.Context, endpoint, token, clientID, clientSec
 	if err != nil {
 		return nil, fmt.Errorf("introspect request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("introspect returned %d", resp.StatusCode)
@@ -71,7 +71,7 @@ func checkLinkedInTokenExpiryWith(ctx context.Context, endpoint, token, clientID
 	}
 
 	if !result.Active {
-		fmt.Fprintln(w, "WARNING: LinkedIn token is no longer active. Run 'velocirepo auth linkedin' to refresh.")
+		_, _ = fmt.Fprintln(w, "WARNING: LinkedIn token is no longer active. Run 'velocirepo auth linkedin' to refresh.")
 		return
 	}
 
@@ -81,9 +81,9 @@ func checkLinkedInTokenExpiryWith(ctx context.Context, endpoint, token, clientID
 		if remaining < 7*24*time.Hour {
 			days := int(remaining.Hours() / 24)
 			if days <= 0 {
-				fmt.Fprintln(w, "WARNING: LinkedIn token expires today. Run 'velocirepo auth linkedin' to refresh.")
+				_, _ = fmt.Fprintln(w, "WARNING: LinkedIn token expires today. Run 'velocirepo auth linkedin' to refresh.")
 			} else {
-				fmt.Fprintf(w, "WARNING: LinkedIn token expires in %d day(s). Run 'velocirepo auth linkedin' to refresh.\n", days)
+				_, _ = fmt.Fprintf(w, "WARNING: LinkedIn token expires in %d day(s). Run 'velocirepo auth linkedin' to refresh.\n", days)
 			}
 		}
 	}

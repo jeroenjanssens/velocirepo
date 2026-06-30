@@ -92,25 +92,25 @@ func showProjectCmd() *cobra.Command {
 				return enc.Encode(out)
 			}
 
-			fmt.Fprintf(cmd.OutOrStdout(), "Project: %s\n", id)
-			fmt.Fprintf(cmd.OutOrStdout(), "Name:    %s\n", proj.Name)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Project: %s\n", id)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Name:    %s\n", proj.Name)
 			for _, src := range proj.Sources() {
 				if !src.Values.IsEmpty() {
-					fmt.Fprintf(cmd.OutOrStdout(), "%-15s %s\n", src.DisplayName+":", src.Values.String())
+					_, _ = fmt.Fprintf(cmd.OutOrStdout(), "%-15s %s\n", src.DisplayName+":", src.Values.String())
 				}
 			}
 
 			if len(stats) > 0 {
-				fmt.Fprintln(cmd.OutOrStdout(), "\nSources:")
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "\nSources:")
 				for _, s := range stats {
 					lastStr := "never fetched"
 					if s.LastDate != "" {
 						lastStr = "last fetched: " + s.LastDate
 					}
-					fmt.Fprintf(cmd.OutOrStdout(), "  %-12s %s   records: %d   size: %s\n",
+					_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  %-12s %s   records: %d   size: %s\n",
 						s.Source, lastStr, s.Records, formatSize(s.SizeBytes))
 				}
-				fmt.Fprintf(cmd.OutOrStdout(), "\nTotal: %d records across %d sources (%s)\n",
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "\nTotal: %d records across %d sources (%s)\n",
 					totalRecords, len(stats), formatSize(totalSize))
 			}
 			return nil

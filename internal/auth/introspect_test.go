@@ -33,7 +33,7 @@ func TestIntrospectWithURL(t *testing.T) {
 			if !bytes.Contains(body, []byte("client_secret=my-secret")) {
 				t.Errorf("expected client_secret in body, got %s", body)
 			}
-			json.NewEncoder(w).Encode(IntrospectResult{
+			_ = json.NewEncoder(w).Encode(IntrospectResult{
 				Active:    true,
 				ExpiresAt: expiresAt,
 				Scope:     "r_organization_social",
@@ -59,7 +59,7 @@ func TestIntrospectWithURL(t *testing.T) {
 
 	t.Run("inactive token", func(t *testing.T) {
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			json.NewEncoder(w).Encode(IntrospectResult{Active: false})
+			_ = json.NewEncoder(w).Encode(IntrospectResult{Active: false})
 		}))
 		defer srv.Close()
 
@@ -76,7 +76,7 @@ func TestIntrospectWithURL(t *testing.T) {
 	t.Run("server error", func(t *testing.T) {
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusInternalServerError)
-			fmt.Fprint(w, "internal error")
+			_, _ = fmt.Fprint(w, "internal error")
 		}))
 		defer srv.Close()
 
@@ -100,7 +100,7 @@ func TestCheckLinkedInTokenExpiry(t *testing.T) {
 
 	t.Run("warns when token inactive", func(t *testing.T) {
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			json.NewEncoder(w).Encode(IntrospectResult{Active: false})
+			_ = json.NewEncoder(w).Encode(IntrospectResult{Active: false})
 		}))
 		defer srv.Close()
 
@@ -115,7 +115,7 @@ func TestCheckLinkedInTokenExpiry(t *testing.T) {
 	t.Run("warns when token expires soon", func(t *testing.T) {
 		expiresAt := time.Now().Add(3 * 24 * time.Hour).Unix()
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			json.NewEncoder(w).Encode(IntrospectResult{Active: true, ExpiresAt: expiresAt})
+			_ = json.NewEncoder(w).Encode(IntrospectResult{Active: true, ExpiresAt: expiresAt})
 		}))
 		defer srv.Close()
 
@@ -130,7 +130,7 @@ func TestCheckLinkedInTokenExpiry(t *testing.T) {
 	t.Run("warns when token expires today", func(t *testing.T) {
 		expiresAt := time.Now().Add(1 * time.Hour).Unix()
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			json.NewEncoder(w).Encode(IntrospectResult{Active: true, ExpiresAt: expiresAt})
+			_ = json.NewEncoder(w).Encode(IntrospectResult{Active: true, ExpiresAt: expiresAt})
 		}))
 		defer srv.Close()
 
@@ -145,7 +145,7 @@ func TestCheckLinkedInTokenExpiry(t *testing.T) {
 	t.Run("no warning when expiry far away", func(t *testing.T) {
 		expiresAt := time.Now().Add(30 * 24 * time.Hour).Unix()
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			json.NewEncoder(w).Encode(IntrospectResult{Active: true, ExpiresAt: expiresAt})
+			_ = json.NewEncoder(w).Encode(IntrospectResult{Active: true, ExpiresAt: expiresAt})
 		}))
 		defer srv.Close()
 

@@ -83,7 +83,7 @@ func addViewCmd() *cobra.Command {
 	cmd.Flags().StringVarP(&source, "source", "s", "duckdb", "data source: duckdb or parquet")
 	cmd.Flags().BoolVar(&noUV, "no-uv", false, "skip pyproject.toml generation")
 	cmd.Flags().BoolVar(&renv, "renv", false, "scaffold renv for R views")
-	cmd.MarkFlagRequired("framework")
+	_ = cmd.MarkFlagRequired("framework")
 
 	return cmd
 }

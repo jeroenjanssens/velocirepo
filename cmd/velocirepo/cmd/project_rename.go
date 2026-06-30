@@ -54,12 +54,12 @@ func renameProjectCmd() *cobra.Command {
 
 			if !noMoveData {
 				if len(moved) > 0 {
-					fmt.Fprintf(os.Stdout, "Renamed project '%s' → '%s' (moved data for: %s)\n", oldID, newID, joinComma(moved))
+					_, _ = fmt.Fprintf(os.Stdout, "Renamed project '%s' → '%s' (moved data for: %s)\n", oldID, newID, joinComma(moved))
 				} else {
-					fmt.Fprintf(os.Stdout, "Renamed project '%s' → '%s' (no data directories found)\n", oldID, newID)
+					_, _ = fmt.Fprintf(os.Stdout, "Renamed project '%s' → '%s' (no data directories found)\n", oldID, newID)
 				}
 			} else {
-				fmt.Fprintf(os.Stdout, "Renamed project '%s' → '%s'\n", oldID, newID)
+				_, _ = fmt.Fprintf(os.Stdout, "Renamed project '%s' → '%s'\n", oldID, newID)
 			}
 
 			rebuildDB()
@@ -101,16 +101,16 @@ func moveProjectDataForRename(dataDir, oldID, newID string) ([]projectDataMove, 
 			return moves, moved, err
 		}
 		if err := os.MkdirAll(filepath.Dir(newDir), 0755); err != nil {
-			rollbackProjectDataMoves(moves)
+			_ = rollbackProjectDataMoves(moves)
 			return nil, nil, err
 		}
 		if err := os.Rename(oldDir, newDir); err != nil {
-			rollbackProjectDataMoves(moves)
+			_ = rollbackProjectDataMoves(moves)
 			return nil, nil, fmt.Errorf("rename %s → %s: %w", oldDir, newDir, err)
 		}
 		moves = append(moves, projectDataMove{from: oldDir, to: newDir, oldID: oldID, newID: newID})
 		if err := store.RewriteProjectID(newDir, oldID, newID); err != nil {
-			rollbackProjectDataMoves(moves)
+			_ = rollbackProjectDataMoves(moves)
 			return nil, nil, fmt.Errorf("rewrite project IDs in %s: %w", newDir, err)
 		}
 		moved = append(moved, src)

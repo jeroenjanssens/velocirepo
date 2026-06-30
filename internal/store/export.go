@@ -24,7 +24,7 @@ func Export(opts ExportOptions) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	absOut, err := filepath.Abs(opts.OutDir)
 	if err != nil {

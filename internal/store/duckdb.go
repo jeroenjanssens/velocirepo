@@ -32,7 +32,7 @@ func QueryLive(dataDir string, projects []ProjectInfo, indicators []IndicatorDef
 	if err != nil {
 		return nil, nil, err
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	return queryRows(db, query)
 }
@@ -42,7 +42,7 @@ func QueryLiveRestricted(dataDir string, projects []ProjectInfo, indicators []In
 	if err != nil {
 		return nil, nil, err
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	if err := materializeRestrictedTables(db); err != nil {
 		return nil, nil, err
@@ -59,7 +59,7 @@ func QueryLiveParquet(dataDir string, projects []ProjectInfo, indicators []Indic
 	if err != nil {
 		return err
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	copySQL := fmt.Sprintf(`COPY (%s) TO '%s' (FORMAT PARQUET)`, query, escapeSQLString(outPath))
 	_, err = db.Exec(copySQL)
@@ -71,13 +71,13 @@ func SchemaLive(dataDir string, projects []ProjectInfo, indicators []IndicatorDe
 	if err != nil {
 		return nil, err
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	rows, err := db.Query("SELECT table_name, column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name IN ('content', 'events', 'indicators', 'metrics', 'projects') ORDER BY table_name, ordinal_position")
 	if err != nil {
 		return nil, fmt.Errorf("query schema: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var cols []SchemaColumn
 	for rows.Next() {
@@ -99,32 +99,32 @@ func openLiveDB(dataDir string, projects []ProjectInfo, indicators []IndicatorDe
 
 	absDir, err := filepath.Abs(dataDir)
 	if err != nil {
-		db.Close()
+		_ = db.Close()
 		return nil, fmt.Errorf("resolve data dir: %w", err)
 	}
 
 	if err := createEventsView(db, absDir); err != nil {
-		db.Close()
+		_ = db.Close()
 		return nil, err
 	}
 
 	if err := createMetricsView(db, absDir); err != nil {
-		db.Close()
+		_ = db.Close()
 		return nil, err
 	}
 
 	if err := createContentView(db, absDir); err != nil {
-		db.Close()
+		_ = db.Close()
 		return nil, err
 	}
 
 	if err := createProjectsView(db, projects); err != nil {
-		db.Close()
+		_ = db.Close()
 		return nil, err
 	}
 
 	if err := createIndicatorsView(db, indicators); err != nil {
-		db.Close()
+		_ = db.Close()
 		return nil, err
 	}
 
@@ -418,7 +418,7 @@ func queryRows(db *sql.DB, query string) ([]map[string]interface{}, []string, er
 	if err != nil {
 		return nil, nil, fmt.Errorf("query: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	cols, err := rows.Columns()
 	if err != nil {
