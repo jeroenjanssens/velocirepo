@@ -218,8 +218,8 @@ func migrate3to4(dataDir string) error {
 	}
 
 	// Move source directories into metrics/ and events/ subdirs
-	eventsDir := filepath.Join(dataDir, "events")
-	metricsDir := filepath.Join(dataDir, "metrics")
+	eventsDir := filepath.Join(dataDir, EventsDir)
+	metricsDir := filepath.Join(dataDir, MetricsDir)
 
 	for _, src := range sourceinfo.EventNames() {
 		srcDir := filepath.Join(dataDir, src)
@@ -321,31 +321,11 @@ func rewriteEventFields(path string) error {
 		return nil
 	}
 
-	tmp, err := os.CreateTemp(filepath.Dir(path), ".migrate-*.jsonl")
-	if err != nil {
-		return err
-	}
-	tmpPath := tmp.Name()
-
-	w := bufio.NewWriter(tmp)
-	for _, line := range lines {
-		_, _ = w.Write(line)
-		_ = w.WriteByte('\n')
-	}
-	if err := w.Flush(); err != nil {
-		_ = tmp.Close()
-		_ = os.Remove(tmpPath)
-		return err
-	}
-	if err := tmp.Close(); err != nil {
-		_ = os.Remove(tmpPath)
-		return err
-	}
-	return os.Rename(tmpPath, path)
+	return writeJSONLLinesAtomic(path, lines)
 }
 
 func migrate4to5(dataDir string) error {
-	youtubeDir := filepath.Join(dataDir, "metrics", "youtube")
+	youtubeDir := filepath.Join(dataDir, MetricsDir, "youtube")
 	if _, err := os.Stat(youtubeDir); os.IsNotExist(err) {
 		return nil
 	}
@@ -371,19 +351,13 @@ func migrate4to5(dataDir string) error {
 			return fmt.Errorf("read index for %s: %w", projID, err)
 		}
 
-		contentDir := filepath.Join(dataDir, "content", "youtube", projID)
+		contentDir := ContentProjectDir(dataDir, "youtube", projID)
 		if err := os.MkdirAll(contentDir, 0755); err != nil {
 			return fmt.Errorf("create content dir for %s: %w", projID, err)
 		}
 
 		contentPath := filepath.Join(contentDir, "videos.jsonl")
-		tmp, err := os.CreateTemp(contentDir, ".tmp-*.jsonl")
-		if err != nil {
-			return fmt.Errorf("create temp file for %s: %w", projID, err)
-		}
-		tmpPath := tmp.Name()
-
-		w := bufio.NewWriter(tmp)
+		contentEntries := make([]contentEntry5, 0, len(entries))
 		for _, e := range entries {
 			var dur *int64
 			if e.Duration != 0 {
@@ -401,27 +375,10 @@ func migrate4to5(dataDir string) error {
 				Tags:        e.Tags,
 				Type:        "video",
 			}
-			data, err := json.Marshal(ce)
-			if err != nil {
-				_ = tmp.Close()
-				_ = os.Remove(tmpPath)
-				return fmt.Errorf("marshal content entry: %w", err)
-			}
-			_, _ = w.Write(data)
-			_ = w.WriteByte('\n')
+			contentEntries = append(contentEntries, ce)
 		}
 
-		if err := w.Flush(); err != nil {
-			_ = tmp.Close()
-			_ = os.Remove(tmpPath)
-			return err
-		}
-		if err := tmp.Close(); err != nil {
-			_ = os.Remove(tmpPath)
-			return err
-		}
-		if err := os.Rename(tmpPath, contentPath); err != nil {
-			_ = os.Remove(tmpPath)
+		if err := writeJSONLAtomic(contentPath, contentEntries, "content entry"); err != nil {
 			return err
 		}
 
@@ -487,25 +444,5 @@ func renameMetricsInFile(path string, renames map[string]string) error {
 		return nil
 	}
 
-	tmp, err := os.CreateTemp(filepath.Dir(path), ".migrate-*.jsonl")
-	if err != nil {
-		return err
-	}
-	tmpPath := tmp.Name()
-
-	w := bufio.NewWriter(tmp)
-	for _, line := range lines {
-		_, _ = w.Write(line)
-		_ = w.WriteByte('\n')
-	}
-	if err := w.Flush(); err != nil {
-		_ = tmp.Close()
-		_ = os.Remove(tmpPath)
-		return err
-	}
-	if err := tmp.Close(); err != nil {
-		_ = os.Remove(tmpPath)
-		return err
-	}
-	return os.Rename(tmpPath, path)
+	return writeJSONLLinesAtomic(path, lines)
 }

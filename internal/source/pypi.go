@@ -2,11 +2,10 @@ package source
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
-	"time"
+
+	"github.com/jeroenjanssens/velocirepo/internal/dateutil"
 )
 
 type PyPI struct {
@@ -25,40 +24,21 @@ func (p *PyPI) baseURL() string {
 }
 
 func (p *PyPI) Fetch(ctx context.Context, opts FetchOptions) ([]Record, error) {
-	url := fmt.Sprintf("%s/api/packages/%s/overall", p.baseURL(), p.Package)
+	url := fmt.Sprintf("%s/api/packages/%s/overall?mirrors=false", p.baseURL(), p.Package)
 
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
-	if err != nil {
-		return nil, err
-	}
-	q := req.URL.Query()
-	q.Set("mirrors", "false")
-	req.URL.RawQuery = q.Encode()
-
-	resp, err := p.Client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("request pypistats: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("pypistats returned %d", resp.StatusCode)
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("read response: %w", err)
-	}
-
-	var result struct {
+	result, err := doJSON[struct {
 		Data []struct {
 			Category  string `json:"category"`
 			Date      string `json:"date"`
 			Downloads int64  `json:"downloads"`
 		} `json:"data"`
-	}
-	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, fmt.Errorf("parse response: %w", err)
+	}](ctx, p.Client, httpJSONRequest{
+		URL:          url,
+		RequestError: "request pypistats",
+		StatusError:  "pypistats returned",
+	})
+	if err != nil {
+		return nil, err
 	}
 
 	var records []Record
@@ -66,7 +46,7 @@ func (p *PyPI) Fetch(ctx context.Context, opts FetchOptions) ([]Record, error) {
 		if entry.Category == "with_mirrors" {
 			continue
 		}
-		entryDate, err := time.Parse("2006-01-02", entry.Date)
+		entryDate, err := dateutil.ParseDate(entry.Date)
 		if err != nil {
 			continue
 		}

@@ -1,8 +1,6 @@
 package store
 
 import (
-	"bufio"
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -11,7 +9,7 @@ import (
 )
 
 func ContentDir(dataDir, sourceName, projectID string) string {
-	return filepath.Join(dataDir, "content", sourceName, projectID)
+	return ContentProjectDir(dataDir, sourceName, projectID)
 }
 
 func WriteContent(dataDir, sourceName, projectID, filename string, entries []source.ContentEntry) error {
@@ -29,35 +27,7 @@ func WriteContent(dataDir, sourceName, projectID, filename string, entries []sou
 
 	merged := mergeContentEntries(existing, entries)
 
-	tmp, err := os.CreateTemp(dir, ".tmp-*.jsonl")
-	if err != nil {
-		return fmt.Errorf("create temp file: %w", err)
-	}
-	tmpPath := tmp.Name()
-
-	w := bufio.NewWriter(tmp)
-	for _, e := range merged {
-		data, err := json.Marshal(e)
-		if err != nil {
-			_ = tmp.Close()
-			_ = os.Remove(tmpPath)
-			return fmt.Errorf("marshal content entry: %w", err)
-		}
-		_, _ = w.Write(data)
-		_ = w.WriteByte('\n')
-	}
-
-	if err := w.Flush(); err != nil {
-		_ = tmp.Close()
-		_ = os.Remove(tmpPath)
-		return err
-	}
-	if err := tmp.Close(); err != nil {
-		_ = os.Remove(tmpPath)
-		return err
-	}
-	if err := os.Rename(tmpPath, path); err != nil {
-		_ = os.Remove(tmpPath)
+	if err := writeJSONLAtomic(path, merged, "content entry"); err != nil {
 		return err
 	}
 
@@ -66,23 +36,7 @@ func WriteContent(dataDir, sourceName, projectID, filename string, entries []sou
 }
 
 func ReadContent(path string) ([]source.ContentEntry, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = f.Close() }()
-
-	var entries []source.ContentEntry
-	scanner := bufio.NewScanner(f)
-	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
-	for scanner.Scan() {
-		var e source.ContentEntry
-		if err := json.Unmarshal(scanner.Bytes(), &e); err != nil {
-			continue
-		}
-		entries = append(entries, e)
-	}
-	return entries, scanner.Err()
+	return readJSONL[source.ContentEntry](path, readJSONLOptions{skipInvalid: true})
 }
 
 func mergeContentEntries(existing, incoming []source.ContentEntry) []source.ContentEntry {

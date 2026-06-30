@@ -2,11 +2,11 @@ package source
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"strings"
+
+	"github.com/jeroenjanssens/velocirepo/internal/dateutil"
 )
 
 type YouTubeIndexEntry struct {
@@ -124,7 +124,7 @@ func (y *YouTube) fetchChannelStats(ctx context.Context, opts FetchOptions, chan
 	}
 
 	stats := resp.Items[0].Statistics
-	date := opts.EndDate.Format("2006-01-02")
+	date := dateutil.FormatDate(opts.EndDate)
 
 	var records []Record
 
@@ -186,7 +186,7 @@ func (y *YouTube) fetchPlaylistVideoIDs(ctx context.Context, playlistID string) 
 
 func (y *YouTube) fetchVideos(ctx context.Context, opts FetchOptions, videoIDs []string) ([]Record, error) {
 	var records []Record
-	date := opts.EndDate.Format("2006-01-02")
+	date := dateutil.FormatDate(opts.EndDate)
 
 	err := forStringBatches(videoIDs, 50, func(batch []string) error {
 		url := fmt.Sprintf("%s/videos?part=statistics,snippet,contentDetails&id=%s&key=%s",
@@ -296,28 +296,12 @@ func (y *YouTube) baseURL() string {
 }
 
 func (y *YouTube) get(ctx context.Context, url string, result interface{}) error {
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
-	if err != nil {
-		return err
-	}
-
-	resp, err := y.Client.Do(req)
-	if err != nil {
-		return fmt.Errorf("request: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("youtube API returned %d: %s", resp.StatusCode, string(body))
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return fmt.Errorf("read response: %w", err)
-	}
-
-	return json.Unmarshal(body, result)
+	return doJSONInto(ctx, y.Client, httpJSONRequest{
+		URL:              url,
+		RequestError:     "request",
+		StatusError:      "youtube API returned",
+		IncludeErrorBody: true,
+	}, result)
 }
 
 func detectYouTubeType(target string) string {

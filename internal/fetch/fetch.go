@@ -10,7 +10,9 @@ import (
 
 	"github.com/jeroenjanssens/velocirepo/internal/auth"
 	"github.com/jeroenjanssens/velocirepo/internal/config"
+	"github.com/jeroenjanssens/velocirepo/internal/dateutil"
 	"github.com/jeroenjanssens/velocirepo/internal/source"
+	"github.com/jeroenjanssens/velocirepo/internal/sourceinfo"
 	"github.com/jeroenjanssens/velocirepo/internal/store"
 	"golang.org/x/sync/errgroup"
 )
@@ -51,17 +53,17 @@ func TokensFromEnv() Tokens {
 
 func resolveEndDate(cfg *config.Config, endDateStr string) (time.Time, error) {
 	if endDateStr != "" {
-		return time.Parse("2006-01-02", endDateStr)
+		return dateutil.ParseDate(endDateStr)
 	}
 	if cfg.Settings.EndDate == "yesterday" || cfg.Settings.EndDate == "" {
 		return time.Now().UTC().AddDate(0, 0, -1).Truncate(24 * time.Hour), nil
 	}
-	return time.Parse("2006-01-02", cfg.Settings.EndDate)
+	return dateutil.ParseDate(cfg.Settings.EndDate)
 }
 
 func resolveStartDate(dataDir, sourceName, projectID, startDateStr string) (time.Time, error) {
 	if startDateStr != "" {
-		return time.Parse("2006-01-02", startDateStr)
+		return dateutil.ParseDate(startDateStr)
 	}
 	last, err := store.LastDate(dataDir, sourceName, projectID)
 	if err != nil {
@@ -288,8 +290,8 @@ func runEventJob(ctx context.Context, dataDir string, job fetchJob, opts source.
 		Source:    job.sourceName,
 		ProjectID: job.projectID,
 		Records:   len(events),
-		StartDate: opts.StartDate.Format("2006-01-02"),
-		EndDate:   opts.EndDate.Format("2006-01-02"),
+		StartDate: dateutil.FormatDate(opts.StartDate),
+		EndDate:   dateutil.FormatDate(opts.EndDate),
 		Duration:  time.Since(started),
 	})
 }
@@ -353,15 +355,14 @@ func runMetricJob(ctx context.Context, dataDir string, job fetchJob, opts source
 		Source:    job.sourceName,
 		ProjectID: job.projectID,
 		Records:   len(records),
-		StartDate: opts.StartDate.Format("2006-01-02"),
-		EndDate:   opts.EndDate.Format("2006-01-02"),
+		StartDate: dateutil.FormatDate(opts.StartDate),
+		EndDate:   dateutil.FormatDate(opts.EndDate),
 		Duration:  time.Since(started),
 	})
 }
 
 type fetchSourceDescriptor struct {
-	name          string
-	values        func(config.Project) config.StringList
+	sourceinfo.Descriptor
 	missingToken  func(Tokens) string
 	beforeFetch   func(context.Context, Tokens)
 	metricFactory func(*http.Client, Tokens, string) source.Source
@@ -370,66 +371,57 @@ type fetchSourceDescriptor struct {
 
 var fetchSourceDescriptors = []fetchSourceDescriptor{
 	{
-		name:   "github-traffic",
-		values: func(p config.Project) config.StringList { return p.GitHubTraffic },
+		Descriptor: sourceinfo.Must("github-traffic"),
 		metricFactory: func(client *http.Client, tokens Tokens, target string) source.Source {
 			return &source.GitHubTraffic{Client: client, Token: tokens.GitHub, Repo: target}
 		},
 	},
 	{
-		name:   "github",
-		values: func(p config.Project) config.StringList { return p.GitHubEvents },
+		Descriptor: sourceinfo.Must("github"),
 		eventFactory: func(client *http.Client, tokens Tokens, target string) source.EventSource {
 			return &source.GitHubEvents{Client: client, Token: tokens.GitHub, Repo: target}
 		},
 	},
 	{
-		name:   "pypi",
-		values: func(p config.Project) config.StringList { return p.PyPI },
+		Descriptor: sourceinfo.Must("pypi"),
 		metricFactory: func(client *http.Client, _ Tokens, target string) source.Source {
 			return &source.PyPI{Client: client, Package: target}
 		},
 	},
 	{
-		name:   "cran",
-		values: func(p config.Project) config.StringList { return p.CRAN },
+		Descriptor: sourceinfo.Must("cran"),
 		metricFactory: func(client *http.Client, _ Tokens, target string) source.Source {
 			return &source.CRAN{Client: client, Package: target}
 		},
 	},
 	{
-		name:   "homebrew",
-		values: func(p config.Project) config.StringList { return p.Homebrew },
+		Descriptor: sourceinfo.Must("homebrew"),
 		metricFactory: func(client *http.Client, _ Tokens, target string) source.Source {
 			return &source.Homebrew{Client: client, Formula: target}
 		},
 	},
 	{
-		name:         "plausible",
-		values:       func(p config.Project) config.StringList { return p.Plausible },
+		Descriptor:   sourceinfo.Must("plausible"),
 		missingToken: func(tokens Tokens) string { return missingToken(tokens.Plausible, "PLAUSIBLE_TOKEN not set") },
 		metricFactory: func(client *http.Client, tokens Tokens, target string) source.Source {
 			return &source.Plausible{Client: client, APIKey: tokens.Plausible, SiteID: target}
 		},
 	},
 	{
-		name:   "openvsx",
-		values: func(p config.Project) config.StringList { return p.OpenVSX },
+		Descriptor: sourceinfo.Must("openvsx"),
 		metricFactory: func(client *http.Client, _ Tokens, target string) source.Source {
 			return &source.OpenVSX{Client: client, ExtensionID: target}
 		},
 	},
 	{
-		name:         "youtube",
-		values:       func(p config.Project) config.StringList { return p.YouTube },
+		Descriptor:   sourceinfo.Must("youtube"),
 		missingToken: func(tokens Tokens) string { return missingToken(tokens.YouTube, "YOUTUBE_TOKEN not set") },
 		metricFactory: func(client *http.Client, tokens Tokens, target string) source.Source {
 			return &source.YouTube{Client: client, APIKey: tokens.YouTube, Target: target}
 		},
 	},
 	{
-		name:         "linkedin",
-		values:       func(p config.Project) config.StringList { return p.LinkedIn },
+		Descriptor:   sourceinfo.Must("linkedin"),
 		missingToken: func(tokens Tokens) string { return missingToken(tokens.LinkedIn, "LINKEDIN_TOKEN not set") },
 		beforeFetch: func(ctx context.Context, tokens Tokens) {
 			auth.CheckLinkedInTokenExpiry(ctx, tokens.LinkedIn, os.Getenv("LINKEDIN_CLIENT_ID"), os.Getenv("LINKEDIN_CLIENT_SECRET"))
@@ -484,18 +476,18 @@ func (d fetchSourceDescriptor) runBeforeFetch(ctx context.Context, tokens Tokens
 }
 
 func (d fetchSourceDescriptor) addJobs(jobs map[jobKey]*fetchJob, order *[]jobKey, client *http.Client, tokens Tokens, projectID string, proj config.Project) {
-	for _, target := range d.values(proj) {
+	for _, target := range proj.SourceValues(d.Name) {
 		if d.eventFactory != nil {
-			addEventJob(jobs, order, d.name, projectID, d.eventFactory(client, tokens, target))
+			addEventJob(jobs, order, d.Name, projectID, d.eventFactory(client, tokens, target))
 			continue
 		}
-		addMetricJob(jobs, order, d.name, projectID, d.metricFactory(client, tokens, target))
+		addMetricJob(jobs, order, d.Name, projectID, d.metricFactory(client, tokens, target))
 	}
 }
 
 func fetchSourceByName(name string) (fetchSourceDescriptor, bool) {
 	for _, desc := range fetchSourceDescriptors {
-		if desc.name == name {
+		if desc.Name == name {
 			return desc, true
 		}
 	}
@@ -508,7 +500,7 @@ func runDescriptor(ctx context.Context, cfg *config.Config, tokens Tokens, opts 
 		return nil, fmt.Errorf("unknown source %q", name)
 	}
 	if reason := desc.skipReason(tokens); reason != "" {
-		return []Result{{Source: desc.name, Skipped: reason}}, nil
+		return []Result{{Source: desc.Name, Skipped: reason}}, nil
 	}
 	desc.runBeforeFetch(ctx, tokens)
 
@@ -525,6 +517,10 @@ func runDescriptor(ctx context.Context, cfg *config.Config, tokens Tokens, opts 
 	}
 
 	return runJobs(ctx, cfg, opts, orderedJobs(jobsByKey, jobOrder), 1)
+}
+
+func SourceByName(ctx context.Context, cfg *config.Config, tokens Tokens, sourceName string, opts Options) ([]Result, error) {
+	return runDescriptor(ctx, cfg, tokens, opts, sourceName)
 }
 
 func Source(ctx context.Context, cfg *config.Config, _ Tokens, sourceName string, opts Options, createSources func(id string, proj config.Project) []source.Source) ([]Result, error) {

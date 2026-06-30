@@ -256,7 +256,7 @@ func createEmptyEventsView(db *sql.DB) error {
 }
 
 func createContentView(db *sql.DB, absDir string) error {
-	glob := filepath.ToSlash(filepath.Join(absDir, "content", "*", "*", "*.jsonl"))
+	glob := filepath.ToSlash(filepath.Join(absDir, ContentDataDir, "*", "*", "*.jsonl"))
 
 	if !globHasMatches(glob) {
 		slog.Debug("no content files found, creating empty view")

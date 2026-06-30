@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 
 	"github.com/BurntSushi/toml"
 	"github.com/jeroenjanssens/velocirepo/internal/sourceinfo"
@@ -80,6 +81,8 @@ type SourceEntry struct {
 	Values StringList
 }
 
+var stringListType = reflect.TypeOf(StringList{})
+
 func (p Project) Sources() []SourceEntry {
 	descriptors := sourceinfo.All()
 	entries := make([]SourceEntry, 0, len(descriptors))
@@ -93,53 +96,27 @@ func (p Project) Sources() []SourceEntry {
 }
 
 func (p Project) SourceValues(name string) StringList {
-	switch name {
-	case "github":
-		return p.GitHubEvents
-	case "github-traffic":
-		return p.GitHubTraffic
-	case "pypi":
-		return p.PyPI
-	case "cran":
-		return p.CRAN
-	case "homebrew":
-		return p.Homebrew
-	case "plausible":
-		return p.Plausible
-	case "openvsx":
-		return p.OpenVSX
-	case "youtube":
-		return p.YouTube
-	case "linkedin":
-		return p.LinkedIn
-	default:
+	desc, ok := sourceinfo.Get(name)
+	if !ok || desc.ConfigField == "" {
 		return nil
 	}
+	field := reflect.ValueOf(p).FieldByName(desc.ConfigField)
+	if !field.IsValid() || field.Type() != stringListType {
+		return nil
+	}
+	return field.Interface().(StringList)
 }
 
 func (p *Project) SetSourceValues(name string, values StringList) bool {
-	switch name {
-	case "github":
-		p.GitHubEvents = values
-	case "github-traffic":
-		p.GitHubTraffic = values
-	case "pypi":
-		p.PyPI = values
-	case "cran":
-		p.CRAN = values
-	case "homebrew":
-		p.Homebrew = values
-	case "plausible":
-		p.Plausible = values
-	case "openvsx":
-		p.OpenVSX = values
-	case "youtube":
-		p.YouTube = values
-	case "linkedin":
-		p.LinkedIn = values
-	default:
+	desc, ok := sourceinfo.Get(name)
+	if !ok || desc.ConfigField == "" {
 		return false
 	}
+	field := reflect.ValueOf(p).Elem().FieldByName(desc.ConfigField)
+	if !field.IsValid() || !field.CanSet() || field.Type() != stringListType {
+		return false
+	}
+	field.Set(reflect.ValueOf(values))
 	return true
 }
 

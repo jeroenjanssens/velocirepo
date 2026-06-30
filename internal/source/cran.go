@@ -2,11 +2,10 @@ package source
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
-	"time"
+
+	"github.com/jeroenjanssens/velocirepo/internal/dateutil"
 )
 
 type CRAN struct {
@@ -25,38 +24,22 @@ func (c *CRAN) baseURL() string {
 }
 
 func (c *CRAN) Fetch(ctx context.Context, opts FetchOptions) ([]Record, error) {
-	startStr := opts.StartDate.Format("2006-01-02")
-	endStr := opts.EndDate.Format("2006-01-02")
+	startStr := dateutil.FormatDate(opts.StartDate)
+	endStr := dateutil.FormatDate(opts.EndDate)
 	url := fmt.Sprintf("%s/downloads/daily/%s:%s/%s", c.baseURL(), startStr, endStr, c.Package)
 
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	resp, err := c.Client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("request cranlogs: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("cranlogs returned %d", resp.StatusCode)
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("read response: %w", err)
-	}
-
-	var result []struct {
+	result, err := doJSON[[]struct {
 		Downloads []struct {
 			Day       string `json:"day"`
 			Downloads int64  `json:"downloads"`
 		} `json:"downloads"`
-	}
-	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, fmt.Errorf("parse response: %w", err)
+	}](ctx, c.Client, httpJSONRequest{
+		URL:          url,
+		RequestError: "request cranlogs",
+		StatusError:  "cranlogs returned",
+	})
+	if err != nil {
+		return nil, err
 	}
 
 	if len(result) == 0 {
@@ -65,7 +48,7 @@ func (c *CRAN) Fetch(ctx context.Context, opts FetchOptions) ([]Record, error) {
 
 	var records []Record
 	for _, entry := range result[0].Downloads {
-		entryDate, err := time.Parse("2006-01-02", entry.Day)
+		entryDate, err := dateutil.ParseDate(entry.Day)
 		if err != nil {
 			continue
 		}

@@ -2,14 +2,14 @@ package source
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/jeroenjanssens/velocirepo/internal/dateutil"
 )
 
 type LinkedIn struct {
@@ -44,7 +44,7 @@ func (l *LinkedIn) Fetch(ctx context.Context, opts FetchOptions) ([]Record, erro
 	}
 
 	var records []Record
-	date := opts.EndDate.Format("2006-01-02")
+	date := dateutil.FormatDate(opts.EndDate)
 
 	if len(posts) > 0 {
 		statsRecords, err := l.fetchPostStats(ctx, opts.ProjectID, date, posts)
@@ -163,27 +163,17 @@ func (l *LinkedIn) fetchFollowerCount(ctx context.Context, projectID, date strin
 }
 
 func (l *LinkedIn) get(ctx context.Context, u string, result interface{}) error {
-	req, err := http.NewRequestWithContext(ctx, "GET", u, nil)
-	if err != nil {
-		return err
-	}
-
-	req.Header.Set("Authorization", "Bearer "+l.Token)
-	req.Header.Set("LinkedIn-Version", "202406")
-	req.Header.Set("X-Restli-Protocol-Version", "2.0.0")
-
-	resp, err := l.Client.Do(req)
-	if err != nil {
-		return fmt.Errorf("request: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("linkedin API returned %d: %s", resp.StatusCode, string(body))
-	}
-
-	return json.NewDecoder(resp.Body).Decode(result)
+	return doJSONInto(ctx, l.Client, httpJSONRequest{
+		URL: u,
+		Headers: map[string]string{
+			"Authorization":             "Bearer " + l.Token,
+			"LinkedIn-Version":          "202406",
+			"X-Restli-Protocol-Version": "2.0.0",
+		},
+		RequestError:     "request",
+		StatusError:      "linkedin API returned",
+		IncludeErrorBody: true,
+	}, result)
 }
 
 func (l *LinkedIn) baseURL() string {

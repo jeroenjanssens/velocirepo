@@ -14,6 +14,7 @@ import (
 	"github.com/jeroenjanssens/velocirepo/internal/badge"
 	"github.com/jeroenjanssens/velocirepo/internal/config"
 	"github.com/jeroenjanssens/velocirepo/internal/fetch"
+	"github.com/jeroenjanssens/velocirepo/internal/sourceinfo"
 	"github.com/jeroenjanssens/velocirepo/internal/store"
 	"github.com/jeroenjanssens/velocirepo/internal/version"
 	"github.com/jeroenjanssens/velocirepo/internal/views"
@@ -228,35 +229,9 @@ func (h *handlers) handleSchema(ctx context.Context, req mcp.CallToolRequest) (*
 func (h *handlers) handleListProjects(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	projects := h.cfg.Projects
 
-	type projectEntry struct {
-		ID            string   `json:"id"`
-		Name          string   `json:"name"`
-		GitHub        []string `json:"github,omitempty"`
-		GitHubTraffic []string `json:"github_traffic,omitempty"`
-		PyPI          []string `json:"pypi,omitempty"`
-		CRAN          []string `json:"cran,omitempty"`
-		Homebrew      []string `json:"homebrew,omitempty"`
-		Plausible     []string `json:"plausible,omitempty"`
-		OpenVSX       []string `json:"openvsx,omitempty"`
-		YouTube       []string `json:"youtube,omitempty"`
-		LinkedIn      []string `json:"linkedin,omitempty"`
-	}
-
-	var list []projectEntry
+	var list []map[string]any
 	for id, p := range projects {
-		list = append(list, projectEntry{
-			ID:            id,
-			Name:          p.Name,
-			GitHub:        []string(p.GitHubEvents),
-			GitHubTraffic: []string(p.GitHubTraffic),
-			PyPI:          []string(p.PyPI),
-			CRAN:          []string(p.CRAN),
-			Homebrew:      []string(p.Homebrew),
-			Plausible:     []string(p.Plausible),
-			OpenVSX:       []string(p.OpenVSX),
-			YouTube:       []string(p.YouTube),
-			LinkedIn:      []string(p.LinkedIn),
-		})
+		list = append(list, projectOutput(id, p))
 	}
 
 	return jsonResult(list), nil
@@ -294,35 +269,23 @@ func (h *handlers) handleShowProject(ctx context.Context, req mcp.CallToolReques
 		})
 	}
 
-	output := struct {
-		ID            string        `json:"id"`
-		Name          string        `json:"name"`
-		GitHub        []string      `json:"github,omitempty"`
-		GitHubTraffic []string      `json:"github_traffic,omitempty"`
-		PyPI          []string      `json:"pypi,omitempty"`
-		CRAN          []string      `json:"cran,omitempty"`
-		Homebrew      []string      `json:"homebrew,omitempty"`
-		Plausible     []string      `json:"plausible,omitempty"`
-		OpenVSX       []string      `json:"openvsx,omitempty"`
-		YouTube       []string      `json:"youtube,omitempty"`
-		LinkedIn      []string      `json:"linkedin,omitempty"`
-		Sources       []sourceStats `json:"sources"`
-	}{
-		ID:            id,
-		Name:          proj.Name,
-		GitHub:        []string(proj.GitHubEvents),
-		GitHubTraffic: []string(proj.GitHubTraffic),
-		PyPI:          []string(proj.PyPI),
-		CRAN:          []string(proj.CRAN),
-		Homebrew:      []string(proj.Homebrew),
-		Plausible:     []string(proj.Plausible),
-		OpenVSX:       []string(proj.OpenVSX),
-		YouTube:       []string(proj.YouTube),
-		LinkedIn:      []string(proj.LinkedIn),
-		Sources:       stats,
-	}
+	output := projectOutput(id, proj)
+	output["sources"] = stats
 
 	return jsonResult(output), nil
+}
+
+func projectOutput(id string, proj config.Project) map[string]any {
+	output := map[string]any{
+		"id":   id,
+		"name": proj.Name,
+	}
+	for _, desc := range sourceinfo.All() {
+		if values := proj.SourceValues(desc.Name); len(values) > 0 {
+			output[desc.MCPKey] = []string(values)
+		}
+	}
+	return output
 }
 
 func (h *handlers) handleBadge(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -440,72 +403,8 @@ func (h *handlers) handleFetch(ctx context.Context, req mcp.CallToolRequest) (*m
 	return jsonResult(results), nil
 }
 
-func (h *handlers) handleFetchGitHub(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	results, err := fetch.GitHub(ctx, h.cfg, fetch.TokensFromEnv(), h.fetchOpts(req))
-	if err != nil {
-		return errorResult(err.Error()), nil
-	}
-	return jsonResult(results), nil
-}
-
-func (h *handlers) handleFetchTraffic(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	results, err := fetch.Traffic(ctx, h.cfg, fetch.TokensFromEnv(), h.fetchOpts(req))
-	if err != nil {
-		return errorResult(err.Error()), nil
-	}
-	return jsonResult(results), nil
-}
-
-func (h *handlers) handleFetchPyPI(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	results, err := fetch.PyPI(ctx, h.cfg, fetch.TokensFromEnv(), h.fetchOpts(req))
-	if err != nil {
-		return errorResult(err.Error()), nil
-	}
-	return jsonResult(results), nil
-}
-
-func (h *handlers) handleFetchCRAN(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	results, err := fetch.CRAN(ctx, h.cfg, fetch.TokensFromEnv(), h.fetchOpts(req))
-	if err != nil {
-		return errorResult(err.Error()), nil
-	}
-	return jsonResult(results), nil
-}
-
-func (h *handlers) handleFetchHomebrew(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	results, err := fetch.Homebrew(ctx, h.cfg, fetch.TokensFromEnv(), h.fetchOpts(req))
-	if err != nil {
-		return errorResult(err.Error()), nil
-	}
-	return jsonResult(results), nil
-}
-
-func (h *handlers) handleFetchPlausible(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	results, err := fetch.Plausible(ctx, h.cfg, fetch.TokensFromEnv(), h.fetchOpts(req))
-	if err != nil {
-		return errorResult(err.Error()), nil
-	}
-	return jsonResult(results), nil
-}
-
-func (h *handlers) handleFetchOpenVSX(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	results, err := fetch.OpenVSX(ctx, h.cfg, fetch.TokensFromEnv(), h.fetchOpts(req))
-	if err != nil {
-		return errorResult(err.Error()), nil
-	}
-	return jsonResult(results), nil
-}
-
-func (h *handlers) handleFetchYouTube(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	results, err := fetch.YouTube(ctx, h.cfg, fetch.TokensFromEnv(), h.fetchOpts(req))
-	if err != nil {
-		return errorResult(err.Error()), nil
-	}
-	return jsonResult(results), nil
-}
-
-func (h *handlers) handleFetchLinkedIn(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	results, err := fetch.LinkedIn(ctx, h.cfg, fetch.TokensFromEnv(), h.fetchOpts(req))
+func (h *handlers) handleFetchSource(ctx context.Context, req mcp.CallToolRequest, sourceName string) (*mcp.CallToolResult, error) {
+	results, err := fetch.SourceByName(ctx, h.cfg, fetch.TokensFromEnv(), sourceName, h.fetchOpts(req))
 	if err != nil {
 		return errorResult(err.Error()), nil
 	}
@@ -530,17 +429,9 @@ func (h *handlers) handleAddProject(ctx context.Context, req mcp.CallToolRequest
 
 	name := req.GetString("name", id)
 
-	proj := config.Project{
-		Name:          name,
-		GitHubEvents:  toStringList(req.GetString("github", "")),
-		GitHubTraffic: toStringList(req.GetString("github_traffic", "")),
-		PyPI:          toStringList(req.GetString("pypi", "")),
-		CRAN:          toStringList(req.GetString("cran", "")),
-		Homebrew:      toStringList(req.GetString("homebrew", "")),
-		Plausible:     toStringList(req.GetString("plausible", "")),
-		OpenVSX:       toStringList(req.GetString("openvsx", "")),
-		YouTube:       toStringList(req.GetString("youtube", "")),
-		LinkedIn:      toStringList(req.GetString("linkedin", "")),
+	proj := config.Project{Name: name}
+	for _, desc := range sourceinfo.All() {
+		proj.SetSourceValues(desc.Name, toStringList(req.GetString(desc.MCPKey, "")))
 	}
 
 	if err := config.AppendProject(h.cfgFilePath(), id, proj); err != nil {
@@ -566,27 +457,31 @@ func (h *handlers) handleUpdateProject(ctx context.Context, req mcp.CallToolRequ
 	updates := make(map[string]string)
 	var unsets []string
 
-	fieldMap := map[string]string{
-		"name":           "name",
-		"github":         "github",
-		"github_traffic": "github-traffic",
-		"pypi":           "pypi",
-		"cran":           "cran",
-		"homebrew":       "homebrew",
-		"plausible":      "plausible",
-		"openvsx":        "openvsx",
-		"youtube":        "youtube",
-		"linkedin":       "linkedin",
+	if val, ok := args["name"]; ok {
+		str, ok := val.(string)
+		if !ok {
+			return errorResult("name must be a string"), nil
+		}
+		if str == "" {
+			unsets = append(unsets, "name")
+		} else {
+			updates["name"] = str
+		}
 	}
 
-	for argKey, tomlKey := range fieldMap {
-		if val, ok := args[argKey]; ok {
-			str, _ := val.(string)
-			if str == "" {
-				unsets = append(unsets, tomlKey)
-			} else {
-				updates[tomlKey] = str
-			}
+	for _, desc := range sourceinfo.All() {
+		val, ok := args[desc.MCPKey]
+		if !ok {
+			continue
+		}
+		str, ok := val.(string)
+		if !ok {
+			return errorResult(fmt.Sprintf("%s must be a string", desc.MCPKey)), nil
+		}
+		if str == "" {
+			unsets = append(unsets, desc.TOMLKey)
+		} else {
+			updates[desc.TOMLKey] = str
 		}
 	}
 

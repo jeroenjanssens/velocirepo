@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jeroenjanssens/velocirepo/internal/dateutil"
 	"github.com/jeroenjanssens/velocirepo/internal/store"
 	"github.com/olekukonko/tablewriter"
 	"github.com/olekukonko/tablewriter/tw"
@@ -19,9 +20,9 @@ func queryCmd() *cobra.Command {
 	var jsonFlag, csvFlag, parquetFlag, noHeader bool
 
 	cmd := &cobra.Command{
-		Use:   "query <sql>",
-		Short: "Run a SQL query against the metrics data",
-		Args:  cobra.ExactArgs(1),
+		Use:     "query <sql>",
+		Short:   "Run a SQL query against the metrics data",
+		Args:    cobra.ExactArgs(1),
 		GroupID: "query",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if parquetFlag {
@@ -58,8 +59,8 @@ func schemaCmd() *cobra.Command {
 	var jsonFlag, csvFlag bool
 
 	cmd := &cobra.Command{
-		Use:   "schema",
-		Short: "Show table schemas",
+		Use:     "schema",
+		Short:   "Show table schemas",
 		GroupID: "query",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cols, err := store.SchemaLive(cfg.DataDir(), projectInfos(), indicatorDefs())
@@ -205,7 +206,7 @@ func formatValue(v interface{}) string {
 	switch val := v.(type) {
 	case time.Time:
 		if val.Hour() == 0 && val.Minute() == 0 && val.Second() == 0 && val.Nanosecond() == 0 {
-			return val.Format("2006-01-02")
+			return dateutil.FormatDate(val)
 		}
 		return val.Format("2006-01-02T15:04:05Z")
 	case nil:

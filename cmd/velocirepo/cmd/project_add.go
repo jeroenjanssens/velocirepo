@@ -125,14 +125,14 @@ func projectAddInteractive(cfgPath string, id string) error {
 		if field.detected != nil {
 			hint, hintSource = field.detected(detected)
 		}
-		value, overridden, err := promptWithHint(os.Stdout, reader, field.addPrompt, hint, hintSource, suppress)
+		value, overridden, err := promptWithHint(os.Stdout, reader, field.AddPrompt, hint, hintSource, suppress)
 		if err != nil {
 			return err
 		}
 		if overridden {
 			suppress = true
 		}
-		values[field.key] = value
+		values[field.Name] = value
 	}
 
 	proj, err := projectFromRawSourceValues(name, values)

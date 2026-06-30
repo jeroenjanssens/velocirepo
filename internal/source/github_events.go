@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"time"
 )
@@ -373,29 +372,20 @@ func (g *GitHubEvents) doGraphQL(ctx context.Context, query string, vars map[str
 		return nil, err
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "POST", g.graphqlURL(), bytes.NewReader(body))
+	headers := map[string]string{"Content-Type": "application/json"}
+	if g.Token != "" {
+		headers["Authorization"] = "Bearer " + g.Token
+	}
+	data, err := doRequest(ctx, g.Client, httpJSONRequest{
+		Method:       http.MethodPost,
+		URL:          g.graphqlURL(),
+		Headers:      headers,
+		Body:         bytes.NewReader(body),
+		RequestError: "graphql request",
+		StatusError:  "graphql returned",
+	})
 	if err != nil {
 		return nil, err
-	}
-
-	if g.Token != "" {
-		req.Header.Set("Authorization", "Bearer "+g.Token)
-	}
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := g.Client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("graphql request: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("graphql returned %d", resp.StatusCode)
-	}
-
-	data, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("read graphql response: %w", err)
 	}
 
 	var errResp struct {

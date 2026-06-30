@@ -1,8 +1,6 @@
 package store
 
 import (
-	"bufio"
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -11,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jeroenjanssens/velocirepo/internal/dateutil"
 	"github.com/jeroenjanssens/velocirepo/internal/source"
 )
 
@@ -28,7 +27,7 @@ func WriteRecords(dataDir, sourceName, projectID string, records []source.Record
 	grouped := groupByDate(records)
 
 	for date, dateRecords := range grouped {
-		dir := filepath.Join(dataDir, "metrics", sourceName, projectID)
+		dir := MetricsProjectDir(dataDir, sourceName, projectID)
 		if err := os.MkdirAll(dir, 0755); err != nil {
 			return fmt.Errorf("create directory %s: %w", dir, err)
 		}
@@ -44,66 +43,15 @@ func WriteRecords(dataDir, sourceName, projectID string, records []source.Record
 }
 
 func writeFileAtomic(path string, records []source.Record) error {
-	dir := filepath.Dir(path)
-	tmp, err := os.CreateTemp(dir, ".tmp-*.jsonl")
-	if err != nil {
-		return fmt.Errorf("create temp file in %s: %w", dir, err)
-	}
-	tmpPath := tmp.Name()
-
-	w := bufio.NewWriter(tmp)
-	for _, r := range records {
-		data, err := json.Marshal(r)
-		if err != nil {
-			_ = tmp.Close()
-			_ = os.Remove(tmpPath)
-			return fmt.Errorf("marshal record: %w", err)
-		}
-		_, _ = w.Write(data)
-		_ = w.WriteByte('\n')
-	}
-
-	if err := w.Flush(); err != nil {
-		_ = tmp.Close()
-		_ = os.Remove(tmpPath)
-		return fmt.Errorf("flush %s: %w", tmpPath, err)
-	}
-	if err := tmp.Close(); err != nil {
-		_ = os.Remove(tmpPath)
-		return fmt.Errorf("close %s: %w", tmpPath, err)
-	}
-	if err := os.Rename(tmpPath, path); err != nil {
-		_ = os.Remove(tmpPath)
-		return fmt.Errorf("rename %s -> %s: %w", tmpPath, path, err)
-	}
-	return nil
+	return writeJSONLAtomic(path, records, "record")
 }
 
 func ReadRecords(path string) ([]source.Record, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return nil, fmt.Errorf("open %s: %w", path, err)
-	}
-	defer func() { _ = f.Close() }()
-
-	var records []source.Record
-	scanner := bufio.NewScanner(f)
-	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
-	for scanner.Scan() {
-		var r source.Record
-		if err := json.Unmarshal(scanner.Bytes(), &r); err != nil {
-			return nil, fmt.Errorf("unmarshal line in %s: %w", path, err)
-		}
-		records = append(records, r)
-	}
-	if err := scanner.Err(); err != nil {
-		return nil, fmt.Errorf("scan %s: %w", path, err)
-	}
-	return records, nil
+	return readJSONL[source.Record](path, readJSONLOptions{wrapErrors: true})
 }
 
 func LastDate(dataDir, sourceName, projectID string) (time.Time, error) {
-	dir := filepath.Join(dataDir, SourceCategory(sourceName), sourceName, projectID)
+	dir := SourceProjectDir(dataDir, sourceName, projectID)
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -122,7 +70,7 @@ func LastDate(dataDir, sourceName, projectID string) (time.Time, error) {
 		if m := dailyPattern.FindStringSubmatch(name); m != nil {
 			dates = append(dates, m[1])
 		} else if m := monthlyPattern.FindStringSubmatch(name); m != nil {
-			dates = append(dates, lastDayOfMonth(m[1]))
+			dates = append(dates, dateutil.LastDayOfMonth(m[1]))
 		} else if m := yearlyPattern.FindStringSubmatch(name); m != nil {
 			dates = append(dates, m[1]+"-12-31")
 		}
@@ -135,28 +83,15 @@ func LastDate(dataDir, sourceName, projectID string) (time.Time, error) {
 	sort.Strings(dates)
 	latest := dates[len(dates)-1]
 
-	t, err := time.Parse("2006-01-02", latest)
+	t, err := dateutil.ParseDate(latest)
 	if err != nil {
 		return time.Time{}, fmt.Errorf("parse date %s: %w", latest, err)
 	}
 	return t, nil
 }
 
-func lastDayOfMonth(yearMonth string) string {
-	t, err := time.Parse("2006-01", yearMonth)
-	if err != nil {
-		return yearMonth + "-28"
-	}
-	last := t.AddDate(0, 1, -1)
-	return last.Format("2006-01-02")
-}
-
 func groupByDate(records []source.Record) map[string][]source.Record {
-	grouped := make(map[string][]source.Record)
-	for _, r := range records {
-		grouped[r.Date] = append(grouped[r.Date], r)
-	}
-	return grouped
+	return groupBy(records, func(r source.Record) string { return r.Date })
 }
 
 func WriteEvents(dataDir, sourceName, projectID string, events []source.Event) error {
@@ -167,7 +102,7 @@ func WriteEvents(dataDir, sourceName, projectID string, events []source.Event) e
 	grouped := groupEventsByDate(events)
 
 	for date, dateEvents := range grouped {
-		dir := filepath.Join(dataDir, "events", sourceName, projectID)
+		dir := EventsProjectDir(dataDir, sourceName, projectID)
 		if err := os.MkdirAll(dir, 0755); err != nil {
 			return fmt.Errorf("create directory %s: %w", dir, err)
 		}
@@ -183,71 +118,18 @@ func WriteEvents(dataDir, sourceName, projectID string, events []source.Event) e
 }
 
 func writeEventsFileAtomic(path string, events []source.Event) error {
-	dir := filepath.Dir(path)
-	tmp, err := os.CreateTemp(dir, ".tmp-*.jsonl")
-	if err != nil {
-		return fmt.Errorf("create temp file in %s: %w", dir, err)
-	}
-	tmpPath := tmp.Name()
-
-	w := bufio.NewWriter(tmp)
-	for _, e := range events {
-		data, err := json.Marshal(e)
-		if err != nil {
-			_ = tmp.Close()
-			_ = os.Remove(tmpPath)
-			return fmt.Errorf("marshal event: %w", err)
-		}
-		_, _ = w.Write(data)
-		_ = w.WriteByte('\n')
-	}
-
-	if err := w.Flush(); err != nil {
-		_ = tmp.Close()
-		_ = os.Remove(tmpPath)
-		return fmt.Errorf("flush %s: %w", tmpPath, err)
-	}
-	if err := tmp.Close(); err != nil {
-		_ = os.Remove(tmpPath)
-		return fmt.Errorf("close %s: %w", tmpPath, err)
-	}
-	if err := os.Rename(tmpPath, path); err != nil {
-		_ = os.Remove(tmpPath)
-		return fmt.Errorf("rename %s -> %s: %w", tmpPath, path, err)
-	}
-	return nil
+	return writeJSONLAtomic(path, events, "event")
 }
 
 func ReadEvents(path string) ([]source.Event, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return nil, fmt.Errorf("open %s: %w", path, err)
-	}
-	defer func() { _ = f.Close() }()
-
-	var events []source.Event
-	scanner := bufio.NewScanner(f)
-	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
-	for scanner.Scan() {
-		var e source.Event
-		if err := json.Unmarshal(scanner.Bytes(), &e); err != nil {
-			return nil, fmt.Errorf("unmarshal line in %s: %w", path, err)
-		}
-		events = append(events, e)
-	}
-	if err := scanner.Err(); err != nil {
-		return nil, fmt.Errorf("scan %s: %w", path, err)
-	}
-	return events, nil
+	return readJSONL[source.Event](path, readJSONLOptions{wrapErrors: true})
 }
 
 func groupEventsByDate(events []source.Event) map[string][]source.Event {
-	grouped := make(map[string][]source.Event)
-	for _, e := range events {
+	return groupBy(events, func(e source.Event) string {
 		date := e.Datetime[:10]
-		grouped[date] = append(grouped[date], e)
-	}
-	return grouped
+		return date
+	})
 }
 
 type DirStats struct {

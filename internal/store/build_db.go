@@ -90,7 +90,7 @@ func globHasMatches(pattern string) bool {
 }
 
 func createContentViewRelative(db *sql.DB, absDir string) error {
-	glob := filepath.ToSlash(filepath.Join(absDir, "content", "*", "*", "*.jsonl"))
+	glob := filepath.ToSlash(filepath.Join(absDir, ContentDataDir, "*", "*", "*.jsonl"))
 
 	if !globHasMatches(glob) {
 		slog.Debug("no content files found, creating empty view")

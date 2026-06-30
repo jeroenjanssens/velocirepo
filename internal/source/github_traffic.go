@@ -4,9 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"time"
+
+	"github.com/jeroenjanssens/velocirepo/internal/dateutil"
 )
 
 type GitHubTraffic struct {
@@ -58,7 +59,7 @@ func (g *GitHubTraffic) Fetch(ctx context.Context, opts FetchOptions) ([]Record,
 			if !inDateRange(t, opts.StartDate, opts.EndDate) {
 				continue
 			}
-			date := t.Format("2006-01-02")
+			date := dateutil.FormatDate(t)
 			all = append(all, Record{
 				Metric:    ep.countMetric,
 				ProjectID: opts.ProjectID,
@@ -113,29 +114,14 @@ func (r *trafficResponse) UnmarshalJSON(data []byte) error {
 }
 
 func (g *GitHubTraffic) get(ctx context.Context, url string, result interface{}) error {
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
-	if err != nil {
-		return err
-	}
+	headers := map[string]string{"Accept": "application/vnd.github+json"}
 	if g.Token != "" {
-		req.Header.Set("Authorization", "Bearer "+g.Token)
+		headers["Authorization"] = "Bearer " + g.Token
 	}
-	req.Header.Set("Accept", "application/vnd.github+json")
-
-	resp, err := g.Client.Do(req)
-	if err != nil {
-		return fmt.Errorf("request %s: %w", url, err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("github traffic API %s returned %d", req.URL.Path, resp.StatusCode)
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return fmt.Errorf("read response: %w", err)
-	}
-
-	return json.Unmarshal(body, result)
+	return doJSONInto(ctx, g.Client, httpJSONRequest{
+		URL:          url,
+		Headers:      headers,
+		RequestError: "request " + url,
+		StatusError:  "github traffic API returned",
+	}, result)
 }

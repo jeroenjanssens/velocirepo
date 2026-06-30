@@ -79,7 +79,7 @@ func updateProjectCmd() *cobra.Command {
 
 func sourceFlagsChanged(cmd *cobra.Command) bool {
 	for _, field := range projectSourceFields {
-		if cmd.Flags().Changed(field.flagName) {
+		if cmd.Flags().Changed(field.CLIFlag) {
 			return true
 		}
 	}
@@ -99,14 +99,14 @@ func projectUpdateInteractive(cfgPath string, id string, proj config.Project) er
 
 	sourceValues := make(map[string]string, len(projectSourceFields))
 	for _, field := range projectSourceFields {
-		value, err := prompt(os.Stdout, reader, field.updatePrompt, proj.SourceValues(field.key).String(), "")
+		value, err := prompt(os.Stdout, reader, field.UpdatePrompt, proj.SourceValues(field.Name).String(), "")
 		if err != nil {
 			return err
 		}
 		if err := validateProjectSourceValue(field, value); err != nil {
 			return err
 		}
-		sourceValues[field.key] = value
+		sourceValues[field.Name] = value
 	}
 
 	updates := make(map[string]string)
@@ -124,7 +124,7 @@ func projectUpdateInteractive(cfgPath string, id string, proj config.Project) er
 
 	updateOrUnset("name", name, proj.Name)
 	for _, field := range projectSourceFields {
-		updateOrUnset(field.key, sourceValues[field.key], proj.SourceValues(field.key).String())
+		updateOrUnset(field.TOMLKey, sourceValues[field.Name], proj.SourceValues(field.Name).String())
 	}
 
 	if len(updates) == 0 && len(unsets) == 0 {

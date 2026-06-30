@@ -6,120 +6,51 @@ import (
 	"strings"
 
 	"github.com/jeroenjanssens/velocirepo/internal/config"
+	"github.com/jeroenjanssens/velocirepo/internal/sourceinfo"
 	"github.com/spf13/cobra"
 )
 
 type projectSourceField struct {
-	key          string
-	flagName     string
-	flagUsage    string
-	addPrompt    string
-	updatePrompt string
-	jsonKeys     []string
-	csvColumns   []string
-	detected     func(config.Detected) (string, string)
-	validate     func(string) error
+	sourceinfo.Descriptor
+	detected func(config.Detected) (string, string)
+	validate func(string) error
 }
 
-var projectSourceFields = []projectSourceField{
-	{
-		key:          "github",
-		flagName:     "github",
-		flagUsage:    "GitHub owner/repo",
-		addPrompt:    "GitHub (owner/repo)",
-		updatePrompt: "GitHub (owner/repo)",
-		jsonKeys:     []string{"github"},
-		csvColumns:   []string{"github"},
-		detected: func(d config.Detected) (string, string) {
+var projectSourceFields = buildProjectSourceFields()
+
+func buildProjectSourceFields() []projectSourceField {
+	detectedBySource := map[string]func(config.Detected) (string, string){
+		"github": func(d config.Detected) (string, string) {
 			return d.GitHub, d.GitHubSource
 		},
-		validate: validateGitHubList,
-	},
-	{
-		key:          "github-traffic",
-		flagName:     "github-traffic",
-		flagUsage:    "GitHub owner/repo for traffic data",
-		addPrompt:    "GitHub traffic (owner/repo)",
-		updatePrompt: "GitHub traffic (owner/repo)",
-		jsonKeys:     []string{"github_traffic", "github-traffic"},
-		csvColumns:   []string{"github-traffic", "github_traffic"},
-		detected: func(d config.Detected) (string, string) {
+		"github-traffic": func(d config.Detected) (string, string) {
 			return d.GitHub, d.GitHubSource
 		},
-		validate: validateGitHubList,
-	},
-	{
-		key:          "pypi",
-		flagName:     "pypi",
-		flagUsage:    "PyPI package name",
-		addPrompt:    "PyPI package",
-		updatePrompt: "PyPI package",
-		jsonKeys:     []string{"pypi"},
-		csvColumns:   []string{"pypi"},
-		detected: func(d config.Detected) (string, string) {
+		"pypi": func(d config.Detected) (string, string) {
 			return d.PyPI, d.PyPISource
 		},
-	},
-	{
-		key:          "cran",
-		flagName:     "cran",
-		flagUsage:    "CRAN package name",
-		addPrompt:    "CRAN package",
-		updatePrompt: "CRAN package",
-		jsonKeys:     []string{"cran"},
-		csvColumns:   []string{"cran"},
-		detected: func(d config.Detected) (string, string) {
+		"cran": func(d config.Detected) (string, string) {
 			return d.CRAN, d.CRANSource
 		},
-	},
-	{
-		key:          "homebrew",
-		flagName:     "homebrew",
-		flagUsage:    "Homebrew formula",
-		addPrompt:    "Homebrew formula",
-		updatePrompt: "Homebrew formula",
-		jsonKeys:     []string{"homebrew"},
-		csvColumns:   []string{"homebrew"},
-	},
-	{
-		key:          "plausible",
-		flagName:     "plausible",
-		flagUsage:    "Plausible site ID",
-		addPrompt:    "Plausible site ID",
-		updatePrompt: "Plausible site ID",
-		jsonKeys:     []string{"plausible"},
-		csvColumns:   []string{"plausible"},
-	},
-	{
-		key:          "openvsx",
-		flagName:     "openvsx",
-		flagUsage:    "OpenVSX extension (publisher/extension)",
-		addPrompt:    "OpenVSX extension",
-		updatePrompt: "OpenVSX extension",
-		jsonKeys:     []string{"openvsx"},
-		csvColumns:   []string{"openvsx"},
-		detected: func(d config.Detected) (string, string) {
+		"openvsx": func(d config.Detected) (string, string) {
 			return d.OpenVSX, d.OpenVSXSource
 		},
-	},
-	{
-		key:          "youtube",
-		flagName:     "youtube",
-		flagUsage:    "YouTube channel (@handle), playlist (PLxxx), or video ID",
-		addPrompt:    "YouTube (@handle, PLxxx, or video ID)",
-		updatePrompt: "YouTube (@handle, PLxxx, or video ID)",
-		jsonKeys:     []string{"youtube"},
-		csvColumns:   []string{"youtube"},
-	},
-	{
-		key:          "linkedin",
-		flagName:     "linkedin",
-		flagUsage:    "LinkedIn URN",
-		addPrompt:    "LinkedIn URN",
-		updatePrompt: "LinkedIn URN",
-		jsonKeys:     []string{"linkedin"},
-		csvColumns:   []string{"linkedin"},
-	},
+	}
+	validators := map[string]func(string) error{
+		"github":         validateGitHubList,
+		"github-traffic": validateGitHubList,
+	}
+
+	descriptors := sourceinfo.All()
+	fields := make([]projectSourceField, 0, len(descriptors))
+	for _, desc := range descriptors {
+		fields = append(fields, projectSourceField{
+			Descriptor: desc,
+			detected:   detectedBySource[desc.Name],
+			validate:   validators[desc.Name],
+		})
+	}
+	return fields
 }
 
 type projectSourceInputs struct {
@@ -132,7 +63,7 @@ func newProjectSourceInputs() *projectSourceInputs {
 
 func (in *projectSourceInputs) registerFlags(cmd *cobra.Command) {
 	for i, field := range projectSourceFields {
-		cmd.Flags().StringVar(&in.values[i], field.flagName, "", field.flagUsage)
+		cmd.Flags().StringVar(&in.values[i], field.CLIFlag, "", field.CLIUsage)
 	}
 }
 
@@ -148,14 +79,14 @@ func (in *projectSourceInputs) anyNonEmpty() bool {
 func (in *projectSourceInputs) changedUpdates(cmd *cobra.Command) (map[string]string, error) {
 	updates := make(map[string]string)
 	for i, field := range projectSourceFields {
-		if !cmd.Flags().Changed(field.flagName) {
+		if !cmd.Flags().Changed(field.CLIFlag) {
 			continue
 		}
 		value := in.values[i]
 		if err := validateProjectSourceValue(field, value); err != nil {
 			return nil, err
 		}
-		updates[field.key] = value
+		updates[field.TOMLKey] = value
 	}
 	return updates, nil
 }
@@ -167,7 +98,7 @@ func (in *projectSourceInputs) toProject(name string) (config.Project, error) {
 		if err := validateProjectSourceValue(field, value); err != nil {
 			return config.Project{}, err
 		}
-		p.SetSourceValues(field.key, toStringList(value))
+		p.SetSourceValues(field.Name, toStringList(value))
 	}
 	return p, nil
 }
@@ -175,11 +106,11 @@ func (in *projectSourceInputs) toProject(name string) (config.Project, error) {
 func projectFromRawSourceValues(name string, values map[string]string) (config.Project, error) {
 	p := config.Project{Name: name}
 	for _, field := range projectSourceFields {
-		value := values[field.key]
+		value := values[field.Name]
 		if err := validateProjectSourceValue(field, value); err != nil {
 			return config.Project{}, err
 		}
-		p.SetSourceValues(field.key, toStringList(value))
+		p.SetSourceValues(field.Name, toStringList(value))
 	}
 	return p, nil
 }
@@ -201,7 +132,7 @@ func validateGitHubList(value string) error {
 }
 
 func sourceValueFromCSV(row []string, colIndex map[string]int, field projectSourceField) string {
-	for _, col := range field.csvColumns {
+	for _, col := range field.CSVColumns {
 		idx, ok := colIndex[col]
 		if ok && idx < len(row) {
 			value := strings.TrimSpace(row[idx])
@@ -215,11 +146,11 @@ func sourceValueFromCSV(row []string, colIndex map[string]int, field projectSour
 
 func applyJSONSourceValues(project *config.Project, item map[string]json.RawMessage) error {
 	for _, field := range projectSourceFields {
-		values, err := jsonSourceList(item, field.jsonKeys)
+		values, err := jsonSourceList(item, field.JSONKeys)
 		if err != nil {
 			return err
 		}
-		project.SetSourceValues(field.key, values)
+		project.SetSourceValues(field.Name, values)
 	}
 	return nil
 }

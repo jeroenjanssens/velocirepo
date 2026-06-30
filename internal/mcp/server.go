@@ -1,7 +1,10 @@
 package mcp
 
 import (
+	"context"
+
 	"github.com/jeroenjanssens/velocirepo/internal/config"
+	"github.com/jeroenjanssens/velocirepo/internal/sourceinfo"
 	"github.com/jeroenjanssens/velocirepo/internal/version"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
@@ -31,15 +34,12 @@ func NewServer(opts ServerOptions) *server.MCPServer {
 
 	if !opts.ReadOnly {
 		s.AddTool(fetchTool(), h.handleFetch)
-		s.AddTool(fetchGitHubTool(), h.handleFetchGitHub)
-		s.AddTool(fetchTrafficTool(), h.handleFetchTraffic)
-		s.AddTool(fetchPyPITool(), h.handleFetchPyPI)
-		s.AddTool(fetchCRANTool(), h.handleFetchCRAN)
-		s.AddTool(fetchHomebrewTool(), h.handleFetchHomebrew)
-		s.AddTool(fetchPlausibleTool(), h.handleFetchPlausible)
-		s.AddTool(fetchOpenVSXTool(), h.handleFetchOpenVSX)
-		s.AddTool(fetchYouTubeTool(), h.handleFetchYouTube)
-		s.AddTool(fetchLinkedInTool(), h.handleFetchLinkedIn)
+		for _, desc := range sourceinfo.All() {
+			desc := desc
+			s.AddTool(fetchSourceTool(desc), func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+				return h.handleFetchSource(ctx, req, desc.Name)
+			})
+		}
 		s.AddTool(addProjectTool(), h.handleAddProject)
 		s.AddTool(updateProjectTool(), h.handleUpdateProject)
 		s.AddTool(removeProjectTool(), h.handleRemoveProject)
@@ -116,127 +116,44 @@ func versionTool() mcp.Tool {
 }
 
 func fetchTool() mcp.Tool {
-	return mcp.NewTool("fetch",
-		mcp.WithDescription("Fetch metrics from all configured sources for all projects."),
-		mcp.WithString("project", mcp.Description("Fetch only this project ID")),
-		mcp.WithString("start_date", mcp.Description("Start date (YYYY-MM-DD)")),
-		mcp.WithString("end_date", mcp.Description("End date (YYYY-MM-DD, default: yesterday)")),
-	)
+	return mcp.NewTool("fetch", fetchToolOptions("Fetch metrics from all configured sources for all projects.")...)
 }
 
-func fetchGitHubTool() mcp.Tool {
-	return mcp.NewTool("fetch_github",
-		mcp.WithDescription("Fetch GitHub events (stars, forks, issues, PRs)."),
-		mcp.WithString("project", mcp.Description("Fetch only this project ID")),
-		mcp.WithString("start_date", mcp.Description("Start date (YYYY-MM-DD)")),
-		mcp.WithString("end_date", mcp.Description("End date (YYYY-MM-DD, default: yesterday)")),
-	)
+func fetchSourceTool(desc sourceinfo.Descriptor) mcp.Tool {
+	return mcp.NewTool(desc.FetchToolName, fetchToolOptions(desc.FetchDescription)...)
 }
 
-func fetchTrafficTool() mcp.Tool {
-	return mcp.NewTool("fetch_traffic",
-		mcp.WithDescription("Fetch GitHub traffic data (views and clones). Requires GITHUB_TOKEN with admin access."),
+func fetchToolOptions(description string) []mcp.ToolOption {
+	return []mcp.ToolOption{
+		mcp.WithDescription(description),
 		mcp.WithString("project", mcp.Description("Fetch only this project ID")),
 		mcp.WithString("start_date", mcp.Description("Start date (YYYY-MM-DD)")),
 		mcp.WithString("end_date", mcp.Description("End date (YYYY-MM-DD, default: yesterday)")),
-	)
-}
-
-func fetchPyPITool() mcp.Tool {
-	return mcp.NewTool("fetch_pypi",
-		mcp.WithDescription("Fetch PyPI download statistics."),
-		mcp.WithString("project", mcp.Description("Fetch only this project ID")),
-		mcp.WithString("start_date", mcp.Description("Start date (YYYY-MM-DD)")),
-		mcp.WithString("end_date", mcp.Description("End date (YYYY-MM-DD, default: yesterday)")),
-	)
-}
-
-func fetchCRANTool() mcp.Tool {
-	return mcp.NewTool("fetch_cran",
-		mcp.WithDescription("Fetch CRAN download statistics."),
-		mcp.WithString("project", mcp.Description("Fetch only this project ID")),
-		mcp.WithString("start_date", mcp.Description("Start date (YYYY-MM-DD)")),
-		mcp.WithString("end_date", mcp.Description("End date (YYYY-MM-DD, default: yesterday)")),
-	)
-}
-
-func fetchHomebrewTool() mcp.Tool {
-	return mcp.NewTool("fetch_homebrew",
-		mcp.WithDescription("Fetch Homebrew install counts."),
-		mcp.WithString("project", mcp.Description("Fetch only this project ID")),
-		mcp.WithString("start_date", mcp.Description("Start date (YYYY-MM-DD)")),
-		mcp.WithString("end_date", mcp.Description("End date (YYYY-MM-DD, default: yesterday)")),
-	)
-}
-
-func fetchPlausibleTool() mcp.Tool {
-	return mcp.NewTool("fetch_plausible",
-		mcp.WithDescription("Fetch Plausible analytics (pageviews, visitors, visits). Requires PLAUSIBLE_TOKEN."),
-		mcp.WithString("project", mcp.Description("Fetch only this project ID")),
-		mcp.WithString("start_date", mcp.Description("Start date (YYYY-MM-DD)")),
-		mcp.WithString("end_date", mcp.Description("End date (YYYY-MM-DD, default: yesterday)")),
-	)
-}
-
-func fetchOpenVSXTool() mcp.Tool {
-	return mcp.NewTool("fetch_openvsx",
-		mcp.WithDescription("Fetch Open VSX extension metrics (downloads, reviews, ratings)."),
-		mcp.WithString("project", mcp.Description("Fetch only this project ID")),
-		mcp.WithString("start_date", mcp.Description("Start date (YYYY-MM-DD)")),
-		mcp.WithString("end_date", mcp.Description("End date (YYYY-MM-DD, default: yesterday)")),
-	)
-}
-
-func fetchYouTubeTool() mcp.Tool {
-	return mcp.NewTool("fetch_youtube",
-		mcp.WithDescription("Fetch YouTube metrics (views, likes, comments, subscribers) and video content index. Requires YOUTUBE_TOKEN."),
-		mcp.WithString("project", mcp.Description("Fetch only this project ID")),
-		mcp.WithString("start_date", mcp.Description("Start date (YYYY-MM-DD)")),
-		mcp.WithString("end_date", mcp.Description("End date (YYYY-MM-DD, default: yesterday)")),
-	)
-}
-
-func fetchLinkedInTool() mcp.Tool {
-	return mcp.NewTool("fetch_linkedin",
-		mcp.WithDescription("Fetch LinkedIn post metrics (impressions, likes, comments, shares) and content index. Requires LINKEDIN_TOKEN."),
-		mcp.WithString("project", mcp.Description("Fetch only this project ID")),
-		mcp.WithString("start_date", mcp.Description("Start date (YYYY-MM-DD)")),
-		mcp.WithString("end_date", mcp.Description("End date (YYYY-MM-DD, default: yesterday)")),
-	)
+	}
 }
 
 func addProjectTool() mcp.Tool {
-	return mcp.NewTool("add_project",
+	opts := []mcp.ToolOption{
 		mcp.WithDescription("Add a new project to the velocirepo config."),
 		mcp.WithString("id", mcp.Required(), mcp.Description("Project ID (lowercase alphanumeric with hyphens)")),
 		mcp.WithString("name", mcp.Description("Display name (defaults to ID)")),
-		mcp.WithString("github", mcp.Description("GitHub owner/repo for events")),
-		mcp.WithString("github_traffic", mcp.Description("GitHub owner/repo for traffic")),
-		mcp.WithString("pypi", mcp.Description("PyPI package name")),
-		mcp.WithString("cran", mcp.Description("CRAN package name")),
-		mcp.WithString("homebrew", mcp.Description("Homebrew formula")),
-		mcp.WithString("plausible", mcp.Description("Plausible site ID")),
-		mcp.WithString("openvsx", mcp.Description("OpenVSX extension (publisher/extension)")),
-		mcp.WithString("youtube", mcp.Description("YouTube channel (@handle), playlist, or video ID")),
-		mcp.WithString("linkedin", mcp.Description("LinkedIn URN (urn:li:organization:ID)")),
-	)
+	}
+	for _, desc := range sourceinfo.All() {
+		opts = append(opts, mcp.WithString(desc.MCPKey, mcp.Description(desc.MCPAddDescription)))
+	}
+	return mcp.NewTool("add_project", opts...)
 }
 
 func updateProjectTool() mcp.Tool {
-	return mcp.NewTool("update_project",
+	opts := []mcp.ToolOption{
 		mcp.WithDescription("Update a project's configuration. Only specified fields are changed."),
 		mcp.WithString("id", mcp.Required(), mcp.Description("Project ID to update")),
 		mcp.WithString("name", mcp.Description("New display name")),
-		mcp.WithString("github", mcp.Description("GitHub owner/repo for events (empty to remove)")),
-		mcp.WithString("github_traffic", mcp.Description("GitHub owner/repo for traffic (empty to remove)")),
-		mcp.WithString("pypi", mcp.Description("PyPI package name (empty to remove)")),
-		mcp.WithString("cran", mcp.Description("CRAN package name (empty to remove)")),
-		mcp.WithString("homebrew", mcp.Description("Homebrew formula (empty to remove)")),
-		mcp.WithString("plausible", mcp.Description("Plausible site ID (empty to remove)")),
-		mcp.WithString("openvsx", mcp.Description("OpenVSX extension (empty to remove)")),
-		mcp.WithString("youtube", mcp.Description("YouTube target (empty to remove)")),
-		mcp.WithString("linkedin", mcp.Description("LinkedIn URN (empty to remove)")),
-	)
+	}
+	for _, desc := range sourceinfo.All() {
+		opts = append(opts, mcp.WithString(desc.MCPKey, mcp.Description(desc.MCPUpdateDescription)))
+	}
+	return mcp.NewTool("update_project", opts...)
 }
 
 func removeProjectTool() mcp.Tool {

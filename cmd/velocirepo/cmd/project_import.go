@@ -263,7 +263,7 @@ func loadFromCSV(path string) ([]fetch.ImportEntry, error) {
 			p.Name = id
 		}
 		for _, field := range projectSourceFields {
-			p.SetSourceValues(field.key, toStringList(sourceValueFromCSV(row, colIndex, field)))
+			p.SetSourceValues(field.Name, toStringList(sourceValueFromCSV(row, colIndex, field)))
 		}
 
 		entries = append(entries, fetch.ImportEntry{ID: id, Project: p})

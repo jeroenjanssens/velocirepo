@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jeroenjanssens/velocirepo/internal/dateutil"
 	"github.com/jeroenjanssens/velocirepo/internal/source"
 )
 
@@ -62,9 +63,9 @@ type Issue struct {
 }
 
 type ValidationResult struct {
-	Issues     []Issue
-	FilesRead  int
-	LinesRead  int
+	Issues      []Issue
+	FilesRead   int
+	LinesRead   int
 	RecordCount int
 }
 
@@ -77,9 +78,9 @@ func ValidateData(dataDir string, projectIDs map[string]bool) (*ValidationResult
 		return result, nil
 	}
 
-	validateCategory(filepath.Join(dataDir, "metrics"), projectIDs, false, result)
-	validateCategory(filepath.Join(dataDir, "events"), projectIDs, true, result)
-	validateContentCategory(filepath.Join(dataDir, "content"), projectIDs, result)
+	validateCategory(filepath.Join(dataDir, MetricsDir), projectIDs, false, result)
+	validateCategory(filepath.Join(dataDir, EventsDir), projectIDs, true, result)
+	validateContentCategory(filepath.Join(dataDir, ContentDataDir), projectIDs, result)
 
 	return result, nil
 }
@@ -250,7 +251,7 @@ func validateRecordsFile(path, sourceName, projectID, fileDateRange string, resu
 				Message: fmt.Sprintf("line %d: invalid date %q", lineNum, date),
 			})
 			date = ""
-		} else if _, err := time.Parse("2006-01-02", date); err != nil {
+		} else if _, err := dateutil.ParseDate(date); err != nil {
 			issues = append(issues, Issue{
 				Type: IssueInvalidDate, Path: p, Line: lineNum,
 				Message: fmt.Sprintf("line %d: unparseable date %q", lineNum, date),
@@ -327,7 +328,6 @@ func validateEventsFile(path, fileDateRange string, result *ValidationResult) {
 		return e.Datetime[:10], dedupEventKey(e), issues
 	})
 }
-
 
 func extractDateRange(filename string) string {
 	if m := dailyPattern.FindStringSubmatch(filename); m != nil {
@@ -871,27 +871,5 @@ func validateContentFile(path, sourceName string, result *ValidationResult) {
 }
 
 func writeLines(path string, lines [][]byte) error {
-	dir := filepath.Dir(path)
-	tmp, err := os.CreateTemp(dir, ".tmp-*.jsonl")
-	if err != nil {
-		return err
-	}
-	tmpPath := tmp.Name()
-
-	w := bufio.NewWriter(tmp)
-	for _, line := range lines {
-		_, _ = w.Write(line)
-		_ = w.WriteByte('\n')
-	}
-
-	if err := w.Flush(); err != nil {
-		_ = tmp.Close()
-		_ = os.Remove(tmpPath)
-		return err
-	}
-	if err := tmp.Close(); err != nil {
-		_ = os.Remove(tmpPath)
-		return err
-	}
-	return os.Rename(tmpPath, path)
+	return writeJSONLLinesAtomic(path, lines)
 }

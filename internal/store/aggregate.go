@@ -24,8 +24,8 @@ func SourceCategory(sourceName string) string {
 // individual projects are logged but not propagated; category directories that
 // don't exist yet are silently skipped.
 func Aggregate(dataDir string, now time.Time) error {
-	aggregateCategory(filepath.Join(dataDir, "metrics"), now, recordAggregateSpec())
-	aggregateCategory(filepath.Join(dataDir, "events"), now, eventAggregateSpec())
+	aggregateCategory(filepath.Join(dataDir, MetricsDir), now, recordAggregateSpec())
+	aggregateCategory(filepath.Join(dataDir, EventsDir), now, eventAggregateSpec())
 	return nil
 }
 

@@ -2,11 +2,11 @@ package source
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"strings"
+
+	"github.com/jeroenjanssens/velocirepo/internal/dateutil"
 )
 
 type OpenVSX struct {
@@ -29,36 +29,20 @@ func (o *OpenVSX) Fetch(ctx context.Context, opts FetchOptions) ([]Record, error
 	}
 	url := fmt.Sprintf("%s/api/%s/%s", baseURL, parts[0], parts[1])
 
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	result, err := doJSON[struct {
+		DownloadCount int64    `json:"downloadCount"`
+		AverageRating *float64 `json:"averageRating"`
+		ReviewCount   int64    `json:"reviewCount"`
+	}](ctx, o.Client, httpJSONRequest{
+		URL:          url,
+		RequestError: "request openvsx",
+		StatusError:  "openvsx returned",
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	resp, err := o.Client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("request openvsx: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("openvsx returned %d", resp.StatusCode)
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("read response: %w", err)
-	}
-
-	var result struct {
-		DownloadCount int64    `json:"downloadCount"`
-		AverageRating *float64 `json:"averageRating"`
-		ReviewCount   int64    `json:"reviewCount"`
-	}
-	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, fmt.Errorf("parse response: %w", err)
-	}
-
-	date := opts.EndDate.Format("2006-01-02")
+	date := dateutil.FormatDate(opts.EndDate)
 
 	records := []Record{
 		{Metric: "total_downloads", ProjectID: opts.ProjectID, Target: o.ExtensionID, Date: date, Value: result.DownloadCount},

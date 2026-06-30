@@ -5,8 +5,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
+
+	"github.com/jeroenjanssens/velocirepo/internal/dateutil"
 )
 
 type Plausible struct {
@@ -51,8 +52,8 @@ func (p *Plausible) fetchMetrics(ctx context.Context, opts FetchOptions, dimensi
 			"site_id": p.SiteID,
 			"metrics": []string{"pageviews", "visitors", "visits"},
 			"date_range": []string{
-				opts.StartDate.Format("2006-01-02"),
-				opts.EndDate.Format("2006-01-02"),
+				dateutil.FormatDate(opts.StartDate),
+				dateutil.FormatDate(opts.EndDate),
 			},
 			"dimensions": dimensions,
 			"pagination": map[string]int{"limit": pageSize, "offset": offset},
@@ -115,30 +116,15 @@ func (p *Plausible) query(ctx context.Context, payload interface{}, result inter
 		baseURL = p.BaseURL
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "POST", baseURL+"/api/v2/query", bytes.NewReader(body))
-	if err != nil {
-		return err
-	}
-	req.Header.Set("Authorization", "Bearer "+p.APIKey)
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := p.Client.Do(req)
-	if err != nil {
-		return fmt.Errorf("request plausible: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("plausible returned %d", resp.StatusCode)
-	}
-
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return fmt.Errorf("read response: %w", err)
-	}
-
-	if err := json.Unmarshal(respBody, result); err != nil {
-		return fmt.Errorf("parse response: %w", err)
-	}
-	return nil
+	return doJSONInto(ctx, p.Client, httpJSONRequest{
+		Method: http.MethodPost,
+		URL:    baseURL + "/api/v2/query",
+		Headers: map[string]string{
+			"Authorization": "Bearer " + p.APIKey,
+			"Content-Type":  "application/json",
+		},
+		Body:         bytes.NewReader(body),
+		RequestError: "request plausible",
+		StatusError:  "plausible returned",
+	}, result)
 }
