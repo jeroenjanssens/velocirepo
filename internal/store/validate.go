@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -27,6 +28,7 @@ const (
 	IssueInvalidDatetime
 	IssueUnexpectedFile
 	IssueSourceMismatch
+	IssueDeprecatedMetric
 )
 
 func (t IssueType) String() string {
@@ -49,6 +51,8 @@ func (t IssueType) String() string {
 		return "unexpected file"
 	case IssueSourceMismatch:
 		return "source mismatch"
+	case IssueDeprecatedMetric:
+		return "deprecated metric"
 	default:
 		return "unknown"
 	}
@@ -241,6 +245,14 @@ func validateRecordsFile(path, sourceName, projectID, fileDateRange string, resu
 			issues = append(issues, Issue{
 				Type: IssueEmptyField, Path: p, Line: lineNum,
 				Message: fmt.Sprintf("line %d: empty project_id field", lineNum),
+			})
+		}
+
+		if sourceName == "openvsx" && (r.Metric == "rating" || r.Metric == "reviews") {
+			issues = append(issues, Issue{
+				Type: IssueDeprecatedMetric, Path: p, Line: lineNum,
+				Message: fmt.Sprintf("line %d: deprecated metric %q (openvsx)", lineNum, r.Metric),
+				Fixable: true,
 			})
 		}
 
@@ -492,6 +504,92 @@ func fixSourceInFile(path string) (int, error) {
 			copy(cp, line)
 			lines = append(lines, cp)
 		}
+	}
+	if err := scanner.Err(); err != nil {
+		return 0, err
+	}
+	_ = f.Close()
+
+	if fixed == 0 {
+		return 0, nil
+	}
+
+	return fixed, writeLines(path, lines)
+}
+
+func FixDeprecatedMetrics(paths []string) *FixResult {
+	result := &FixResult{}
+	for _, path := range paths {
+		n, err := fixDeprecatedMetricsInFile(path)
+		if err != nil {
+			result.Errors = append(result.Errors, fmt.Errorf("%s: %w", path, err))
+		} else {
+			result.Fixed += n
+		}
+	}
+	return result
+}
+
+var deprecatedOpenVSXMetrics = map[string]string{
+	"rating":  "total_ratings",
+	"reviews": "total_reviews",
+}
+
+func fixDeprecatedMetricsInFile(path string) (int, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return 0, err
+	}
+	defer func() { _ = f.Close() }()
+
+	scanner := bufio.NewScanner(f)
+	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
+
+	var lines [][]byte
+	fixed := 0
+
+	for scanner.Scan() {
+		line := scanner.Bytes()
+		var raw map[string]json.RawMessage
+		if err := json.Unmarshal(line, &raw); err != nil {
+			cp := make([]byte, len(line))
+			copy(cp, line)
+			lines = append(lines, cp)
+			continue
+		}
+
+		var metric string
+		if m, ok := raw["metric"]; ok {
+			_ = json.Unmarshal(m, &metric)
+		}
+
+		newMetric, isDeprecated := deprecatedOpenVSXMetrics[metric]
+		if !isDeprecated {
+			cp := make([]byte, len(line))
+			copy(cp, line)
+			lines = append(lines, cp)
+			continue
+		}
+
+		raw["metric"], _ = json.Marshal(newMetric)
+
+		if metric == "rating" {
+			var val float64
+			if v, ok := raw["value"]; ok {
+				_ = json.Unmarshal(v, &val)
+			}
+			raw["value"], _ = json.Marshal(int64(math.Round(val * 100)))
+		}
+
+		rewritten, err := json.Marshal(raw)
+		if err != nil {
+			cp := make([]byte, len(line))
+			copy(cp, line)
+			lines = append(lines, cp)
+			continue
+		}
+		lines = append(lines, rewritten)
+		fixed++
 	}
 	if err := scanner.Err(); err != nil {
 		return 0, err

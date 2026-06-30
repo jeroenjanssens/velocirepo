@@ -355,6 +355,51 @@ func TestFixSourceMismatches(t *testing.T) {
 	}
 }
 
+func TestFixDeprecatedMetrics(t *testing.T) {
+	dataDir := testDataDir(t)
+
+	path := metricsPath(dataDir, "openvsx", "myproj", "2026-01-01")
+	writeTestRaw(t, path, []string{
+		`{"metric":"total_downloads","project_id":"myproj","date":"2026-01-01","value":1000,"source":"openvsx","target":"ns/ext"}`,
+		`{"metric":"rating","project_id":"myproj","date":"2026-01-01","value":5.0,"source":"openvsx","target":"ns/ext"}`,
+		`{"metric":"reviews","project_id":"myproj","date":"2026-01-01","value":2,"source":"openvsx","target":"ns/ext"}`,
+	})
+
+	result := FixDeprecatedMetrics([]string{path})
+	if result.Fixed != 2 {
+		t.Errorf("expected 2 fixed, got %d", result.Fixed)
+	}
+
+	lines := readRawLines(t, path)
+	if len(lines) != 3 {
+		t.Fatalf("expected 3 lines, got %d", len(lines))
+	}
+
+	var rec0 map[string]interface{}
+	_ = json.Unmarshal([]byte(lines[0]), &rec0)
+	if rec0["metric"] != "total_downloads" {
+		t.Errorf("expected total_downloads unchanged, got %v", rec0["metric"])
+	}
+
+	var rec1 map[string]interface{}
+	_ = json.Unmarshal([]byte(lines[1]), &rec1)
+	if rec1["metric"] != "total_ratings" {
+		t.Errorf("expected total_ratings, got %v", rec1["metric"])
+	}
+	if rec1["value"].(float64) != 500 {
+		t.Errorf("expected rating value 500, got %v", rec1["value"])
+	}
+
+	var rec2 map[string]interface{}
+	_ = json.Unmarshal([]byte(lines[2]), &rec2)
+	if rec2["metric"] != "total_reviews" {
+		t.Errorf("expected total_reviews, got %v", rec2["metric"])
+	}
+	if rec2["value"].(float64) != 2 {
+		t.Errorf("expected reviews value 2, got %v", rec2["value"])
+	}
+}
+
 func TestValidateData_NoProjectFilter(t *testing.T) {
 	dataDir := testDataDir(t)
 

@@ -214,6 +214,22 @@ var dataFixHandlers = []dataFixHandler{
 			}
 		},
 	},
+	{
+		issueType: store.IssueDeprecatedMetric,
+		prepare: func(issues []store.Issue) *dataFixAction {
+			paths := collectUniquePaths(issues)
+			if len(paths) == 0 {
+				return nil
+			}
+			return &dataFixAction{
+				confirmMessage: fmt.Sprintf("Fix %d deprecated metric name(s) across %d file(s)?", len(issues), len(paths)),
+				successFormat:  "  Fixed %d record(s)\n",
+				fix: func() *store.FixResult {
+					return store.FixDeprecatedMetrics(paths)
+				},
+			}
+		},
+	},
 }
 
 func runDataFixHandlers(reader *bufio.Reader, grouped map[store.IssueType][]store.Issue) error {
