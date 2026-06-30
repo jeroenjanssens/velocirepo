@@ -359,6 +359,94 @@ func runMetricJob(ctx context.Context, dataDir string, job fetchJob, opts source
 	})
 }
 
+type fetchSourceDescriptor struct {
+	name          string
+	values        func(config.Project) config.StringList
+	missingToken  func(Tokens) string
+	beforeFetch   func(context.Context, Tokens)
+	metricFactory func(*http.Client, Tokens, string) source.Source
+	eventFactory  func(*http.Client, Tokens, string) source.EventSource
+}
+
+var fetchSourceDescriptors = []fetchSourceDescriptor{
+	{
+		name:   "github-traffic",
+		values: func(p config.Project) config.StringList { return p.GitHubTraffic },
+		metricFactory: func(client *http.Client, tokens Tokens, target string) source.Source {
+			return &source.GitHubTraffic{Client: client, Token: tokens.GitHub, Repo: target}
+		},
+	},
+	{
+		name:   "github",
+		values: func(p config.Project) config.StringList { return p.GitHubEvents },
+		eventFactory: func(client *http.Client, tokens Tokens, target string) source.EventSource {
+			return &source.GitHubEvents{Client: client, Token: tokens.GitHub, Repo: target}
+		},
+	},
+	{
+		name:   "pypi",
+		values: func(p config.Project) config.StringList { return p.PyPI },
+		metricFactory: func(client *http.Client, _ Tokens, target string) source.Source {
+			return &source.PyPI{Client: client, Package: target}
+		},
+	},
+	{
+		name:   "cran",
+		values: func(p config.Project) config.StringList { return p.CRAN },
+		metricFactory: func(client *http.Client, _ Tokens, target string) source.Source {
+			return &source.CRAN{Client: client, Package: target}
+		},
+	},
+	{
+		name:   "homebrew",
+		values: func(p config.Project) config.StringList { return p.Homebrew },
+		metricFactory: func(client *http.Client, _ Tokens, target string) source.Source {
+			return &source.Homebrew{Client: client, Formula: target}
+		},
+	},
+	{
+		name:         "plausible",
+		values:       func(p config.Project) config.StringList { return p.Plausible },
+		missingToken: func(tokens Tokens) string { return missingToken(tokens.Plausible, "PLAUSIBLE_TOKEN not set") },
+		metricFactory: func(client *http.Client, tokens Tokens, target string) source.Source {
+			return &source.Plausible{Client: client, APIKey: tokens.Plausible, SiteID: target}
+		},
+	},
+	{
+		name:   "openvsx",
+		values: func(p config.Project) config.StringList { return p.OpenVSX },
+		metricFactory: func(client *http.Client, _ Tokens, target string) source.Source {
+			return &source.OpenVSX{Client: client, ExtensionID: target}
+		},
+	},
+	{
+		name:         "youtube",
+		values:       func(p config.Project) config.StringList { return p.YouTube },
+		missingToken: func(tokens Tokens) string { return missingToken(tokens.YouTube, "YOUTUBE_TOKEN not set") },
+		metricFactory: func(client *http.Client, tokens Tokens, target string) source.Source {
+			return &source.YouTube{Client: client, APIKey: tokens.YouTube, Target: target}
+		},
+	},
+	{
+		name:         "linkedin",
+		values:       func(p config.Project) config.StringList { return p.LinkedIn },
+		missingToken: func(tokens Tokens) string { return missingToken(tokens.LinkedIn, "LINKEDIN_TOKEN not set") },
+		beforeFetch: func(ctx context.Context, tokens Tokens) {
+			auth.CheckLinkedInTokenExpiry(ctx, tokens.LinkedIn, os.Getenv("LINKEDIN_CLIENT_ID"), os.Getenv("LINKEDIN_CLIENT_SECRET"))
+		},
+		metricFactory: func(client *http.Client, tokens Tokens, target string) source.Source {
+			return &source.LinkedIn{Client: client, Token: tokens.LinkedIn, Target: target}
+		},
+	},
+}
+
+func missingToken(token, reason string) string {
+	if token == "" {
+		return reason
+	}
+	return ""
+}
+
 func All(ctx context.Context, cfg *config.Config, tokens Tokens, opts Options) ([]Result, error) {
 	projects, err := selectedProjects(cfg, opts)
 	if err != nil {
@@ -366,50 +454,77 @@ func All(ctx context.Context, cfg *config.Config, tokens Tokens, opts Options) (
 	}
 
 	client := &http.Client{Timeout: 30 * time.Second}
-
-	if tokens.LinkedIn != "" {
-		auth.CheckLinkedInTokenExpiry(ctx, tokens.LinkedIn, os.Getenv("LINKEDIN_CLIENT_ID"), os.Getenv("LINKEDIN_CLIENT_SECRET"))
-	}
-
 	jobsByKey := make(map[jobKey]*fetchJob)
 	var jobOrder []jobKey
-	for id, proj := range projects {
-		for _, repo := range proj.GitHubTraffic {
-			addMetricJob(jobsByKey, &jobOrder, "github-traffic", id, &source.GitHubTraffic{Client: client, Token: tokens.GitHub, Repo: repo})
+
+	for _, desc := range fetchSourceDescriptors {
+		if desc.skipReason(tokens) != "" {
+			continue
 		}
-		for _, repo := range proj.GitHubEvents {
-			addEventJob(jobsByKey, &jobOrder, "github", id, &source.GitHubEvents{Client: client, Token: tokens.GitHub, Repo: repo})
-		}
-		for _, pkg := range proj.PyPI {
-			addMetricJob(jobsByKey, &jobOrder, "pypi", id, &source.PyPI{Client: client, Package: pkg})
-		}
-		for _, pkg := range proj.CRAN {
-			addMetricJob(jobsByKey, &jobOrder, "cran", id, &source.CRAN{Client: client, Package: pkg})
-		}
-		for _, formula := range proj.Homebrew {
-			addMetricJob(jobsByKey, &jobOrder, "homebrew", id, &source.Homebrew{Client: client, Formula: formula})
-		}
-		if tokens.Plausible != "" {
-			for _, site := range proj.Plausible {
-				addMetricJob(jobsByKey, &jobOrder, "plausible", id, &source.Plausible{Client: client, APIKey: tokens.Plausible, SiteID: site})
-			}
-		}
-		for _, ext := range proj.OpenVSX {
-			addMetricJob(jobsByKey, &jobOrder, "openvsx", id, &source.OpenVSX{Client: client, ExtensionID: ext})
-		}
-		if tokens.YouTube != "" {
-			for _, target := range proj.YouTube {
-				addMetricJob(jobsByKey, &jobOrder, "youtube", id, &source.YouTube{Client: client, APIKey: tokens.YouTube, Target: target})
-			}
-		}
-		if tokens.LinkedIn != "" {
-			for _, target := range proj.LinkedIn {
-				addMetricJob(jobsByKey, &jobOrder, "linkedin", id, &source.LinkedIn{Client: client, Token: tokens.LinkedIn, Target: target})
-			}
+		desc.runBeforeFetch(ctx, tokens)
+		for id, proj := range projects {
+			desc.addJobs(jobsByKey, &jobOrder, client, tokens, id, proj)
 		}
 	}
 
 	return runJobs(ctx, cfg, opts, orderedJobs(jobsByKey, jobOrder), 4)
+}
+
+func (d fetchSourceDescriptor) skipReason(tokens Tokens) string {
+	if d.missingToken == nil {
+		return ""
+	}
+	return d.missingToken(tokens)
+}
+
+func (d fetchSourceDescriptor) runBeforeFetch(ctx context.Context, tokens Tokens) {
+	if d.beforeFetch != nil {
+		d.beforeFetch(ctx, tokens)
+	}
+}
+
+func (d fetchSourceDescriptor) addJobs(jobs map[jobKey]*fetchJob, order *[]jobKey, client *http.Client, tokens Tokens, projectID string, proj config.Project) {
+	for _, target := range d.values(proj) {
+		if d.eventFactory != nil {
+			addEventJob(jobs, order, d.name, projectID, d.eventFactory(client, tokens, target))
+			continue
+		}
+		addMetricJob(jobs, order, d.name, projectID, d.metricFactory(client, tokens, target))
+	}
+}
+
+func fetchSourceByName(name string) (fetchSourceDescriptor, bool) {
+	for _, desc := range fetchSourceDescriptors {
+		if desc.name == name {
+			return desc, true
+		}
+	}
+	return fetchSourceDescriptor{}, false
+}
+
+func runDescriptor(ctx context.Context, cfg *config.Config, tokens Tokens, opts Options, name string) ([]Result, error) {
+	desc, ok := fetchSourceByName(name)
+	if !ok {
+		return nil, fmt.Errorf("unknown source %q", name)
+	}
+	if reason := desc.skipReason(tokens); reason != "" {
+		return []Result{{Source: desc.name, Skipped: reason}}, nil
+	}
+	desc.runBeforeFetch(ctx, tokens)
+
+	projects, err := selectedProjects(cfg, opts)
+	if err != nil {
+		return nil, err
+	}
+
+	client := &http.Client{Timeout: 30 * time.Second}
+	jobsByKey := make(map[jobKey]*fetchJob)
+	var jobOrder []jobKey
+	for id, proj := range projects {
+		desc.addJobs(jobsByKey, &jobOrder, client, tokens, id, proj)
+	}
+
+	return runJobs(ctx, cfg, opts, orderedJobs(jobsByKey, jobOrder), 1)
 }
 
 func Source(ctx context.Context, cfg *config.Config, _ Tokens, sourceName string, opts Options, createSources func(id string, proj config.Project) []source.Source) ([]Result, error) {
@@ -431,121 +546,37 @@ func Source(ctx context.Context, cfg *config.Config, _ Tokens, sourceName string
 }
 
 func GitHub(ctx context.Context, cfg *config.Config, tokens Tokens, opts Options) ([]Result, error) {
-	projects, err := selectedProjects(cfg, opts)
-	if err != nil {
-		return nil, err
-	}
-
-	client := &http.Client{Timeout: 30 * time.Second}
-	var jobs []fetchJob
-
-	for id, proj := range projects {
-		var eventSources []source.EventSource
-		for _, repo := range proj.GitHubEvents {
-			eventSources = append(eventSources, &source.GitHubEvents{Client: client, Token: tokens.GitHub, Repo: repo})
-		}
-		if len(eventSources) > 0 {
-			jobs = append(jobs, fetchJob{sourceName: "github", projectID: id, eventSources: eventSources})
-		}
-	}
-
-	return runJobs(ctx, cfg, opts, jobs, 1)
+	return runDescriptor(ctx, cfg, tokens, opts, "github")
 }
 
 func Traffic(ctx context.Context, cfg *config.Config, tokens Tokens, opts Options) ([]Result, error) {
-	client := &http.Client{Timeout: 30 * time.Second}
-	return Source(ctx, cfg, tokens, "github-traffic", opts, func(id string, p config.Project) []source.Source {
-		var sources []source.Source
-		for _, repo := range p.GitHubTraffic {
-			sources = append(sources, &source.GitHubTraffic{Client: client, Token: tokens.GitHub, Repo: repo})
-		}
-		return sources
-	})
+	return runDescriptor(ctx, cfg, tokens, opts, "github-traffic")
 }
 
 func PyPI(ctx context.Context, cfg *config.Config, tokens Tokens, opts Options) ([]Result, error) {
-	client := &http.Client{Timeout: 30 * time.Second}
-	return Source(ctx, cfg, tokens, "pypi", opts, func(id string, p config.Project) []source.Source {
-		var sources []source.Source
-		for _, pkg := range p.PyPI {
-			sources = append(sources, &source.PyPI{Client: client, Package: pkg})
-		}
-		return sources
-	})
+	return runDescriptor(ctx, cfg, tokens, opts, "pypi")
 }
 
 func CRAN(ctx context.Context, cfg *config.Config, tokens Tokens, opts Options) ([]Result, error) {
-	client := &http.Client{Timeout: 30 * time.Second}
-	return Source(ctx, cfg, tokens, "cran", opts, func(id string, p config.Project) []source.Source {
-		var sources []source.Source
-		for _, pkg := range p.CRAN {
-			sources = append(sources, &source.CRAN{Client: client, Package: pkg})
-		}
-		return sources
-	})
+	return runDescriptor(ctx, cfg, tokens, opts, "cran")
 }
 
 func Homebrew(ctx context.Context, cfg *config.Config, tokens Tokens, opts Options) ([]Result, error) {
-	client := &http.Client{Timeout: 30 * time.Second}
-	return Source(ctx, cfg, tokens, "homebrew", opts, func(id string, p config.Project) []source.Source {
-		var sources []source.Source
-		for _, formula := range p.Homebrew {
-			sources = append(sources, &source.Homebrew{Client: client, Formula: formula})
-		}
-		return sources
-	})
+	return runDescriptor(ctx, cfg, tokens, opts, "homebrew")
 }
 
 func Plausible(ctx context.Context, cfg *config.Config, tokens Tokens, opts Options) ([]Result, error) {
-	if tokens.Plausible == "" {
-		return []Result{{Source: "plausible", Skipped: "PLAUSIBLE_TOKEN not set"}}, nil
-	}
-	client := &http.Client{Timeout: 30 * time.Second}
-	return Source(ctx, cfg, tokens, "plausible", opts, func(id string, p config.Project) []source.Source {
-		var sources []source.Source
-		for _, site := range p.Plausible {
-			sources = append(sources, &source.Plausible{Client: client, APIKey: tokens.Plausible, SiteID: site})
-		}
-		return sources
-	})
+	return runDescriptor(ctx, cfg, tokens, opts, "plausible")
 }
 
 func OpenVSX(ctx context.Context, cfg *config.Config, tokens Tokens, opts Options) ([]Result, error) {
-	client := &http.Client{Timeout: 30 * time.Second}
-	return Source(ctx, cfg, tokens, "openvsx", opts, func(id string, p config.Project) []source.Source {
-		var sources []source.Source
-		for _, ext := range p.OpenVSX {
-			sources = append(sources, &source.OpenVSX{Client: client, ExtensionID: ext})
-		}
-		return sources
-	})
+	return runDescriptor(ctx, cfg, tokens, opts, "openvsx")
 }
 
 func YouTube(ctx context.Context, cfg *config.Config, tokens Tokens, opts Options) ([]Result, error) {
-	if tokens.YouTube == "" {
-		return []Result{{Source: "youtube", Skipped: "YOUTUBE_TOKEN not set"}}, nil
-	}
-	client := &http.Client{Timeout: 30 * time.Second}
-	return Source(ctx, cfg, tokens, "youtube", opts, func(id string, p config.Project) []source.Source {
-		var sources []source.Source
-		for _, target := range p.YouTube {
-			sources = append(sources, &source.YouTube{Client: client, APIKey: tokens.YouTube, Target: target})
-		}
-		return sources
-	})
+	return runDescriptor(ctx, cfg, tokens, opts, "youtube")
 }
 
 func LinkedIn(ctx context.Context, cfg *config.Config, tokens Tokens, opts Options) ([]Result, error) {
-	if tokens.LinkedIn == "" {
-		return []Result{{Source: "linkedin", Skipped: "LINKEDIN_TOKEN not set"}}, nil
-	}
-	auth.CheckLinkedInTokenExpiry(ctx, tokens.LinkedIn, os.Getenv("LINKEDIN_CLIENT_ID"), os.Getenv("LINKEDIN_CLIENT_SECRET"))
-	client := &http.Client{Timeout: 30 * time.Second}
-	return Source(ctx, cfg, tokens, "linkedin", opts, func(id string, p config.Project) []source.Source {
-		var sources []source.Source
-		for _, target := range p.LinkedIn {
-			sources = append(sources, &source.LinkedIn{Client: client, Token: tokens.LinkedIn, Target: target})
-		}
-		return sources
-	})
+	return runDescriptor(ctx, cfg, tokens, opts, "linkedin")
 }

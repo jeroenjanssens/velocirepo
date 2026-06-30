@@ -188,76 +188,104 @@ func (y *YouTube) fetchVideos(ctx context.Context, opts FetchOptions, videoIDs [
 	var records []Record
 	date := opts.EndDate.Format("2006-01-02")
 
-	for i := 0; i < len(videoIDs); i += 50 {
-		end := i + 50
-		if end > len(videoIDs) {
-			end = len(videoIDs)
-		}
-		batch := videoIDs[i:end]
-
+	err := forStringBatches(videoIDs, 50, func(batch []string) error {
 		url := fmt.Sprintf("%s/videos?part=statistics,snippet,contentDetails&id=%s&key=%s",
 			y.baseURL(), strings.Join(batch, ","), y.APIKey)
 
 		var resp videoListResponse
 		if err := y.get(ctx, url, &resp); err != nil {
-			return nil, err
+			return err
 		}
 
 		for _, item := range resp.Items {
-			tags := map[string]string{"video_id": item.ID}
-
-			records = append(records, Record{
-				Metric:    "total_views",
-				ProjectID: opts.ProjectID,
-				Target:    y.Target,
-				Date:      date,
-				Value:     item.Statistics.ViewCount,
-				Tags:      tags,
-			})
-
-			if item.Statistics.LikeCount != nil {
-				records = append(records, Record{
-					Metric:    "total_likes",
-					ProjectID: opts.ProjectID,
-					Target:    y.Target,
-					Date:      date,
-					Value:     *item.Statistics.LikeCount,
-					Tags:      copyTags(tags),
-				})
-			}
-
-			if item.Statistics.CommentCount != nil {
-				records = append(records, Record{
-					Metric:    "total_comments",
-					ProjectID: opts.ProjectID,
-					Target:    y.Target,
-					Date:      date,
-					Value:     *item.Statistics.CommentCount,
-					Tags:      copyTags(tags),
-				})
-			}
-
-			var duration *int64
-			if d := item.ContentDetails.Duration; d != "" && d != "P0D" {
-				if dur := parseISO8601Duration(d); dur != 0 {
-					duration = &dur
-				}
-			}
-			y.contentEntries = append(y.contentEntries, ContentEntry{
-				Source:      "youtube",
-				Target:      y.Target,
-				ID:          item.ID,
-				Title:       item.Snippet.Title,
-				PublishedAt: item.Snippet.PublishedAt,
-				URL:         "https://youtube.com/watch?v=" + item.ID,
-				Duration:    duration,
-				Tags:        item.Snippet.Tags,
-				Type:        "video",
-			})
+			records = append(records, youtubeVideoRecords(opts.ProjectID, y.Target, date, item)...)
+			y.contentEntries = append(y.contentEntries, youtubeContentEntry(y.Target, item))
 		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
 
 	return records, nil
+}
+
+func forStringBatches(items []string, size int, fn func([]string) error) error {
+	for i := 0; i < len(items); i += size {
+		end := i + size
+		if end > len(items) {
+			end = len(items)
+		}
+		if err := fn(items[i:end]); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+var youtubeVideoMetrics = []struct {
+	name  string
+	value func(videoStats) (int64, bool)
+}{
+	{"total_views", func(s videoStats) (int64, bool) { return s.ViewCount, true }},
+	{"total_likes", func(s videoStats) (int64, bool) {
+		if s.LikeCount == nil {
+			return 0, false
+		}
+		return *s.LikeCount, true
+	}},
+	{"total_comments", func(s videoStats) (int64, bool) {
+		if s.CommentCount == nil {
+			return 0, false
+		}
+		return *s.CommentCount, true
+	}},
+}
+
+func youtubeVideoRecords(projectID, target, date string, item videoItem) []Record {
+	records := make([]Record, 0, len(youtubeVideoMetrics))
+	tags := map[string]string{"video_id": item.ID}
+	for _, metric := range youtubeVideoMetrics {
+		value, ok := metric.value(item.Statistics)
+		if !ok {
+			continue
+		}
+		records = append(records, Record{
+			Metric:    metric.name,
+			ProjectID: projectID,
+			Target:    target,
+			Date:      date,
+			Value:     value,
+			Tags:      copyTags(tags),
+		})
+	}
+	return records
+}
+
+func youtubeContentEntry(target string, item videoItem) ContentEntry {
+	return ContentEntry{
+		Source:      "youtube",
+		Target:      target,
+		ID:          item.ID,
+		Title:       item.Snippet.Title,
+		PublishedAt: item.Snippet.PublishedAt,
+		URL:         "https://youtube.com/watch?v=" + item.ID,
+		Duration:    youtubeDuration(item.ContentDetails.Duration),
+		Tags:        item.Snippet.Tags,
+		Type:        "video",
+	}
+}
+
+func youtubeDuration(raw string) *int64 {
+	if raw == "" || raw == "P0D" {
+		return nil
+	}
+	duration := parseISO8601Duration(raw)
+	if duration == 0 {
+		return nil
+	}
+	return &duration
 }
 
 func (y *YouTube) baseURL() string {
@@ -293,22 +321,20 @@ func (y *YouTube) get(ctx context.Context, url string, result interface{}) error
 }
 
 func detectYouTubeType(target string) string {
-	if strings.HasPrefix(target, "@") {
+	switch {
+	case strings.HasPrefix(target, "@"):
 		return "channel"
-	}
-	if strings.HasPrefix(target, "UC") && len(target) == 24 {
+	case strings.HasPrefix(target, "UC") && len(target) == 24:
 		return "channel"
-	}
-	if strings.HasPrefix(target, "PL") {
+	case strings.HasPrefix(target, "PL"):
 		return "playlist"
-	}
-	if len(target) == 11 {
+	case len(target) == 11:
 		return "video"
-	}
-	if strings.HasPrefix(target, "@") || len(target) > 11 {
+	case len(target) > 11:
 		return "channel"
+	default:
+		return ""
 	}
-	return ""
 }
 
 func parseISO8601Duration(d string) int64 {
@@ -348,7 +374,6 @@ func parseInt(s string) int64 {
 	}
 	return n
 }
-
 
 // API response types
 

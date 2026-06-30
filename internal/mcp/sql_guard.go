@@ -126,81 +126,95 @@ func validateMCPQuery(query string) ([]sqlToken, error) {
 }
 
 func tokenizeSQL(query string) ([]sqlToken, error) {
-	var tokens []sqlToken
-	for i := 0; i < len(query); {
-		r, size := utf8.DecodeRuneInString(query[i:])
+	scanner := sqlScanner{query: query}
+	return scanner.scan()
+}
+
+type sqlScanner struct {
+	query  string
+	pos    int
+	tokens []sqlToken
+}
+
+func (s *sqlScanner) scan() ([]sqlToken, error) {
+	for s.pos < len(s.query) {
+		r, size := utf8.DecodeRuneInString(s.query[s.pos:])
 		if r == utf8.RuneError && size == 1 {
 			return nil, fmt.Errorf("invalid UTF-8 in query")
 		}
 		if unicode.IsSpace(r) {
-			i += size
+			s.pos += size
 			continue
 		}
 
-		if r == '-' && i+1 < len(query) && query[i+1] == '-' {
-			i += 2
-			for i < len(query) && query[i] != '\n' {
-				i++
+		if r == '-' && s.pos+1 < len(s.query) && s.query[s.pos+1] == '-' {
+			s.pos += 2
+			for s.pos < len(s.query) && s.query[s.pos] != '\n' {
+				s.pos++
 			}
 			continue
 		}
-		if r == '/' && i+1 < len(query) && query[i+1] == '*' {
-			end := strings.Index(query[i+2:], "*/")
+		if r == '/' && s.pos+1 < len(s.query) && s.query[s.pos+1] == '*' {
+			end := strings.Index(s.query[s.pos+2:], "*/")
 			if end < 0 {
 				return nil, fmt.Errorf("unterminated block comment")
 			}
-			i += end + 4
+			s.pos += end + 4
 			continue
 		}
 		if r == '\'' {
-			next, err := scanQuoted(query, i, '\'')
+			next, err := scanQuoted(s.query, s.pos, '\'')
 			if err != nil {
 				return nil, err
 			}
-			tokens = append(tokens, sqlToken{kind: sqlTokenString, text: query[i:next]})
-			i = next
+			s.append(sqlTokenString, s.query[s.pos:next])
+			s.pos = next
 			continue
 		}
 		if r == '"' {
-			next, text, err := scanQuotedIdentifier(query, i)
+			next, text, err := scanQuotedIdentifier(s.query, s.pos)
 			if err != nil {
 				return nil, err
 			}
-			tokens = append(tokens, sqlToken{kind: sqlTokenIdent, text: text})
-			i = next
+			s.append(sqlTokenIdent, text)
+			s.pos = next
 			continue
 		}
 		if isSQLIdentStart(r) {
-			start := i
-			i += size
-			for i < len(query) {
-				next, nextSize := utf8.DecodeRuneInString(query[i:])
+			start := s.pos
+			s.pos += size
+			for s.pos < len(s.query) {
+				next, nextSize := utf8.DecodeRuneInString(s.query[s.pos:])
 				if !isSQLIdentPart(next) {
 					break
 				}
-				i += nextSize
+				s.pos += nextSize
 			}
-			tokens = append(tokens, sqlToken{kind: sqlTokenIdent, text: query[start:i]})
+			s.append(sqlTokenIdent, s.query[start:s.pos])
 			continue
 		}
 		if unicode.IsDigit(r) {
-			start := i
-			i += size
-			for i < len(query) {
-				next, nextSize := utf8.DecodeRuneInString(query[i:])
+			start := s.pos
+			s.pos += size
+			for s.pos < len(s.query) {
+				next, nextSize := utf8.DecodeRuneInString(s.query[s.pos:])
 				if !unicode.IsDigit(next) && next != '.' {
 					break
 				}
-				i += nextSize
+				s.pos += nextSize
 			}
-			tokens = append(tokens, sqlToken{kind: sqlTokenNumber, text: query[start:i]})
+			s.append(sqlTokenNumber, s.query[start:s.pos])
 			continue
 		}
 
-		tokens = append(tokens, sqlToken{kind: sqlTokenSymbol, text: query[i : i+size]})
-		i += size
+		s.append(sqlTokenSymbol, s.query[s.pos:s.pos+size])
+		s.pos += size
 	}
-	return tokens, nil
+	return s.tokens, nil
+}
+
+func (s *sqlScanner) append(kind sqlTokenKind, text string) {
+	s.tokens = append(s.tokens, sqlToken{kind: kind, text: text})
 }
 
 func scanQuoted(query string, start int, quote byte) (int, error) {
@@ -335,24 +349,26 @@ func skipBalanced(tokens []sqlToken, start int) int {
 }
 
 func validateMCPTableRefs(tokens []sqlToken, ctes map[string]bool) error {
-	depth := 0
-	inFromList := make(map[int]bool)
-	for i, tok := range tokens {
+	validator := mcpTableRefValidator{
+		tokens:     tokens,
+		ctes:       ctes,
+		inFromList: make(map[int]bool),
+	}
+	return validator.validate()
+}
+
+type mcpTableRefValidator struct {
+	tokens     []sqlToken
+	ctes       map[string]bool
+	depth      int
+	inFromList map[int]bool
+}
+
+func (v *mcpTableRefValidator) validate() error {
+	for i, tok := range v.tokens {
 		if tok.kind == sqlTokenSymbol {
-			switch tok.text {
-			case "(":
-				depth++
-			case ")":
-				delete(inFromList, depth)
-				if depth > 0 {
-					depth--
-				}
-			case ",":
-				if inFromList[depth] {
-					if err := validateMCPRelation(tokens, i+1, ctes); err != nil {
-						return err
-					}
-				}
+			if err := v.handleSymbol(tok.text, i); err != nil {
+				return err
 			}
 			continue
 		}
@@ -362,20 +378,38 @@ func validateMCPTableRefs(tokens []sqlToken, ctes map[string]bool) error {
 
 		name := strings.ToLower(tok.text)
 		if isMCPClauseEnd(name) {
-			inFromList[depth] = false
+			v.inFromList[v.depth] = false
 			continue
 		}
 		if name == "from" || name == "join" {
-			if err := validateMCPRelation(tokens, i+1, ctes); err != nil {
+			if err := v.validateRelation(i + 1); err != nil {
 				return err
 			}
-			inFromList[depth] = true
+			v.inFromList[v.depth] = true
 		}
 	}
 	return nil
 }
 
-func validateMCPRelation(tokens []sqlToken, start int, ctes map[string]bool) error {
+func (v *mcpTableRefValidator) handleSymbol(symbol string, index int) error {
+	switch symbol {
+	case "(":
+		v.depth++
+	case ")":
+		delete(v.inFromList, v.depth)
+		if v.depth > 0 {
+			v.depth--
+		}
+	case ",":
+		if v.inFromList[v.depth] {
+			return v.validateRelation(index + 1)
+		}
+	}
+	return nil
+}
+
+func (v *mcpTableRefValidator) validateRelation(start int) error {
+	tokens := v.tokens
 	i := start
 	for i < len(tokens) && tokens[i].kind == sqlTokenIdent {
 		name := strings.ToLower(tokens[i].text)
@@ -412,7 +446,7 @@ func validateMCPRelation(tokens []sqlToken, start int, ctes map[string]bool) err
 	if i+1 < len(tokens) && tokens[i+1].kind == sqlTokenSymbol && tokens[i+1].text == "(" {
 		return fmt.Errorf("MCP query cannot read from table functions")
 	}
-	if !mcpAllowedTables[name] && !ctes[name] {
+	if !mcpAllowedTables[name] && !v.ctes[name] {
 		return fmt.Errorf("MCP query cannot read from table %q", name)
 	}
 	return nil

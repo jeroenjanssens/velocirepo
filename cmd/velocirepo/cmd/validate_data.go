@@ -80,95 +80,7 @@ func validateDataCmd() *cobra.Command {
 			}
 
 			reader := bufio.NewReader(os.Stdin)
-
-			malformedPaths := collectMalformedPaths(grouped[store.IssueMalformedJSON])
-			if len(malformedPaths) > 0 {
-				lineCount := 0
-				for _, lines := range malformedPaths {
-					lineCount += len(lines)
-				}
-				ok, err := confirm(os.Stdout, reader,
-					fmt.Sprintf("Remove %d malformed JSON line(s) from %d file(s)?", lineCount, len(malformedPaths)))
-				if err != nil {
-					return err
-				}
-				if ok {
-					r := store.FixMalformedJSON(malformedPaths)
-					fmt.Fprintf(os.Stdout, "  Removed %d line(s)\n", r.Fixed)
-					for _, e := range r.Errors {
-						ui.Errorf("  %v", e)
-					}
-				}
-			}
-
-			dupPaths := collectUniquePaths(grouped[store.IssueDuplicate])
-			if len(dupPaths) > 0 {
-				dupCount := len(grouped[store.IssueDuplicate])
-				ok, err := confirm(os.Stdout, reader,
-					fmt.Sprintf("Deduplicate %d record(s) across %d file(s)?", dupCount, len(dupPaths)))
-				if err != nil {
-					return err
-				}
-				if ok {
-					r := store.FixDuplicates(dupPaths)
-					fmt.Fprintf(os.Stdout, "  Removed %d duplicate(s)\n", r.Fixed)
-					for _, e := range r.Errors {
-						ui.Errorf("  %v", e)
-					}
-				}
-			}
-
-			mismatchPaths := collectUniquePaths(grouped[store.IssueDateMismatch])
-			if len(mismatchPaths) > 0 {
-				mismatchCount := len(grouped[store.IssueDateMismatch])
-				ok, err := confirm(os.Stdout, reader,
-					fmt.Sprintf("Move %d misplaced record(s) to correct files across %d file(s)?", mismatchCount, len(mismatchPaths)))
-				if err != nil {
-					return err
-				}
-				if ok {
-					r := store.FixDateMismatches(mismatchPaths)
-					fmt.Fprintf(os.Stdout, "  Moved %d record(s)\n", r.Fixed)
-					for _, e := range r.Errors {
-						ui.Errorf("  %v", e)
-					}
-				}
-			}
-
-			srcMismatchPaths := collectUniquePaths(grouped[store.IssueSourceMismatch])
-			if len(srcMismatchPaths) > 0 {
-				srcMismatchCount := len(grouped[store.IssueSourceMismatch])
-				ok, err := confirm(os.Stdout, reader,
-					fmt.Sprintf("Fix source field in %d record(s) across %d file(s)?", srcMismatchCount, len(srcMismatchPaths)))
-				if err != nil {
-					return err
-				}
-				if ok {
-					r := store.FixSourceMismatches(srcMismatchPaths)
-					fmt.Fprintf(os.Stdout, "  Fixed %d record(s)\n", r.Fixed)
-					for _, e := range r.Errors {
-						ui.Errorf("  %v", e)
-					}
-				}
-			}
-
-			orphanPaths := collectOrphanPaths(grouped[store.IssueOrphanDir])
-			if len(orphanPaths) > 0 {
-				ok, err := confirm(os.Stdout, reader,
-					fmt.Sprintf("Remove %d orphan director(ies) not in config?", len(orphanPaths)))
-				if err != nil {
-					return err
-				}
-				if ok {
-					r := store.FixOrphanDirs(orphanPaths)
-					fmt.Fprintf(os.Stdout, "  Removed %d director(ies)\n", r.Fixed)
-					for _, e := range r.Errors {
-						ui.Errorf("  %v", e)
-					}
-				}
-			}
-
-			return nil
+			return runDataFixHandlers(reader, grouped)
 		},
 	}
 
@@ -204,6 +116,129 @@ func countFixable(issues []store.Issue) int {
 		}
 	}
 	return count
+}
+
+type dataFixHandler struct {
+	issueType store.IssueType
+	prepare   func([]store.Issue) *dataFixAction
+}
+
+type dataFixAction struct {
+	confirmMessage string
+	successFormat  string
+	fix            func() *store.FixResult
+}
+
+var dataFixHandlers = []dataFixHandler{
+	{
+		issueType: store.IssueMalformedJSON,
+		prepare: func(issues []store.Issue) *dataFixAction {
+			paths := collectMalformedPaths(issues)
+			if len(paths) == 0 {
+				return nil
+			}
+			lineCount := 0
+			for _, lines := range paths {
+				lineCount += len(lines)
+			}
+			return &dataFixAction{
+				confirmMessage: fmt.Sprintf("Remove %d malformed JSON line(s) from %d file(s)?", lineCount, len(paths)),
+				successFormat:  "  Removed %d line(s)\n",
+				fix: func() *store.FixResult {
+					return store.FixMalformedJSON(paths)
+				},
+			}
+		},
+	},
+	{
+		issueType: store.IssueDuplicate,
+		prepare: func(issues []store.Issue) *dataFixAction {
+			paths := collectUniquePaths(issues)
+			if len(paths) == 0 {
+				return nil
+			}
+			return &dataFixAction{
+				confirmMessage: fmt.Sprintf("Deduplicate %d record(s) across %d file(s)?", len(issues), len(paths)),
+				successFormat:  "  Removed %d duplicate(s)\n",
+				fix: func() *store.FixResult {
+					return store.FixDuplicates(paths)
+				},
+			}
+		},
+	},
+	{
+		issueType: store.IssueDateMismatch,
+		prepare: func(issues []store.Issue) *dataFixAction {
+			paths := collectUniquePaths(issues)
+			if len(paths) == 0 {
+				return nil
+			}
+			return &dataFixAction{
+				confirmMessage: fmt.Sprintf("Move %d misplaced record(s) to correct files across %d file(s)?", len(issues), len(paths)),
+				successFormat:  "  Moved %d record(s)\n",
+				fix: func() *store.FixResult {
+					return store.FixDateMismatches(paths)
+				},
+			}
+		},
+	},
+	{
+		issueType: store.IssueSourceMismatch,
+		prepare: func(issues []store.Issue) *dataFixAction {
+			paths := collectUniquePaths(issues)
+			if len(paths) == 0 {
+				return nil
+			}
+			return &dataFixAction{
+				confirmMessage: fmt.Sprintf("Fix source field in %d record(s) across %d file(s)?", len(issues), len(paths)),
+				successFormat:  "  Fixed %d record(s)\n",
+				fix: func() *store.FixResult {
+					return store.FixSourceMismatches(paths)
+				},
+			}
+		},
+	},
+	{
+		issueType: store.IssueOrphanDir,
+		prepare: func(issues []store.Issue) *dataFixAction {
+			paths := collectOrphanPaths(issues)
+			if len(paths) == 0 {
+				return nil
+			}
+			return &dataFixAction{
+				confirmMessage: fmt.Sprintf("Remove %d orphan director(ies) not in config?", len(paths)),
+				successFormat:  "  Removed %d director(ies)\n",
+				fix: func() *store.FixResult {
+					return store.FixOrphanDirs(paths)
+				},
+			}
+		},
+	},
+}
+
+func runDataFixHandlers(reader *bufio.Reader, grouped map[store.IssueType][]store.Issue) error {
+	for _, handler := range dataFixHandlers {
+		action := handler.prepare(grouped[handler.issueType])
+		if action == nil {
+			continue
+		}
+		ok, err := confirm(os.Stdout, reader, action.confirmMessage)
+		if err != nil {
+			return err
+		}
+		if !ok {
+			continue
+		}
+		printDataFixResult(action.fix(), action.successFormat)
+	}
+	return nil
+}
+
+func printDataFixResult(result *store.FixResult, successFormat string) {
+	fmt.Fprintf(os.Stdout, successFormat, result.Fixed)
+	for _, e := range result.Errors {
+		ui.Errorf("  %v", e)
+	}
 }
 
 func relativePath(base, path string) string {

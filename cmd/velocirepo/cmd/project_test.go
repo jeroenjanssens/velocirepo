@@ -410,6 +410,29 @@ dir = "data"
 	assertContains(t, content, "[projects.my-proj]")
 }
 
+func TestProjectImportTrafficAliasFallback(t *testing.T) {
+	cfgPath := setupTestConfig(t, `[data]
+dir = "data"
+`)
+	dir := filepath.Dir(cfgPath)
+
+	jsonFile := writeTempFile(t, dir, "projects.json", `[
+		{"id": "json-proj", "github_traffic": "", "github-traffic": "org/json-proj"}
+	]`)
+	if _, _, err := execCmd(cfgPath, "import-projects", "--from-file", jsonFile, "--yes"); err != nil {
+		t.Fatal(err)
+	}
+
+	csvFile := writeTempFile(t, dir, "projects.csv", "id,github-traffic,github_traffic\ncsv-proj,,org/csv-proj\n")
+	if _, _, err := execCmd(cfgPath, "import-projects", "--from-file", csvFile, "--yes"); err != nil {
+		t.Fatal(err)
+	}
+
+	content := readFileString(t, cfgPath)
+	assertContains(t, content, `github-traffic = "org/json-proj"`)
+	assertContains(t, content, `github-traffic = "org/csv-proj"`)
+}
+
 func TestProjectImportDryRun(t *testing.T) {
 	cfgPath := setupTestConfig(t, `[data]
 dir = "data"

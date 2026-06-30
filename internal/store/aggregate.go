@@ -24,12 +24,44 @@ func SourceCategory(sourceName string) string {
 // individual projects are logged but not propagated; category directories that
 // don't exist yet are silently skipped.
 func Aggregate(dataDir string, now time.Time) error {
-	aggregateCategory(filepath.Join(dataDir, "metrics"), now, false)
-	aggregateCategory(filepath.Join(dataDir, "events"), now, true)
+	aggregateCategory(filepath.Join(dataDir, "metrics"), now, recordAggregateSpec())
+	aggregateCategory(filepath.Join(dataDir, "events"), now, eventAggregateSpec())
 	return nil
 }
 
-func aggregateCategory(categoryDir string, now time.Time, isEvents bool) {
+type aggregateSpec[T any] struct {
+	read  func(string) ([]T, error)
+	write func(string, []T) error
+	dedup func([]T) []T
+	less  func(T, T) bool
+	label string
+}
+
+func recordAggregateSpec() aggregateSpec[source.Record] {
+	return aggregateSpec[source.Record]{
+		read:  ReadRecords,
+		write: writeFileAtomic,
+		dedup: dedup,
+		less: func(a, b source.Record) bool {
+			return a.Date < b.Date
+		},
+		label: "records",
+	}
+}
+
+func eventAggregateSpec() aggregateSpec[source.Event] {
+	return aggregateSpec[source.Event]{
+		read:  ReadEvents,
+		write: writeEventsFileAtomic,
+		dedup: dedupEvents,
+		less: func(a, b source.Event) bool {
+			return a.Datetime < b.Datetime
+		},
+		label: "events",
+	}
+}
+
+func aggregateCategory[T any](categoryDir string, now time.Time, spec aggregateSpec[T]) {
 	sourceDirs, err := os.ReadDir(categoryDir)
 	if err != nil {
 		return
@@ -51,127 +83,115 @@ func aggregateCategory(categoryDir string, now time.Time, isEvents bool) {
 				continue
 			}
 			projPath := filepath.Join(sourcePath, projEntry.Name())
-			var err error
-			if isEvents {
-				err = aggregateEventsProject(projPath, now)
-			} else {
-				err = aggregateProject(projPath, now)
-			}
-			if err != nil {
+			if err := aggregateProject(projPath, now, spec); err != nil {
 				slog.Warn("concatenation failed", "path", projPath, "error", err)
 			}
 		}
 	}
 }
 
-func aggregateProject(projDir string, now time.Time) error {
-	if err := aggregateDailyToMonthly(projDir, now); err != nil {
+func aggregateProject[T any](projDir string, now time.Time, spec aggregateSpec[T]) error {
+	if err := aggregateDailyToMonthly(projDir, now, spec); err != nil {
 		return err
 	}
-	return aggregateMonthlyToYearly(projDir, now)
+	return aggregateMonthlyToYearly(projDir, now, spec)
 }
 
-func aggregateDailyToMonthly(projDir string, now time.Time) error {
+func aggregateDailyToMonthly[T any](projDir string, now time.Time, spec aggregateSpec[T]) error {
+	return aggregateFiles(projDir, now, spec, groupDailyFile, isMonthComplete, "month", "daily to monthly")
+}
+
+func aggregateMonthlyToYearly[T any](projDir string, now time.Time, spec aggregateSpec[T]) error {
+	return aggregateFiles(projDir, now, spec, groupMonthlyFile, isYearComplete, "year", "monthly to yearly")
+}
+
+func aggregateFiles[T any](
+	projDir string,
+	now time.Time,
+	spec aggregateSpec[T],
+	groupFile func(string) (string, bool),
+	isComplete func(string, time.Time) bool,
+	logKey string,
+	logLabel string,
+) error {
 	entries, err := os.ReadDir(projDir)
 	if err != nil {
 		return err
 	}
 
-	// Group daily files by year-month
-	monthFiles := make(map[string][]string)
+	groupedFiles := make(map[string][]string)
 	for _, entry := range entries {
 		if entry.IsDir() {
 			continue
 		}
-		if m := dailyPattern.FindStringSubmatch(entry.Name()); m != nil {
-			yearMonth := m[1][:7] // "2025-06-01" -> "2025-06"
-			monthFiles[yearMonth] = append(monthFiles[yearMonth], filepath.Join(projDir, entry.Name()))
+		group, ok := groupFile(entry.Name())
+		if ok {
+			groupedFiles[group] = append(groupedFiles[group], filepath.Join(projDir, entry.Name()))
 		}
 	}
 
-	for yearMonth, files := range monthFiles {
-		if !isMonthComplete(yearMonth, now) {
+	for group, files := range groupedFiles {
+		if !isComplete(group, now) {
 			continue
 		}
 
 		sort.Strings(files)
 
-		records, err := readAllFiles(files)
+		items, err := readAllAggregateFiles(files, spec.read)
 		if err != nil {
-			return fmt.Errorf("read files for %s: %w", yearMonth, err)
+			return fmt.Errorf("read %s files for %s: %w", spec.label, group, err)
 		}
 
-		records = dedup(records)
-		sort.Slice(records, func(i, j int) bool {
-			return records[i].Date < records[j].Date
+		items = spec.dedup(items)
+		sort.Slice(items, func(i, j int) bool {
+			return spec.less(items[i], items[j])
 		})
 
-		outPath := filepath.Join(projDir, yearMonth+".jsonl")
-		if err := writeFileAtomic(outPath, records); err != nil {
+		outPath := filepath.Join(projDir, group+".jsonl")
+		if err := spec.write(outPath, items); err != nil {
 			return err
 		}
 
-		for _, f := range files {
-			if err := os.Remove(f); err != nil {
-				slog.Warn("remove source file", "path", f, "error", err)
-			}
-		}
+		removeAggregateSources(files)
 
-		slog.Debug("concatenated daily to monthly", "month", yearMonth, "files", len(files))
+		slog.Debug("concatenated "+logLabel, logKey, group, "files", len(files))
 	}
 
 	return nil
 }
 
-func aggregateMonthlyToYearly(projDir string, now time.Time) error {
-	entries, err := os.ReadDir(projDir)
-	if err != nil {
-		return err
+func groupDailyFile(name string) (string, bool) {
+	if m := dailyPattern.FindStringSubmatch(name); m != nil {
+		return m[1][:7], true
 	}
+	return "", false
+}
 
-	yearFiles := make(map[string][]string)
-	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
-		}
-		if m := monthlyPattern.FindStringSubmatch(entry.Name()); m != nil {
-			year := m[1][:4]
-			yearFiles[year] = append(yearFiles[year], filepath.Join(projDir, entry.Name()))
-		}
+func groupMonthlyFile(name string) (string, bool) {
+	if m := monthlyPattern.FindStringSubmatch(name); m != nil {
+		return m[1][:4], true
 	}
+	return "", false
+}
 
-	for year, files := range yearFiles {
-		if !isYearComplete(year, now) {
-			continue
-		}
-
-		sort.Strings(files)
-
-		records, err := readAllFiles(files)
+func readAllAggregateFiles[T any](paths []string, read func(string) ([]T, error)) ([]T, error) {
+	var all []T
+	for _, p := range paths {
+		items, err := read(p)
 		if err != nil {
-			return fmt.Errorf("read files for %s: %w", year, err)
+			return nil, err
 		}
-
-		records = dedup(records)
-		sort.Slice(records, func(i, j int) bool {
-			return records[i].Date < records[j].Date
-		})
-
-		outPath := filepath.Join(projDir, year+".jsonl")
-		if err := writeFileAtomic(outPath, records); err != nil {
-			return err
-		}
-
-		for _, f := range files {
-			if err := os.Remove(f); err != nil {
-				slog.Warn("remove source file", "path", f, "error", err)
-			}
-		}
-
-		slog.Debug("concatenated monthly to yearly", "year", year, "files", len(files))
+		all = append(all, items...)
 	}
+	return all, nil
+}
 
-	return nil
+func removeAggregateSources(paths []string) {
+	for _, f := range paths {
+		if err := os.Remove(f); err != nil {
+			slog.Warn("remove source file", "path", f, "error", err)
+		}
+	}
 }
 
 func isMonthComplete(yearMonth string, now time.Time) bool {
@@ -192,29 +212,21 @@ func isYearComplete(year string, now time.Time) bool {
 	return now.After(endOfYear)
 }
 
-func readAllFiles(paths []string) ([]source.Record, error) {
-	var all []source.Record
-	for _, p := range paths {
-		records, err := ReadRecords(p)
-		if err != nil {
-			return nil, err
-		}
-		all = append(all, records...)
-	}
-	return all, nil
+func dedup(records []source.Record) []source.Record {
+	return dedupBy(records, dedupKey)
 }
 
-func dedup(records []source.Record) []source.Record {
+func dedupBy[T any](items []T, keyFor func(T) string) []T {
 	seen := make(map[string]struct{})
-	var result []source.Record
+	var result []T
 
-	for _, r := range records {
-		key := dedupKey(r)
+	for _, item := range items {
+		key := keyFor(item)
 		if _, ok := seen[key]; ok {
 			continue
 		}
 		seen[key] = struct{}{}
-		result = append(result, r)
+		result = append(result, item)
 	}
 	return result
 }
@@ -246,140 +258,8 @@ func dedupKey(r source.Record) string {
 	return b.String()
 }
 
-func aggregateEventsProject(projDir string, now time.Time) error {
-	if err := aggregateEventsDailyToMonthly(projDir, now); err != nil {
-		return err
-	}
-	return aggregateEventsMonthlyToYearly(projDir, now)
-}
-
-func aggregateEventsDailyToMonthly(projDir string, now time.Time) error {
-	entries, err := os.ReadDir(projDir)
-	if err != nil {
-		return err
-	}
-
-	monthFiles := make(map[string][]string)
-	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
-		}
-		if m := dailyPattern.FindStringSubmatch(entry.Name()); m != nil {
-			yearMonth := m[1][:7]
-			monthFiles[yearMonth] = append(monthFiles[yearMonth], filepath.Join(projDir, entry.Name()))
-		}
-	}
-
-	for yearMonth, files := range monthFiles {
-		if !isMonthComplete(yearMonth, now) {
-			continue
-		}
-
-		sort.Strings(files)
-
-		events, err := readAllEventFiles(files)
-		if err != nil {
-			return fmt.Errorf("read event files for %s: %w", yearMonth, err)
-		}
-
-		events = dedupEvents(events)
-		sort.Slice(events, func(i, j int) bool {
-			return events[i].Datetime < events[j].Datetime
-		})
-
-		outPath := filepath.Join(projDir, yearMonth+".jsonl")
-		if err := writeEventsFileAtomic(outPath, events); err != nil {
-			return err
-		}
-
-		for _, f := range files {
-			if err := os.Remove(f); err != nil {
-				slog.Warn("remove source file", "path", f, "error", err)
-			}
-		}
-
-		slog.Debug("concatenated events daily to monthly", "month", yearMonth, "files", len(files))
-	}
-
-	return nil
-}
-
-func aggregateEventsMonthlyToYearly(projDir string, now time.Time) error {
-	entries, err := os.ReadDir(projDir)
-	if err != nil {
-		return err
-	}
-
-	yearFiles := make(map[string][]string)
-	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
-		}
-		if m := monthlyPattern.FindStringSubmatch(entry.Name()); m != nil {
-			year := m[1][:4]
-			yearFiles[year] = append(yearFiles[year], filepath.Join(projDir, entry.Name()))
-		}
-	}
-
-	for year, files := range yearFiles {
-		if !isYearComplete(year, now) {
-			continue
-		}
-
-		sort.Strings(files)
-
-		events, err := readAllEventFiles(files)
-		if err != nil {
-			return fmt.Errorf("read event files for %s: %w", year, err)
-		}
-
-		events = dedupEvents(events)
-		sort.Slice(events, func(i, j int) bool {
-			return events[i].Datetime < events[j].Datetime
-		})
-
-		outPath := filepath.Join(projDir, year+".jsonl")
-		if err := writeEventsFileAtomic(outPath, events); err != nil {
-			return err
-		}
-
-		for _, f := range files {
-			if err := os.Remove(f); err != nil {
-				slog.Warn("remove source file", "path", f, "error", err)
-			}
-		}
-
-		slog.Debug("concatenated events monthly to yearly", "year", year, "files", len(files))
-	}
-
-	return nil
-}
-
-func readAllEventFiles(paths []string) ([]source.Event, error) {
-	var all []source.Event
-	for _, p := range paths {
-		events, err := ReadEvents(p)
-		if err != nil {
-			return nil, err
-		}
-		all = append(all, events...)
-	}
-	return all, nil
-}
-
 func dedupEvents(events []source.Event) []source.Event {
-	seen := make(map[string]struct{})
-	var result []source.Event
-
-	for _, e := range events {
-		key := dedupEventKey(e)
-		if _, ok := seen[key]; ok {
-			continue
-		}
-		seen[key] = struct{}{}
-		result = append(result, e)
-	}
-	return result
+	return dedupBy(events, dedupEventKey)
 }
 
 func dedupEventKey(e source.Event) string {

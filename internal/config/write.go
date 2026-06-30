@@ -81,18 +81,26 @@ func UpdateProject(path string, id string, updates map[string]string, unsets []s
 		return fmt.Errorf("project %q not found in config", id)
 	}
 
-	unsetSet := make(map[string]bool)
-	for _, u := range unsets {
-		unsetSet[u] = true
-	}
+	lines = applyProjectUpdates(lines, start, end, updates, unsets)
 
-	// Process existing lines in the section
+	return os.WriteFile(path, []byte(strings.Join(collapseBlankLines(lines), "\n")), 0644)
+}
+
+func applyProjectUpdates(lines []string, start, end int, updates map[string]string, unsets []string) []string {
+	pendingUpdates := cloneStringMap(updates)
+	unsetSet := stringSet(unsets)
+
+	lines = updateExistingProjectKeys(lines, start, end, pendingUpdates, unsetSet)
+	return insertMissingProjectKeys(lines, start, end, pendingUpdates)
+}
+
+func updateExistingProjectKeys(lines []string, start, end int, updates map[string]string, unsets map[string]bool) []string {
 	for i := start + 1; i < end; i++ {
 		key := extractKey(lines[i])
 		if key == "" {
 			continue
 		}
-		if unsetSet[key] {
+		if unsets[key] {
 			lines[i] = ""
 			continue
 		}
@@ -101,26 +109,46 @@ func UpdateProject(path string, id string, updates map[string]string, unsets []s
 			delete(updates, key)
 		}
 	}
+	return lines
+}
 
-	// Add new keys that weren't already in the section
+func insertMissingProjectKeys(lines []string, start, end int, updates map[string]string) []string {
 	var newLines []string
 	for key, val := range updates {
 		newLines = append(newLines, formatKeyValue(key, val))
 	}
-	if len(newLines) > 0 {
-		// Insert before end of section
-		insertAt := end
-		for insertAt > start+1 && strings.TrimSpace(lines[insertAt-1]) == "" {
-			insertAt--
-		}
-		result := make([]string, 0, len(lines)+len(newLines))
-		result = append(result, lines[:insertAt]...)
-		result = append(result, newLines...)
-		result = append(result, lines[insertAt:]...)
-		lines = result
+	if len(newLines) == 0 {
+		return lines
 	}
 
-	// Remove empty lines left by unsets (collapse consecutive blanks)
+	insertAt := end
+	for insertAt > start+1 && strings.TrimSpace(lines[insertAt-1]) == "" {
+		insertAt--
+	}
+	result := make([]string, 0, len(lines)+len(newLines))
+	result = append(result, lines[:insertAt]...)
+	result = append(result, newLines...)
+	result = append(result, lines[insertAt:]...)
+	return result
+}
+
+func cloneStringMap(in map[string]string) map[string]string {
+	out := make(map[string]string, len(in))
+	for key, value := range in {
+		out[key] = value
+	}
+	return out
+}
+
+func stringSet(values []string) map[string]bool {
+	out := make(map[string]bool, len(values))
+	for _, value := range values {
+		out[value] = true
+	}
+	return out
+}
+
+func collapseBlankLines(lines []string) []string {
 	var cleaned []string
 	prevBlank := false
 	for _, line := range lines {
@@ -131,8 +159,7 @@ func UpdateProject(path string, id string, updates map[string]string, unsets []s
 		cleaned = append(cleaned, line)
 		prevBlank = blank
 	}
-
-	return os.WriteFile(path, []byte(strings.Join(cleaned, "\n")), 0644)
+	return cleaned
 }
 
 func RenameSection(path string, oldID string, newID string) error {

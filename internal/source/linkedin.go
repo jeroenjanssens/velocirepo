@@ -113,18 +113,39 @@ func (l *LinkedIn) fetchPostStats(ctx context.Context, projectID, date string, p
 		}
 
 		for _, stat := range resp.Elements {
-			tags := map[string]string{"post_id": stat.Share}
-			records = append(records,
-				Record{Source: "linkedin", Metric: "total_impressions", ProjectID: projectID, Target: l.Target, Date: date, Value: stat.Stats.ImpressionCount, Tags: copyTags(tags)},
-				Record{Source: "linkedin", Metric: "total_likes", ProjectID: projectID, Target: l.Target, Date: date, Value: stat.Stats.LikeCount, Tags: copyTags(tags)},
-				Record{Source: "linkedin", Metric: "total_comments", ProjectID: projectID, Target: l.Target, Date: date, Value: stat.Stats.CommentCount, Tags: copyTags(tags)},
-				Record{Source: "linkedin", Metric: "total_shares", ProjectID: projectID, Target: l.Target, Date: date, Value: stat.Stats.ShareCount, Tags: copyTags(tags)},
-				Record{Source: "linkedin", Metric: "total_clicks", ProjectID: projectID, Target: l.Target, Date: date, Value: stat.Stats.ClickCount, Tags: copyTags(tags)},
-			)
+			records = append(records, linkedinShareStatRecords(projectID, l.Target, date, stat)...)
 		}
 	}
 
 	return records, nil
+}
+
+var linkedinShareMetrics = []struct {
+	name  string
+	value func(shareStats) int64
+}{
+	{"total_impressions", func(s shareStats) int64 { return s.ImpressionCount }},
+	{"total_likes", func(s shareStats) int64 { return s.LikeCount }},
+	{"total_comments", func(s shareStats) int64 { return s.CommentCount }},
+	{"total_shares", func(s shareStats) int64 { return s.ShareCount }},
+	{"total_clicks", func(s shareStats) int64 { return s.ClickCount }},
+}
+
+func linkedinShareStatRecords(projectID, target, date string, stat statsElement) []Record {
+	records := make([]Record, 0, len(linkedinShareMetrics))
+	tags := map[string]string{"post_id": stat.Share}
+	for _, metric := range linkedinShareMetrics {
+		records = append(records, Record{
+			Source:    "linkedin",
+			Metric:    metric.name,
+			ProjectID: projectID,
+			Target:    target,
+			Date:      date,
+			Value:     metric.value(stat.Stats),
+			Tags:      copyTags(tags),
+		})
+	}
+	return records
 }
 
 func (l *LinkedIn) fetchFollowerCount(ctx context.Context, projectID, date string) ([]Record, error) {
@@ -219,13 +240,13 @@ var hashtagRe = regexp.MustCompile(`#\w+`)
 // API response types
 
 type linkedinPost struct {
-	ID         string          `json:"id"`
-	Author     string          `json:"author"`
-	CreatedAt  int64           `json:"createdAt"`
-	Commentary string          `json:"commentary"`
+	ID         string           `json:"id"`
+	Author     string           `json:"author"`
+	CreatedAt  int64            `json:"createdAt"`
+	Commentary string           `json:"commentary"`
 	Content    *linkedinContent `json:"content"`
-	Visibility string          `json:"visibility"`
-	Lifecycle  string          `json:"lifecycleState"`
+	Visibility string           `json:"visibility"`
+	Lifecycle  string           `json:"lifecycleState"`
 }
 
 type linkedinContent struct {

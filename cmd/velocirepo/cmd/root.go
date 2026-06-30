@@ -19,6 +19,11 @@ var (
 	cfg     *config.Config
 )
 
+const (
+	requiresConfigAnnotation = "velocirepo/requires-config"
+	requiresSchemaAnnotation = "velocirepo/requires-schema"
+)
+
 func newRootCmd() *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   "velocirepo",
@@ -28,7 +33,7 @@ func newRootCmd() *cobra.Command {
 			cmd.SilenceUsage = true
 			setupLogging()
 
-			if cmd.Name() == "version" || cmd.Name() == "init" || isCompletionCmd(cmd) {
+			if !commandRequiresConfig(cmd) {
 				return nil
 			}
 
@@ -40,7 +45,7 @@ func newRootCmd() *cobra.Command {
 
 			godotenv.Load(filepath.Join(cfg.Dir, ".env"))
 
-			if cmd.Name() != "migrate" && cmd.Name() != "mcp" && !isAuthCmd(cmd) {
+			if commandRequiresSchema(cmd) {
 				if err := store.CheckSchemaVersion(cfg.DataDir()); err != nil {
 					return err
 				}
@@ -79,7 +84,9 @@ func newRootCmd() *cobra.Command {
 	rootCmd.AddCommand(badgeCmd())
 
 	// Projects
-	rootCmd.AddCommand(initCmd())
+	init := initCmd()
+	setCommandAnnotation(init, requiresConfigAnnotation, "false")
+	rootCmd.AddCommand(init)
 	rootCmd.AddCommand(addProjectCmd())
 	rootCmd.AddCommand(removeProjectCmd())
 	rootCmd.AddCommand(renameProjectCmd())
@@ -104,34 +111,60 @@ func newRootCmd() *cobra.Command {
 	rootCmd.AddCommand(syncSecretsCmd())
 
 	// Data
-	rootCmd.AddCommand(migrateCmd())
+	migrate := migrateCmd()
+	setCommandAnnotation(migrate, requiresSchemaAnnotation, "false")
+	rootCmd.AddCommand(migrate)
 	rootCmd.AddCommand(buildDBCmd())
 	rootCmd.AddCommand(validateDataCmd())
 
 	// MCP
-	rootCmd.AddCommand(mcpCmd())
+	mcp := mcpCmd()
+	setCommandAnnotation(mcp, requiresSchemaAnnotation, "false")
+	rootCmd.AddCommand(mcp)
 
 	// Auth
-	rootCmd.AddCommand(authCmd())
+	auth := authCmd()
+	setCommandAnnotation(auth, requiresSchemaAnnotation, "false")
+	rootCmd.AddCommand(auth)
 
 	// Other
-	rootCmd.AddCommand(versionCmd())
+	version := versionCmd()
+	setCommandAnnotation(version, requiresConfigAnnotation, "false")
+	rootCmd.AddCommand(version)
 
 	return rootCmd
+}
+
+func setCommandAnnotation(cmd *cobra.Command, key, value string) {
+	if cmd.Annotations == nil {
+		cmd.Annotations = make(map[string]string)
+	}
+	cmd.Annotations[key] = value
+}
+
+func commandRequiresConfig(cmd *cobra.Command) bool {
+	if isCompletionCmd(cmd) {
+		return false
+	}
+	return commandAnnotationBool(cmd, requiresConfigAnnotation, true)
+}
+
+func commandRequiresSchema(cmd *cobra.Command) bool {
+	return commandAnnotationBool(cmd, requiresSchemaAnnotation, true)
+}
+
+func commandAnnotationBool(cmd *cobra.Command, key string, defaultValue bool) bool {
+	for c := cmd; c != nil; c = c.Parent() {
+		if value, ok := c.Annotations[key]; ok {
+			return value != "false"
+		}
+	}
+	return defaultValue
 }
 
 func isCompletionCmd(cmd *cobra.Command) bool {
 	for c := cmd; c != nil; c = c.Parent() {
 		if c.Name() == "completion" || c.Name() == "__complete" {
-			return true
-		}
-	}
-	return false
-}
-
-func isAuthCmd(cmd *cobra.Command) bool {
-	for c := cmd; c != nil; c = c.Parent() {
-		if c.Name() == "auth" {
 			return true
 		}
 	}

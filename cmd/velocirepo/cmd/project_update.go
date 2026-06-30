@@ -11,8 +11,9 @@ import (
 )
 
 func updateProjectCmd() *cobra.Command {
-	var name, githubEvents, githubTraffic, pypi, cran, homebrew, plausible, openvsx, youtube, linkedin string
+	var name string
 	var unset []string
+	sourceInputs := newProjectSourceInputs()
 
 	cmd := &cobra.Command{
 		Use:     "update-project <id>",
@@ -30,10 +31,7 @@ func updateProjectCmd() *cobra.Command {
 			cfgPath := cfgFilePath()
 
 			flagsProvided := cmd.Flags().Changed("name") ||
-				cmd.Flags().Changed("github") || cmd.Flags().Changed("github-traffic") ||
-				cmd.Flags().Changed("pypi") || cmd.Flags().Changed("cran") || cmd.Flags().Changed("homebrew") ||
-				cmd.Flags().Changed("plausible") || cmd.Flags().Changed("openvsx") ||
-				cmd.Flags().Changed("youtube") || cmd.Flags().Changed("linkedin") || len(unset) > 0
+				sourceFlagsChanged(cmd) || len(unset) > 0
 
 			if !flagsProvided && isInteractive() {
 				return projectUpdateInteractive(cfgPath, id, proj)
@@ -47,38 +45,12 @@ func updateProjectCmd() *cobra.Command {
 			if cmd.Flags().Changed("name") {
 				updates["name"] = name
 			}
-			if cmd.Flags().Changed("github") {
-				if githubEvents != "" && !validGitHubRe.MatchString(githubEvents) {
-					return fmt.Errorf("invalid GitHub repo %q: must be owner/repo", githubEvents)
-				}
-				updates["github"] = githubEvents
+			sourceUpdates, err := sourceInputs.changedUpdates(cmd)
+			if err != nil {
+				return err
 			}
-			if cmd.Flags().Changed("github-traffic") {
-				if githubTraffic != "" && !validGitHubRe.MatchString(githubTraffic) {
-					return fmt.Errorf("invalid GitHub repo %q: must be owner/repo", githubTraffic)
-				}
-				updates["github-traffic"] = githubTraffic
-			}
-			if cmd.Flags().Changed("pypi") {
-				updates["pypi"] = pypi
-			}
-			if cmd.Flags().Changed("cran") {
-				updates["cran"] = cran
-			}
-			if cmd.Flags().Changed("homebrew") {
-				updates["homebrew"] = homebrew
-			}
-			if cmd.Flags().Changed("plausible") {
-				updates["plausible"] = plausible
-			}
-			if cmd.Flags().Changed("openvsx") {
-				updates["openvsx"] = openvsx
-			}
-			if cmd.Flags().Changed("youtube") {
-				updates["youtube"] = youtube
-			}
-			if cmd.Flags().Changed("linkedin") {
-				updates["linkedin"] = linkedin
+			for key, value := range sourceUpdates {
+				updates[key] = value
 			}
 
 			if err := config.UpdateProject(cfgPath, id, updates, unset); err != nil {
@@ -99,18 +71,19 @@ func updateProjectCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&name, "name", "", "display name")
-	cmd.Flags().StringVar(&githubEvents, "github", "", "GitHub owner/repo")
-	cmd.Flags().StringVar(&githubTraffic, "github-traffic", "", "GitHub owner/repo for traffic data")
-	cmd.Flags().StringVar(&pypi, "pypi", "", "PyPI package name")
-	cmd.Flags().StringVar(&cran, "cran", "", "CRAN package name")
-	cmd.Flags().StringVar(&homebrew, "homebrew", "", "Homebrew formula")
-	cmd.Flags().StringVar(&plausible, "plausible", "", "Plausible site ID")
-	cmd.Flags().StringVar(&openvsx, "openvsx", "", "OpenVSX extension")
-	cmd.Flags().StringVar(&youtube, "youtube", "", "YouTube channel, playlist, or video ID")
-	cmd.Flags().StringVar(&linkedin, "linkedin", "", "LinkedIn URN")
+	sourceInputs.registerFlags(cmd)
 	cmd.Flags().StringSliceVar(&unset, "unset", nil, "fields to remove (can be repeated)")
 
 	return cmd
+}
+
+func sourceFlagsChanged(cmd *cobra.Command) bool {
+	for _, field := range projectSourceFields {
+		if cmd.Flags().Changed(field.flagName) {
+			return true
+		}
+	}
+	return false
 }
 
 func projectUpdateInteractive(cfgPath string, id string, proj config.Project) error {
@@ -123,52 +96,17 @@ func projectUpdateInteractive(cfgPath string, id string, proj config.Project) er
 	if err != nil {
 		return err
 	}
-	githubEvents, err := prompt(os.Stdout, reader, "GitHub (owner/repo)", proj.GitHubEvents.String(), "")
-	if err != nil {
-		return err
-	}
-	githubTraffic, err := prompt(os.Stdout, reader, "GitHub traffic (owner/repo)", proj.GitHubTraffic.String(), "")
-	if err != nil {
-		return err
-	}
-	pypi, err := prompt(os.Stdout, reader, "PyPI package", proj.PyPI.String(), "")
-	if err != nil {
-		return err
-	}
-	cran, err := prompt(os.Stdout, reader, "CRAN package", proj.CRAN.String(), "")
-	if err != nil {
-		return err
-	}
-	homebrew, err := prompt(os.Stdout, reader, "Homebrew formula", proj.Homebrew.String(), "")
-	if err != nil {
-		return err
-	}
-	plausible, err := prompt(os.Stdout, reader, "Plausible site ID", proj.Plausible.String(), "")
-	if err != nil {
-		return err
-	}
-	openvsx, err := prompt(os.Stdout, reader, "OpenVSX extension", proj.OpenVSX.String(), "")
-	if err != nil {
-		return err
-	}
-	youtube, err := prompt(os.Stdout, reader, "YouTube (@handle, PLxxx, or video ID)", proj.YouTube.String(), "")
-	if err != nil {
-		return err
-	}
-	linkedin, err := prompt(os.Stdout, reader, "LinkedIn URN", proj.LinkedIn.String(), "")
-	if err != nil {
-		return err
-	}
 
-	for _, repo := range parseCommaSeparated(githubEvents) {
-		if !validGitHubRe.MatchString(repo) {
-			return fmt.Errorf("invalid GitHub repo %q: must be owner/repo", repo)
+	sourceValues := make(map[string]string, len(projectSourceFields))
+	for _, field := range projectSourceFields {
+		value, err := prompt(os.Stdout, reader, field.updatePrompt, proj.SourceValues(field.key).String(), "")
+		if err != nil {
+			return err
 		}
-	}
-	for _, repo := range parseCommaSeparated(githubTraffic) {
-		if !validGitHubRe.MatchString(repo) {
-			return fmt.Errorf("invalid GitHub repo %q: must be owner/repo", repo)
+		if err := validateProjectSourceValue(field, value); err != nil {
+			return err
 		}
+		sourceValues[field.key] = value
 	}
 
 	updates := make(map[string]string)
@@ -185,15 +123,9 @@ func projectUpdateInteractive(cfgPath string, id string, proj config.Project) er
 	}
 
 	updateOrUnset("name", name, proj.Name)
-	updateOrUnset("github", githubEvents, proj.GitHubEvents.String())
-	updateOrUnset("github-traffic", githubTraffic, proj.GitHubTraffic.String())
-	updateOrUnset("pypi", pypi, proj.PyPI.String())
-	updateOrUnset("cran", cran, proj.CRAN.String())
-	updateOrUnset("homebrew", homebrew, proj.Homebrew.String())
-	updateOrUnset("plausible", plausible, proj.Plausible.String())
-	updateOrUnset("openvsx", openvsx, proj.OpenVSX.String())
-	updateOrUnset("youtube", youtube, proj.YouTube.String())
-	updateOrUnset("linkedin", linkedin, proj.LinkedIn.String())
+	for _, field := range projectSourceFields {
+		updateOrUnset(field.key, sourceValues[field.key], proj.SourceValues(field.key).String())
+	}
 
 	if len(updates) == 0 && len(unsets) == 0 {
 		fmt.Println("No changes.")

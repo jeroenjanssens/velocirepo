@@ -117,6 +117,32 @@ func (p Project) SourceValues(name string) StringList {
 	}
 }
 
+func (p *Project) SetSourceValues(name string, values StringList) bool {
+	switch name {
+	case "github":
+		p.GitHubEvents = values
+	case "github-traffic":
+		p.GitHubTraffic = values
+	case "pypi":
+		p.PyPI = values
+	case "cran":
+		p.CRAN = values
+	case "homebrew":
+		p.Homebrew = values
+	case "plausible":
+		p.Plausible = values
+	case "openvsx":
+		p.OpenVSX = values
+	case "youtube":
+		p.YouTube = values
+	case "linkedin":
+		p.LinkedIn = values
+	default:
+		return false
+	}
+	return true
+}
+
 func (p Project) SourceNames() []string {
 	var names []string
 	for _, s := range p.Sources() {

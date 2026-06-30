@@ -15,7 +15,8 @@ var validIDRe = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
 var validGitHubRe = regexp.MustCompile(`^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$`)
 
 func addProjectCmd() *cobra.Command {
-	var name, githubEvents, githubTraffic, pypi, cran, homebrew, plausible, openvsx, youtube, linkedin string
+	var name string
+	sourceInputs := newProjectSourceInputs()
 
 	cmd := &cobra.Command{
 		Use:     "add-project [id]",
@@ -30,9 +31,7 @@ func addProjectCmd() *cobra.Command {
 				id = args[0]
 			}
 
-			flagsProvided := githubEvents != "" || githubTraffic != "" || pypi != "" || cran != "" ||
-				homebrew != "" || plausible != "" || openvsx != "" || youtube != "" || linkedin != ""
-
+			flagsProvided := sourceInputs.anyNonEmpty()
 			if !flagsProvided && isInteractive() {
 				return projectAddInteractive(cfgPath, id)
 			}
@@ -43,9 +42,6 @@ func addProjectCmd() *cobra.Command {
 
 			if !validIDRe.MatchString(id) {
 				return fmt.Errorf("invalid project ID %q: must be lowercase alphanumeric with hyphens", id)
-			}
-			if githubEvents != "" && !validGitHubRe.MatchString(githubEvents) {
-				return fmt.Errorf("invalid GitHub repo %q: must be owner/repo", githubEvents)
 			}
 
 			if _, err := cfg.GetProject(id); err == nil {
@@ -60,17 +56,9 @@ func addProjectCmd() *cobra.Command {
 				name = id
 			}
 
-			proj := config.Project{
-				Name:          name,
-				GitHubEvents:  toStringList(githubEvents),
-				GitHubTraffic: toStringList(githubTraffic),
-				PyPI:          toStringList(pypi),
-				CRAN:          toStringList(cran),
-				Homebrew:      toStringList(homebrew),
-				Plausible:     toStringList(plausible),
-				OpenVSX:       toStringList(openvsx),
-				YouTube:       toStringList(youtube),
-				LinkedIn:      toStringList(linkedin),
+			proj, err := sourceInputs.toProject(name)
+			if err != nil {
+				return err
 			}
 
 			if err := config.AppendProject(cfgPath, id, proj); err != nil {
@@ -85,15 +73,7 @@ func addProjectCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&name, "name", "", "display name")
-	cmd.Flags().StringVar(&githubEvents, "github", "", "GitHub owner/repo")
-	cmd.Flags().StringVar(&githubTraffic, "github-traffic", "", "GitHub owner/repo for traffic data")
-	cmd.Flags().StringVar(&pypi, "pypi", "", "PyPI package name")
-	cmd.Flags().StringVar(&cran, "cran", "", "CRAN package name")
-	cmd.Flags().StringVar(&homebrew, "homebrew", "", "Homebrew formula (user/tap/formula)")
-	cmd.Flags().StringVar(&plausible, "plausible", "", "Plausible site ID")
-	cmd.Flags().StringVar(&openvsx, "openvsx", "", "OpenVSX extension (publisher/extension)")
-	cmd.Flags().StringVar(&youtube, "youtube", "", "YouTube channel (@handle), playlist (PLxxx), or video ID")
-	cmd.Flags().StringVar(&linkedin, "linkedin", "", "LinkedIn URN (urn:li:organization:ID)")
+	sourceInputs.registerFlags(cmd)
 
 	return cmd
 }
@@ -138,86 +118,26 @@ func projectAddInteractive(cfgPath string, id string) error {
 	if overridden {
 		suppress = true
 	}
-	githubEvents, overridden, err := promptWithHint(os.Stdout, reader, "GitHub (owner/repo)", detected.GitHub, detected.GitHubSource, suppress)
-	if err != nil {
-		return err
-	}
-	if overridden {
-		suppress = true
-	}
-	githubTraffic, overridden, err := promptWithHint(os.Stdout, reader, "GitHub traffic (owner/repo)", detected.GitHub, detected.GitHubSource, suppress)
-	if err != nil {
-		return err
-	}
-	if overridden {
-		suppress = true
-	}
-	pypi, overridden, err := promptWithHint(os.Stdout, reader, "PyPI package", detected.PyPI, detected.PyPISource, suppress)
-	if err != nil {
-		return err
-	}
-	if overridden {
-		suppress = true
-	}
-	cran, overridden, err := promptWithHint(os.Stdout, reader, "CRAN package", detected.CRAN, detected.CRANSource, suppress)
-	if err != nil {
-		return err
-	}
-	if overridden {
-		suppress = true
-	}
-	homebrew, overridden, err := promptWithHint(os.Stdout, reader, "Homebrew formula", "", "", suppress)
-	if err != nil {
-		return err
-	}
-	if overridden {
-		suppress = true
-	}
-	plausible, overridden, err := promptWithHint(os.Stdout, reader, "Plausible site ID", "", "", suppress)
-	if err != nil {
-		return err
-	}
-	if overridden {
-		suppress = true
-	}
-	openvsx, overridden, err := promptWithHint(os.Stdout, reader, "OpenVSX extension", detected.OpenVSX, detected.OpenVSXSource, suppress)
-	if err != nil {
-		return err
-	}
-	if overridden {
-		suppress = true
-	}
-	youtube, _, err := promptWithHint(os.Stdout, reader, "YouTube (@handle, PLxxx, or video ID)", "", "", suppress)
-	if err != nil {
-		return err
-	}
-	linkedin, _, err := promptWithHint(os.Stdout, reader, "LinkedIn URN", "", "", suppress)
-	if err != nil {
-		return err
+
+	values := make(map[string]string, len(projectSourceFields))
+	for _, field := range projectSourceFields {
+		hint, hintSource := "", ""
+		if field.detected != nil {
+			hint, hintSource = field.detected(detected)
+		}
+		value, overridden, err := promptWithHint(os.Stdout, reader, field.addPrompt, hint, hintSource, suppress)
+		if err != nil {
+			return err
+		}
+		if overridden {
+			suppress = true
+		}
+		values[field.key] = value
 	}
 
-	for _, repo := range parseCommaSeparated(githubEvents) {
-		if !validGitHubRe.MatchString(repo) {
-			return fmt.Errorf("invalid GitHub repo %q: must be owner/repo", repo)
-		}
-	}
-	for _, repo := range parseCommaSeparated(githubTraffic) {
-		if !validGitHubRe.MatchString(repo) {
-			return fmt.Errorf("invalid GitHub repo %q: must be owner/repo", repo)
-		}
-	}
-
-	proj := config.Project{
-		Name:          name,
-		GitHubEvents:  toStringList(githubEvents),
-		GitHubTraffic: toStringList(githubTraffic),
-		PyPI:          toStringList(pypi),
-		CRAN:          toStringList(cran),
-		Homebrew:      toStringList(homebrew),
-		Plausible:     toStringList(plausible),
-		OpenVSX:       toStringList(openvsx),
-		YouTube:       toStringList(youtube),
-		LinkedIn:      toStringList(linkedin),
+	proj, err := projectFromRawSourceValues(name, values)
+	if err != nil {
+		return err
 	}
 
 	sources := listSources(proj)

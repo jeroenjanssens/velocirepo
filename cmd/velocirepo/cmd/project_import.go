@@ -177,54 +177,37 @@ func loadFromJSON(path string) ([]fetch.ImportEntry, error) {
 		return nil, err
 	}
 
-	var items []struct {
-		ID         string `json:"id"`
-		Name       string `json:"name"`
-		GitHub     string `json:"github"`
-		Traffic    string `json:"github_traffic"`
-		TrafficAlt string `json:"github-traffic"`
-		PyPI       string `json:"pypi"`
-		CRAN       string `json:"cran"`
-		Homebrew   string `json:"homebrew"`
-		Plausible  string `json:"plausible"`
-		OpenVSX    string `json:"openvsx"`
-		YouTube    string `json:"youtube"`
-		LinkedIn   string `json:"linkedin"`
-	}
-	if err := json.Unmarshal(data, &items); err != nil {
+	var rawItems []map[string]json.RawMessage
+	if err := json.Unmarshal(data, &rawItems); err != nil {
 		return nil, fmt.Errorf("parse JSON: %w", err)
 	}
 
 	var entries []fetch.ImportEntry
-	for _, item := range items {
-		if item.ID == "" {
+	for _, item := range rawItems {
+		id, err := jsonString(item, "id")
+		if err != nil {
+			return nil, err
+		}
+		if id == "" {
 			return nil, fmt.Errorf("JSON entry missing 'id' field")
 		}
-		if !validIDRe.MatchString(item.ID) {
-			return nil, fmt.Errorf("invalid project ID %q: must be lowercase alphanumeric with hyphens", item.ID)
+		if !validIDRe.MatchString(id) {
+			return nil, fmt.Errorf("invalid project ID %q: must be lowercase alphanumeric with hyphens", id)
 		}
-		name := item.Name
+		name, err := jsonString(item, "name")
+		if err != nil {
+			return nil, err
+		}
 		if name == "" {
-			name = item.ID
+			name = id
 		}
-		traffic := item.Traffic
-		if traffic == "" {
-			traffic = item.TrafficAlt
+		project := config.Project{Name: name}
+		if err := applyJSONSourceValues(&project, item); err != nil {
+			return nil, err
 		}
 		entries = append(entries, fetch.ImportEntry{
-			ID: item.ID,
-			Project: config.Project{
-				Name:          name,
-				GitHubEvents:  toStringList(item.GitHub),
-				GitHubTraffic: toStringList(traffic),
-				PyPI:          toStringList(item.PyPI),
-				CRAN:          toStringList(item.CRAN),
-				Homebrew:      toStringList(item.Homebrew),
-				Plausible:     toStringList(item.Plausible),
-				OpenVSX:       toStringList(item.OpenVSX),
-				YouTube:       toStringList(item.YouTube),
-				LinkedIn:      toStringList(item.LinkedIn),
-			},
+			ID:      id,
+			Project: project,
 		})
 	}
 
@@ -279,35 +262,8 @@ func loadFromCSV(path string) ([]fetch.ImportEntry, error) {
 		if p.Name == "" {
 			p.Name = id
 		}
-		if idx, ok := colIndex["github"]; ok && idx < len(row) {
-			p.GitHubEvents = toStringList(row[idx])
-		}
-		if idx, ok := colIndex["github-traffic"]; ok && idx < len(row) {
-			p.GitHubTraffic = toStringList(row[idx])
-		}
-		if idx, ok := colIndex["github_traffic"]; ok && idx < len(row) {
-			p.GitHubTraffic = toStringList(row[idx])
-		}
-		if idx, ok := colIndex["pypi"]; ok && idx < len(row) {
-			p.PyPI = toStringList(row[idx])
-		}
-		if idx, ok := colIndex["cran"]; ok && idx < len(row) {
-			p.CRAN = toStringList(row[idx])
-		}
-		if idx, ok := colIndex["homebrew"]; ok && idx < len(row) {
-			p.Homebrew = toStringList(row[idx])
-		}
-		if idx, ok := colIndex["plausible"]; ok && idx < len(row) {
-			p.Plausible = toStringList(row[idx])
-		}
-		if idx, ok := colIndex["openvsx"]; ok && idx < len(row) {
-			p.OpenVSX = toStringList(row[idx])
-		}
-		if idx, ok := colIndex["youtube"]; ok && idx < len(row) {
-			p.YouTube = toStringList(row[idx])
-		}
-		if idx, ok := colIndex["linkedin"]; ok && idx < len(row) {
-			p.LinkedIn = toStringList(row[idx])
+		for _, field := range projectSourceFields {
+			p.SetSourceValues(field.key, toStringList(sourceValueFromCSV(row, colIndex, field)))
 		}
 
 		entries = append(entries, fetch.ImportEntry{ID: id, Project: p})

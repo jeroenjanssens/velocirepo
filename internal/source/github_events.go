@@ -61,6 +61,34 @@ func (g *GitHubEvents) FetchEvents(ctx context.Context, opts FetchOptions) ([]Ev
 	return events, nil
 }
 
+type githubPageReader func([]byte) ([]Event, pageInfo, bool, error)
+
+func (g *GitHubEvents) fetchPaginatedEvents(ctx context.Context, owner, repo, query string, readPage githubPageReader) ([]Event, error) {
+	var events []Event
+	var cursor *string
+
+	for {
+		vars := map[string]interface{}{"owner": owner, "name": repo, "after": cursor}
+		resp, err := g.doGraphQL(ctx, query, vars)
+		if err != nil {
+			return nil, err
+		}
+
+		pageEvents, pi, done, err := readPage(resp)
+		if err != nil {
+			return nil, err
+		}
+		events = append(events, pageEvents...)
+
+		if done || !pi.HasNextPage {
+			break
+		}
+		cursor = &pi.EndCursor
+	}
+
+	return events, nil
+}
+
 func (g *GitHubEvents) fetchStargazers(ctx context.Context, owner, repo string, opts FetchOptions) ([]Event, error) {
 	query := `query($owner: String!, $name: String!, $after: String) {
 		repository(owner: $owner, name: $name) {
@@ -74,16 +102,7 @@ func (g *GitHubEvents) fetchStargazers(ctx context.Context, owner, repo string, 
 		}
 	}`
 
-	var events []Event
-	var cursor *string
-
-	for {
-		vars := map[string]interface{}{"owner": owner, "name": repo, "after": cursor}
-		resp, err := g.doGraphQL(ctx, query, vars)
-		if err != nil {
-			return nil, err
-		}
-
+	return g.fetchPaginatedEvents(ctx, owner, repo, query, func(resp []byte) ([]Event, pageInfo, bool, error) {
 		var result struct {
 			Data struct {
 				Repository struct {
@@ -100,39 +119,25 @@ func (g *GitHubEvents) fetchStargazers(ctx context.Context, owner, repo string, 
 			} `json:"data"`
 		}
 		if err := json.Unmarshal(resp, &result); err != nil {
-			return nil, fmt.Errorf("unmarshal stargazers: %w", err)
+			return nil, pageInfo{}, false, fmt.Errorf("unmarshal stargazers: %w", err)
 		}
 
+		var events []Event
 		done := false
 		for _, edge := range result.Data.Repository.Stargazers.Edges {
-			t, err := time.Parse(time.RFC3339, edge.StarredAt)
-			if err != nil {
-				continue
-			}
-			if t.Before(opts.StartDate) {
+			include, stop := includeGitHubEventTime(edge.StarredAt, opts)
+			if stop {
 				done = true
 				break
 			}
-			if !inDateRange(t, opts.StartDate, opts.EndDate) {
+			if !include {
 				continue
 			}
-			events = append(events, Event{
-				Type:      "star",
-				ProjectID: opts.ProjectID,
-				Target:    g.Repo,
-				Datetime:  edge.StarredAt,
-				Tags:      map[string]string{"user": edge.Node.Login},
-			})
+			events = append(events, githubEvent(opts, g.Repo, "star", edge.StarredAt, userTags(edge.Node.Login)))
 		}
 
-		pi := result.Data.Repository.Stargazers.PageInfo
-		if done || !pi.HasNextPage {
-			break
-		}
-		cursor = &pi.EndCursor
-	}
-
-	return events, nil
+		return events, result.Data.Repository.Stargazers.PageInfo, done, nil
+	})
 }
 
 func (g *GitHubEvents) fetchForks(ctx context.Context, owner, repo string, opts FetchOptions) ([]Event, error) {
@@ -148,16 +153,7 @@ func (g *GitHubEvents) fetchForks(ctx context.Context, owner, repo string, opts 
 		}
 	}`
 
-	var events []Event
-	var cursor *string
-
-	for {
-		vars := map[string]interface{}{"owner": owner, "name": repo, "after": cursor}
-		resp, err := g.doGraphQL(ctx, query, vars)
-		if err != nil {
-			return nil, err
-		}
-
+	return g.fetchPaginatedEvents(ctx, owner, repo, query, func(resp []byte) ([]Event, pageInfo, bool, error) {
 		var result struct {
 			Data struct {
 				Repository struct {
@@ -174,39 +170,25 @@ func (g *GitHubEvents) fetchForks(ctx context.Context, owner, repo string, opts 
 			} `json:"data"`
 		}
 		if err := json.Unmarshal(resp, &result); err != nil {
-			return nil, fmt.Errorf("unmarshal forks: %w", err)
+			return nil, pageInfo{}, false, fmt.Errorf("unmarshal forks: %w", err)
 		}
 
+		var events []Event
 		done := false
 		for _, node := range result.Data.Repository.Forks.Nodes {
-			t, err := time.Parse(time.RFC3339, node.CreatedAt)
-			if err != nil {
-				continue
-			}
-			if t.Before(opts.StartDate) {
+			include, stop := includeGitHubEventTime(node.CreatedAt, opts)
+			if stop {
 				done = true
 				break
 			}
-			if !inDateRange(t, opts.StartDate, opts.EndDate) {
+			if !include {
 				continue
 			}
-			events = append(events, Event{
-				Type:      "fork",
-				ProjectID: opts.ProjectID,
-				Target:    g.Repo,
-				Datetime:  node.CreatedAt,
-				Tags:      map[string]string{"user": node.Owner.Login},
-			})
+			events = append(events, githubEvent(opts, g.Repo, "fork", node.CreatedAt, userTags(node.Owner.Login)))
 		}
 
-		pi := result.Data.Repository.Forks.PageInfo
-		if done || !pi.HasNextPage {
-			break
-		}
-		cursor = &pi.EndCursor
-	}
-
-	return events, nil
+		return events, result.Data.Repository.Forks.PageInfo, done, nil
+	})
 }
 
 func (g *GitHubEvents) fetchIssues(ctx context.Context, owner, repo string, opts FetchOptions) ([]Event, error) {
@@ -223,16 +205,7 @@ func (g *GitHubEvents) fetchIssues(ctx context.Context, owner, repo string, opts
 		}
 	}`
 
-	var events []Event
-	var cursor *string
-
-	for {
-		vars := map[string]interface{}{"owner": owner, "name": repo, "after": cursor}
-		resp, err := g.doGraphQL(ctx, query, vars)
-		if err != nil {
-			return nil, err
-		}
-
+	return g.fetchPaginatedEvents(ctx, owner, repo, query, func(resp []byte) ([]Event, pageInfo, bool, error) {
 		var result struct {
 			Data struct {
 				Repository struct {
@@ -250,58 +223,36 @@ func (g *GitHubEvents) fetchIssues(ctx context.Context, owner, repo string, opts
 			} `json:"data"`
 		}
 		if err := json.Unmarshal(resp, &result); err != nil {
-			return nil, fmt.Errorf("unmarshal issues: %w", err)
+			return nil, pageInfo{}, false, fmt.Errorf("unmarshal issues: %w", err)
 		}
 
+		var events []Event
 		done := false
 		for _, node := range result.Data.Repository.Issues.Nodes {
-			t, err := time.Parse(time.RFC3339, node.CreatedAt)
-			if err != nil {
-				continue
-			}
-			if t.Before(opts.StartDate) {
+			include, stop := includeGitHubEventTime(node.CreatedAt, opts)
+			if stop {
 				done = true
 				break
 			}
 
-			var tags map[string]string
+			var login string
 			if node.Author != nil && node.Author.Login != "" {
-				tags = map[string]string{"user": node.Author.Login}
+				login = node.Author.Login
 			}
+			tags := userTags(login)
 
-			if !inDateRange(t, opts.StartDate, opts.EndDate) {
+			if !include {
 				continue
 			}
-			events = append(events, Event{
-				Type:      "issue_open",
-				ProjectID: opts.ProjectID,
-				Target:    g.Repo,
-				Datetime:  node.CreatedAt,
-				Tags:      tags,
-			})
+			events = append(events, githubEvent(opts, g.Repo, "issue_open", node.CreatedAt, tags))
 
 			if node.ClosedAt != nil {
-				ct, err := time.Parse(time.RFC3339, *node.ClosedAt)
-				if err == nil && inDateRange(ct, opts.StartDate, opts.EndDate) {
-					events = append(events, Event{
-						Type:      "issue_close",
-						ProjectID: opts.ProjectID,
-						Target:    g.Repo,
-						Datetime:  *node.ClosedAt,
-						Tags:      tags,
-					})
-				}
+				events = appendOptionalGitHubEvent(events, opts, g.Repo, "issue_close", *node.ClosedAt, tags)
 			}
 		}
 
-		pi := result.Data.Repository.Issues.PageInfo
-		if done || !pi.HasNextPage {
-			break
-		}
-		cursor = &pi.EndCursor
-	}
-
-	return events, nil
+		return events, result.Data.Repository.Issues.PageInfo, done, nil
+	})
 }
 
 func (g *GitHubEvents) fetchPullRequests(ctx context.Context, owner, repo string, opts FetchOptions) ([]Event, error) {
@@ -319,16 +270,7 @@ func (g *GitHubEvents) fetchPullRequests(ctx context.Context, owner, repo string
 		}
 	}`
 
-	var events []Event
-	var cursor *string
-
-	for {
-		vars := map[string]interface{}{"owner": owner, "name": repo, "after": cursor}
-		resp, err := g.doGraphQL(ctx, query, vars)
-		if err != nil {
-			return nil, err
-		}
-
+	return g.fetchPaginatedEvents(ctx, owner, repo, query, func(resp []byte) ([]Event, pageInfo, bool, error) {
 		var result struct {
 			Data struct {
 				Repository struct {
@@ -347,58 +289,72 @@ func (g *GitHubEvents) fetchPullRequests(ctx context.Context, owner, repo string
 			} `json:"data"`
 		}
 		if err := json.Unmarshal(resp, &result); err != nil {
-			return nil, fmt.Errorf("unmarshal pull requests: %w", err)
+			return nil, pageInfo{}, false, fmt.Errorf("unmarshal pull requests: %w", err)
 		}
 
+		var events []Event
 		done := false
 		for _, node := range result.Data.Repository.PullRequests.Nodes {
-			t, err := time.Parse(time.RFC3339, node.CreatedAt)
-			if err != nil {
-				continue
-			}
-			if t.Before(opts.StartDate) {
+			include, stop := includeGitHubEventTime(node.CreatedAt, opts)
+			if stop {
 				done = true
 				break
 			}
 
-			var tags map[string]string
+			var login string
 			if node.Author != nil && node.Author.Login != "" {
-				tags = map[string]string{"user": node.Author.Login}
+				login = node.Author.Login
 			}
+			tags := userTags(login)
 
-			if !inDateRange(t, opts.StartDate, opts.EndDate) {
+			if !include {
 				continue
 			}
-			events = append(events, Event{
-				Type:      "pr_open",
-				ProjectID: opts.ProjectID,
-				Target:    g.Repo,
-				Datetime:  node.CreatedAt,
-				Tags:      tags,
-			})
+			events = append(events, githubEvent(opts, g.Repo, "pr_open", node.CreatedAt, tags))
 
 			if node.MergedAt != nil {
-				mt, err := time.Parse(time.RFC3339, *node.MergedAt)
-				if err == nil && inDateRange(mt, opts.StartDate, opts.EndDate) {
-					events = append(events, Event{
-						Type:      "pr_merge",
-						ProjectID: opts.ProjectID,
-						Target:    g.Repo,
-						Datetime:  *node.MergedAt,
-						Tags:      tags,
-					})
-				}
+				events = appendOptionalGitHubEvent(events, opts, g.Repo, "pr_merge", *node.MergedAt, tags)
 			}
 		}
 
-		pi := result.Data.Repository.PullRequests.PageInfo
-		if done || !pi.HasNextPage {
-			break
-		}
-		cursor = &pi.EndCursor
-	}
+		return events, result.Data.Repository.PullRequests.PageInfo, done, nil
+	})
+}
 
-	return events, nil
+func includeGitHubEventTime(timestamp string, opts FetchOptions) (include bool, stop bool) {
+	t, err := time.Parse(time.RFC3339, timestamp)
+	if err != nil {
+		return false, false
+	}
+	if t.Before(opts.StartDate) {
+		return false, true
+	}
+	return inDateRange(t, opts.StartDate, opts.EndDate), false
+}
+
+func appendOptionalGitHubEvent(events []Event, opts FetchOptions, repo, eventType, timestamp string, tags map[string]string) []Event {
+	t, err := time.Parse(time.RFC3339, timestamp)
+	if err != nil || !inDateRange(t, opts.StartDate, opts.EndDate) {
+		return events
+	}
+	return append(events, githubEvent(opts, repo, eventType, timestamp, tags))
+}
+
+func githubEvent(opts FetchOptions, repo, eventType, timestamp string, tags map[string]string) Event {
+	return Event{
+		Type:      eventType,
+		ProjectID: opts.ProjectID,
+		Target:    repo,
+		Datetime:  timestamp,
+		Tags:      tags,
+	}
+}
+
+func userTags(login string) map[string]string {
+	if login == "" {
+		return nil
+	}
+	return map[string]string{"user": login}
 }
 
 type pageInfo struct {
