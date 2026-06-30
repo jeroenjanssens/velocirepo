@@ -42,19 +42,18 @@ func removeProjectCmd() *cobra.Command {
 				}
 			}
 
+			if deleteData {
+				if err := removeProjectDataDirs(cfg.DataDir(), id); err != nil {
+					return err
+				}
+			}
+
 			cfgPath := cfgFilePath()
 			if err := config.RemoveProject(cfgPath, id); err != nil {
 				return err
 			}
 
 			if deleteData {
-				dataDir := cfg.DataDir()
-				for _, src := range config.SourceDirNames() {
-					dir := filepath.Join(dataDir, src, id)
-					if _, err := os.Stat(dir); err == nil {
-						_ = os.RemoveAll(dir)
-					}
-				}
 				_, _ = fmt.Fprintf(os.Stdout, "Removed project '%s' and its data\n", id)
 			} else {
 				_, _ = fmt.Fprintf(os.Stdout, "Removed project '%s'\n", id)
@@ -69,4 +68,21 @@ func removeProjectCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&deleteData, "delete-data", false, "also remove the project's data directories")
 
 	return cmd
+}
+
+func removeProjectDataDirs(dataDir, id string) error {
+	return removeProjectDataDirsWith(dataDir, id, os.RemoveAll)
+}
+
+func removeProjectDataDirsWith(dataDir, id string, removeAll func(string) error) error {
+	for _, src := range config.SourceDirNames() {
+		dir := filepath.Join(dataDir, src, id)
+		if err := removeAll(dir); err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			return fmt.Errorf("remove project data directory %s: %w", dir, err)
+		}
+	}
+	return nil
 }

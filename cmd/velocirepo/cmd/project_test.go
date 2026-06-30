@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -189,6 +190,27 @@ github ="org/alpha"
 
 	if _, err := os.Stat(dataDir); !os.IsNotExist(err) {
 		t.Error("data directory should have been deleted")
+	}
+}
+
+func TestRemoveProjectDataDirsReturnsDeleteError(t *testing.T) {
+	removeErr := errors.New("remove denied")
+
+	err := removeProjectDataDirsWith("data", "alpha", func(path string) error {
+		return removeErr
+	})
+	if !errors.Is(err, removeErr) {
+		t.Fatalf("expected wrapped remove error, got %v", err)
+	}
+	assertContains(t, filepath.ToSlash(err.Error()), "data/events/github/alpha")
+}
+
+func TestRemoveProjectDataDirsIgnoresMissingDirectories(t *testing.T) {
+	err := removeProjectDataDirsWith("data", "alpha", func(path string) error {
+		return os.ErrNotExist
+	})
+	if err != nil {
+		t.Fatalf("expected missing directories to be ignored, got %v", err)
 	}
 }
 
