@@ -204,7 +204,7 @@ func sourceValueFromCSV(row []string, colIndex map[string]int, field projectSour
 	for _, col := range field.csvColumns {
 		idx, ok := colIndex[col]
 		if ok && idx < len(row) {
-			value := row[idx]
+			value := strings.TrimSpace(row[idx])
 			if value != "" {
 				return value
 			}

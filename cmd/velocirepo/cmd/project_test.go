@@ -423,7 +423,7 @@ dir = "data"
 		t.Fatal(err)
 	}
 
-	csvFile := writeTempFile(t, dir, "projects.csv", "id,github-traffic,github_traffic\ncsv-proj,,org/csv-proj\n")
+	csvFile := writeTempFile(t, dir, "projects.csv", "id,github-traffic,github_traffic\ncsv-proj, ,org/csv-proj\n")
 	if _, _, err := execCmd(cfgPath, "import-projects", "--from-file", csvFile, "--yes"); err != nil {
 		t.Fatal(err)
 	}
