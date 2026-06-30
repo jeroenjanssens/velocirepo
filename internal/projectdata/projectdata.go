@@ -95,17 +95,23 @@ func TrashProjectDirs(dataDir, id string) (string, []Move, error) {
 			if os.IsNotExist(err) {
 				continue
 			}
-			_ = RollbackMoves(moves)
+			if rollbackErr := RollbackMoves(moves); rollbackErr != nil {
+				return trashRoot, nil, fmt.Errorf("%w (rollback failed: %v; trash dir preserved: %s)", err, rollbackErr, trashRoot)
+			}
 			_ = os.RemoveAll(trashRoot)
 			return "", nil, err
 		}
 		if err := os.MkdirAll(filepath.Dir(trashDir), 0755); err != nil {
-			_ = RollbackMoves(moves)
+			if rollbackErr := RollbackMoves(moves); rollbackErr != nil {
+				return trashRoot, nil, fmt.Errorf("%w (rollback failed: %v; trash dir preserved: %s)", err, rollbackErr, trashRoot)
+			}
 			_ = os.RemoveAll(trashRoot)
 			return "", nil, err
 		}
 		if err := os.Rename(oldDir, trashDir); err != nil {
-			_ = RollbackMoves(moves)
+			if rollbackErr := RollbackMoves(moves); rollbackErr != nil {
+				return trashRoot, nil, fmt.Errorf("%w (rollback failed: %v; trash dir preserved: %s)", err, rollbackErr, trashRoot)
+			}
 			_ = os.RemoveAll(trashRoot)
 			return "", nil, err
 		}
