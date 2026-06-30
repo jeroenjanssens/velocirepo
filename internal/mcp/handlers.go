@@ -14,6 +14,7 @@ import (
 	"github.com/jeroenjanssens/velocirepo/internal/badge"
 	"github.com/jeroenjanssens/velocirepo/internal/config"
 	"github.com/jeroenjanssens/velocirepo/internal/fetch"
+	"github.com/jeroenjanssens/velocirepo/internal/projectdata"
 	"github.com/jeroenjanssens/velocirepo/internal/sourceinfo"
 	"github.com/jeroenjanssens/velocirepo/internal/store"
 	"github.com/jeroenjanssens/velocirepo/internal/version"
@@ -43,116 +44,6 @@ func (h *handlers) cfgFilePath() string {
 		return filepath.Join(h.cfg.Dir, "velocirepo.toml")
 	}
 	return "velocirepo.toml"
-}
-
-type dataMove struct {
-	from  string
-	to    string
-	oldID string
-	newID string
-}
-
-func moveProjectDataDirs(dataDir, oldID, newID string) ([]dataMove, error) {
-	for _, src := range config.SourceDirNames() {
-		newDir := filepath.Join(dataDir, src, newID)
-		if _, err := os.Stat(newDir); err == nil {
-			return nil, fmt.Errorf("target data directory already exists: %s", newDir)
-		} else if !os.IsNotExist(err) {
-			return nil, err
-		}
-	}
-
-	var moves []dataMove
-	for _, src := range config.SourceDirNames() {
-		oldDir := filepath.Join(dataDir, src, oldID)
-		newDir := filepath.Join(dataDir, src, newID)
-		if _, err := os.Stat(oldDir); err != nil {
-			if os.IsNotExist(err) {
-				continue
-			}
-			return moves, err
-		}
-		if err := os.MkdirAll(filepath.Dir(newDir), 0755); err != nil {
-			return moves, err
-		}
-		if err := os.Rename(oldDir, newDir); err != nil {
-			return moves, err
-		}
-		moves = append(moves, dataMove{from: oldDir, to: newDir, oldID: oldID, newID: newID})
-		if err := store.RewriteProjectID(newDir, oldID, newID); err != nil {
-			return moves, err
-		}
-	}
-	return moves, nil
-}
-
-func rollbackDataMoves(moves []dataMove) error {
-	for i := len(moves) - 1; i >= 0; i-- {
-		move := moves[i]
-		if _, err := os.Stat(move.to); err != nil {
-			if os.IsNotExist(err) {
-				continue
-			}
-			return err
-		}
-		if move.oldID != "" && move.newID != "" {
-			if err := store.RewriteProjectID(move.to, move.newID, move.oldID); err != nil {
-				return err
-			}
-		}
-		if err := os.MkdirAll(filepath.Dir(move.from), 0755); err != nil {
-			return err
-		}
-		if err := os.Rename(move.to, move.from); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func trashProjectDataDirs(dataDir, id string) (string, []dataMove, error) {
-	if _, err := os.Stat(dataDir); err != nil {
-		if os.IsNotExist(err) {
-			return "", nil, nil
-		}
-		return "", nil, err
-	}
-
-	trashRoot, err := os.MkdirTemp(dataDir, ".remove-"+id+"-")
-	if err != nil {
-		return "", nil, err
-	}
-
-	var moves []dataMove
-	for _, src := range config.SourceDirNames() {
-		oldDir := filepath.Join(dataDir, src, id)
-		trashDir := filepath.Join(trashRoot, src)
-		if _, err := os.Stat(oldDir); err != nil {
-			if os.IsNotExist(err) {
-				continue
-			}
-			_ = rollbackDataMoves(moves)
-			_ = os.RemoveAll(trashRoot)
-			return "", nil, err
-		}
-		if err := os.MkdirAll(filepath.Dir(trashDir), 0755); err != nil {
-			_ = rollbackDataMoves(moves)
-			_ = os.RemoveAll(trashRoot)
-			return "", nil, err
-		}
-		if err := os.Rename(oldDir, trashDir); err != nil {
-			_ = rollbackDataMoves(moves)
-			_ = os.RemoveAll(trashRoot)
-			return "", nil, err
-		}
-		moves = append(moves, dataMove{from: oldDir, to: trashDir})
-	}
-
-	if len(moves) == 0 {
-		_ = os.RemoveAll(trashRoot)
-		return "", nil, nil
-	}
-	return trashRoot, moves, nil
 }
 
 func textResult(text string) *mcp.CallToolResult {
@@ -520,10 +411,10 @@ func (h *handlers) handleRemoveProject(ctx context.Context, req mcp.CallToolRequ
 	}
 
 	var trashRoot string
-	var dataMoves []dataMove
+	var dataMoves []projectdata.Move
 	if deleteData {
 		var err error
-		trashRoot, dataMoves, err = trashProjectDataDirs(h.cfg.DataDir(), id)
+		trashRoot, dataMoves, err = projectdata.TrashProjectDirs(h.cfg.DataDir(), id)
 		if err != nil {
 			return errorResult(fmt.Sprintf("remove data: %v", err)), nil
 		}
@@ -531,7 +422,7 @@ func (h *handlers) handleRemoveProject(ctx context.Context, req mcp.CallToolRequ
 
 	if err := config.RemoveProject(h.cfgFilePath(), id); err != nil {
 		if len(dataMoves) > 0 {
-			if rollbackErr := rollbackDataMoves(dataMoves); rollbackErr != nil {
+			if rollbackErr := projectdata.RollbackMoves(dataMoves); rollbackErr != nil {
 				return errorResult(fmt.Sprintf("remove project: %v (rollback data: %v)", err, rollbackErr)), nil
 			}
 			_ = os.RemoveAll(trashRoot)
@@ -571,16 +462,16 @@ func (h *handlers) handleRenameProject(ctx context.Context, req mcp.CallToolRequ
 		return errorResult(fmt.Sprintf("project %q already exists", newID)), nil
 	}
 
-	dataMoves, err := moveProjectDataDirs(h.cfg.DataDir(), oldID, newID)
+	dataMoves, err := projectdata.MoveProjectDirs(h.cfg.DataDir(), oldID, newID)
 	if err != nil {
-		if rollbackErr := rollbackDataMoves(dataMoves); rollbackErr != nil {
+		if rollbackErr := projectdata.RollbackMoves(dataMoves); rollbackErr != nil {
 			return errorResult(fmt.Sprintf("rename data: %v (rollback: %v)", err, rollbackErr)), nil
 		}
 		return errorResult(fmt.Sprintf("rename data: %v", err)), nil
 	}
 
 	if err := config.RenameSection(h.cfgFilePath(), oldID, newID); err != nil {
-		if rollbackErr := rollbackDataMoves(dataMoves); rollbackErr != nil {
+		if rollbackErr := projectdata.RollbackMoves(dataMoves); rollbackErr != nil {
 			return errorResult(fmt.Sprintf("rename project: %v (rollback data: %v)", err, rollbackErr)), nil
 		}
 		return errorResult(fmt.Sprintf("rename project: %v", err)), nil

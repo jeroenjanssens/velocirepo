@@ -193,24 +193,38 @@ github ="org/alpha"
 	}
 }
 
-func TestRemoveProjectDataDirsReturnsDeleteError(t *testing.T) {
-	removeErr := errors.New("remove denied")
+func TestProjectRemoveWithDeleteDataRollsBackWhenConfigWriteFails(t *testing.T) {
+	cfgPath := setupTestConfig(t, `[data]
+dir = "data"
 
-	err := removeProjectDataDirsWith("data", "alpha", func(path string) error {
+[projects.alpha]
+name = "Alpha"
+github ="org/alpha"
+`)
+	dir := filepath.Dir(cfgPath)
+
+	dataDir := filepath.Join(dir, "data", "events", "github", "alpha")
+	_ = os.MkdirAll(dataDir, 0755)
+	dataFile := writeTempFile(t, dataDir, "2025-01-01.jsonl", `{}`)
+
+	removeErr := errors.New("write denied")
+	err := removeProjectConfigAndData(cfgPath, filepath.Join(dir, "data"), "alpha", true, func(path, id string) error {
 		return removeErr
 	})
 	if !errors.Is(err, removeErr) {
-		t.Fatalf("expected wrapped remove error, got %v", err)
+		t.Fatalf("expected wrapped config error, got %v", err)
 	}
-	assertContains(t, filepath.ToSlash(err.Error()), "data/events/github/alpha")
-}
-
-func TestRemoveProjectDataDirsIgnoresMissingDirectories(t *testing.T) {
-	err := removeProjectDataDirsWith("data", "alpha", func(path string) error {
-		return os.ErrNotExist
-	})
+	if _, err := os.Stat(dataFile); err != nil {
+		t.Fatalf("data file should have been restored after config failure: %v", err)
+	}
+	content := readFileString(t, cfgPath)
+	assertContains(t, content, "[projects.alpha]")
+	matches, err := filepath.Glob(filepath.Join(dir, "data", ".remove-alpha-*"))
 	if err != nil {
-		t.Fatalf("expected missing directories to be ignored, got %v", err)
+		t.Fatal(err)
+	}
+	if len(matches) != 0 {
+		t.Fatalf("trash directory should have been cleaned up after rollback: %v", matches)
 	}
 }
 

@@ -4,9 +4,9 @@ import (
 	"bufio"
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"github.com/jeroenjanssens/velocirepo/internal/config"
+	"github.com/jeroenjanssens/velocirepo/internal/projectdata"
 	"github.com/spf13/cobra"
 )
 
@@ -42,14 +42,8 @@ func removeProjectCmd() *cobra.Command {
 				}
 			}
 
-			if deleteData {
-				if err := removeProjectDataDirs(cfg.DataDir(), id); err != nil {
-					return err
-				}
-			}
-
 			cfgPath := cfgFilePath()
-			if err := config.RemoveProject(cfgPath, id); err != nil {
+			if err := removeProjectConfigAndData(cfgPath, cfg.DataDir(), id, deleteData, config.RemoveProject); err != nil {
 				return err
 			}
 
@@ -70,19 +64,33 @@ func removeProjectCmd() *cobra.Command {
 	return cmd
 }
 
-func removeProjectDataDirs(dataDir, id string) error {
-	return removeProjectDataDirsWith(dataDir, id, os.RemoveAll)
-}
+func removeProjectConfigAndData(cfgPath, dataDir, id string, deleteData bool, removeProject func(string, string) error) error {
+	var trashRoot string
+	var dataMoves []projectdata.Move
 
-func removeProjectDataDirsWith(dataDir, id string, removeAll func(string) error) error {
-	for _, src := range config.SourceDirNames() {
-		dir := filepath.Join(dataDir, src, id)
-		if err := removeAll(dir); err != nil {
-			if os.IsNotExist(err) {
-				continue
-			}
-			return fmt.Errorf("remove project data directory %s: %w", dir, err)
+	if deleteData {
+		var err error
+		trashRoot, dataMoves, err = projectdata.TrashProjectDirs(dataDir, id)
+		if err != nil {
+			return fmt.Errorf("remove data: %w", err)
 		}
 	}
+
+	if err := removeProject(cfgPath, id); err != nil {
+		if len(dataMoves) > 0 {
+			if rollbackErr := projectdata.RollbackMoves(dataMoves); rollbackErr != nil {
+				return fmt.Errorf("%w (rollback data: %v)", err, rollbackErr)
+			}
+			_ = os.RemoveAll(trashRoot)
+		}
+		return err
+	}
+
+	if trashRoot != "" {
+		if err := os.RemoveAll(trashRoot); err != nil {
+			return fmt.Errorf("cleanup removed data: %w", err)
+		}
+	}
+
 	return nil
 }
