@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -143,7 +144,9 @@ func TestGitHubTrafficInvalidRepo(t *testing.T) {
 }
 
 func TestGitHubTrafficAuthHeader(t *testing.T) {
+	var called atomic.Bool
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		called.Store(true)
 		assertBearerToken(t, r, "my-secret-token")
 		w.Write([]byte(`{"count": 0, "uniques": 0, "views": []}`))
 	}))
@@ -156,5 +159,11 @@ func TestGitHubTrafficAuthHeader(t *testing.T) {
 		BaseURL: srv.URL,
 	}
 
-	g.Fetch(context.Background(), fetchOptions("test", time.Now().AddDate(0, 0, -7), time.Now()))
+	_, err := g.Fetch(context.Background(), fetchOptions("test", time.Now().AddDate(0, 0, -7), time.Now()))
+	if err != nil {
+		t.Fatalf("Fetch failed: %v", err)
+	}
+	if !called.Load() {
+		t.Fatal("expected Fetch to make an HTTP request")
+	}
 }

@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -242,7 +243,9 @@ func TestGitHubEventsInvalidRepo(t *testing.T) {
 }
 
 func TestGitHubEventsAuthHeader(t *testing.T) {
+	var called atomic.Bool
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		called.Store(true)
 		assertBearerToken(t, r, "my-secret-token")
 		w.Write([]byte(`{"data":{"repository":{"stargazers":{"edges":[],"pageInfo":{"hasNextPage":false,"endCursor":""}},"forks":{"nodes":[],"pageInfo":{"hasNextPage":false,"endCursor":""}},"issues":{"nodes":[],"pageInfo":{"hasNextPage":false,"endCursor":""}},"pullRequests":{"nodes":[],"pageInfo":{"hasNextPage":false,"endCursor":""}}}}}`))
 	}))
@@ -255,7 +258,13 @@ func TestGitHubEventsAuthHeader(t *testing.T) {
 		BaseURL: srv.URL,
 	}
 
-	g.FetchEvents(context.Background(), fetchOptions("test", time.Now().AddDate(0, 0, -7), time.Now()))
+	_, err := g.FetchEvents(context.Background(), fetchOptions("test", time.Now().AddDate(0, 0, -7), time.Now()))
+	if err != nil {
+		t.Fatalf("FetchEvents failed: %v", err)
+	}
+	if !called.Load() {
+		t.Fatal("expected FetchEvents to make an HTTP request")
+	}
 }
 
 func TestGitHubEventsPRNotMerged(t *testing.T) {
