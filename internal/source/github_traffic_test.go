@@ -48,18 +48,12 @@ func TestGitHubTrafficFetch(t *testing.T) {
 		BaseURL: srv.URL,
 	}
 
-	records, err := g.Fetch(context.Background(), FetchOptions{
-		ProjectID: "my-project",
-		StartDate: time.Date(2025, 6, 1, 0, 0, 0, 0, time.UTC),
-		EndDate:   time.Date(2025, 6, 2, 0, 0, 0, 0, time.UTC),
-	})
+	records, err := g.Fetch(context.Background(), juneFetchOptions("my-project", 1, 2))
 	if err != nil {
 		t.Fatalf("Fetch failed: %v", err)
 	}
 
-	if len(records) != 8 {
-		t.Fatalf("got %d records, want 8", len(records))
-	}
+	assertRecordCount(t, records, 8)
 
 	expected := map[string]int64{
 		"daily_views:2025-06-01":         50,
@@ -123,19 +117,13 @@ func TestGitHubTrafficDateFiltering(t *testing.T) {
 		BaseURL: srv.URL,
 	}
 
-	records, err := g.Fetch(context.Background(), FetchOptions{
-		ProjectID: "test",
-		StartDate: time.Date(2025, 6, 1, 0, 0, 0, 0, time.UTC),
-		EndDate:   time.Date(2025, 6, 3, 0, 0, 0, 0, time.UTC),
-	})
+	records, err := g.Fetch(context.Background(), juneFetchOptions("test", 1, 3))
 	if err != nil {
 		t.Fatalf("Fetch failed: %v", err)
 	}
 
 	// Should only include 2025-06-01 (within range), not 05-30 (before) or 06-05 (after)
-	if len(records) != 2 {
-		t.Fatalf("got %d records, want 2 (views + unique_views for 06-01)", len(records))
-	}
+	assertRecordCount(t, records, 2)
 
 	if records[0].Date != "2025-06-01" {
 		t.Errorf("Date = %q, want 2025-06-01", records[0].Date)
@@ -148,20 +136,15 @@ func TestGitHubTrafficInvalidRepo(t *testing.T) {
 		Repo:   "invalid",
 	}
 
-	_, err := g.Fetch(context.Background(), FetchOptions{
-		ProjectID: "test",
-		StartDate: time.Now(),
-		EndDate:   time.Now(),
-	})
+	_, err := g.Fetch(context.Background(), fetchOptions("test", time.Now(), time.Now()))
 	if err == nil {
 		t.Fatal("expected error for invalid repo")
 	}
 }
 
 func TestGitHubTrafficAuthHeader(t *testing.T) {
-	var gotAuth string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		gotAuth = r.Header.Get("Authorization")
+		assertBearerToken(t, r, "my-secret-token")
 		w.Write([]byte(`{"count": 0, "uniques": 0, "views": []}`))
 	}))
 	defer srv.Close()
@@ -173,13 +156,5 @@ func TestGitHubTrafficAuthHeader(t *testing.T) {
 		BaseURL: srv.URL,
 	}
 
-	g.Fetch(context.Background(), FetchOptions{
-		ProjectID: "test",
-		StartDate: time.Now().AddDate(0, 0, -7),
-		EndDate:   time.Now(),
-	})
-
-	if gotAuth != "Bearer my-secret-token" {
-		t.Errorf("Authorization = %q, want %q", gotAuth, "Bearer my-secret-token")
-	}
+	g.Fetch(context.Background(), fetchOptions("test", time.Now().AddDate(0, 0, -7), time.Now()))
 }

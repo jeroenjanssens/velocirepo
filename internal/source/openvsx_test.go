@@ -2,11 +2,9 @@ package source
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 )
 
 func TestOpenVSXFetch(t *testing.T) {
@@ -20,7 +18,7 @@ func TestOpenVSXFetch(t *testing.T) {
 			"averageRating": rating,
 			"reviewCount":   42,
 		}
-		json.NewEncoder(w).Encode(resp)
+		jsonHandler(t, http.StatusOK, resp)(w, r)
 	}))
 	defer server.Close()
 
@@ -30,33 +28,17 @@ func TestOpenVSXFetch(t *testing.T) {
 		BaseURL:     server.URL,
 	}
 
-	records, err := o.Fetch(context.Background(), FetchOptions{
-		ProjectID: "shiny",
-		StartDate: time.Date(2025, 6, 1, 0, 0, 0, 0, time.UTC),
-		EndDate:   time.Date(2025, 6, 1, 0, 0, 0, 0, time.UTC),
-	})
+	records, err := o.Fetch(context.Background(), juneFetchOptions("shiny", 1, 1))
 	if err != nil {
 		t.Fatalf("Fetch failed: %v", err)
 	}
 
-	if len(records) != 3 {
-		t.Fatalf("got %d records, want 3", len(records))
-	}
-
-	downloads := filterByMetric(records, "total_downloads")
-	if len(downloads) != 1 || downloads[0].Value != 15000 {
-		t.Errorf("total_downloads = %v, want 15000", downloads)
-	}
-
-	reviews := filterByMetric(records, "total_reviews")
-	if len(reviews) != 1 || reviews[0].Value != 42 {
-		t.Errorf("total_reviews = %v, want 42", reviews)
-	}
-
-	ratings := filterByMetric(records, "total_ratings")
-	if len(ratings) != 1 || ratings[0].Value != 450 {
-		t.Errorf("total_ratings = %v, want 450 (4.5 * 100)", ratings)
-	}
+	assertRecordCount(t, records, 3)
+	assertMetricValues(t, records, map[string]int64{
+		"total_downloads": 15000,
+		"total_reviews":   42,
+		"total_ratings":   450,
+	})
 }
 
 func TestOpenVSXInvalidExtensionID(t *testing.T) {
@@ -65,11 +47,7 @@ func TestOpenVSXInvalidExtensionID(t *testing.T) {
 		ExtensionID: "invalid-no-slash",
 	}
 
-	_, err := o.Fetch(context.Background(), FetchOptions{
-		ProjectID: "test",
-		StartDate: time.Date(2025, 6, 1, 0, 0, 0, 0, time.UTC),
-		EndDate:   time.Date(2025, 6, 1, 0, 0, 0, 0, time.UTC),
-	})
+	_, err := o.Fetch(context.Background(), juneFetchOptions("test", 1, 1))
 	if err == nil {
 		t.Fatal("expected error for invalid extension ID")
 	}

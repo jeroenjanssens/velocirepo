@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 )
 
 func TestYouTubeFetchChannel(t *testing.T) {
@@ -76,11 +75,7 @@ func TestYouTubeFetchChannel(t *testing.T) {
 		BaseURL: srv.URL,
 	}
 
-	records, err := yt.Fetch(context.Background(), FetchOptions{
-		ProjectID: "test-proj",
-		StartDate: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC),
-		EndDate:   time.Date(2025, 6, 15, 0, 0, 0, 0, time.UTC),
-	})
+	records, err := yt.Fetch(context.Background(), fetchOptions("test-proj", dateUTC(2025, 1, 1), dateUTC(2025, 6, 15)))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -88,9 +83,7 @@ func TestYouTubeFetchChannel(t *testing.T) {
 	// Channel stats: subscribers, channel_views, video_count = 3
 	// Video stats: vid1 (views, likes, comments) + vid2 (views, likes) = 5
 	// vid2 has no comments (nil) so no comment record
-	if len(records) != 8 {
-		t.Fatalf("expected 8 records, got %d", len(records))
-	}
+	assertRecordCount(t, records, 8)
 
 	// Check channel-level records have no tags
 	channelRecords := 0
@@ -166,18 +159,12 @@ func TestYouTubeFetchSingleVideo(t *testing.T) {
 		BaseURL: srv.URL,
 	}
 
-	records, err := yt.Fetch(context.Background(), FetchOptions{
-		ProjectID: "rickroll",
-		StartDate: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC),
-		EndDate:   time.Date(2025, 6, 15, 0, 0, 0, 0, time.UTC),
-	})
+	records, err := yt.Fetch(context.Background(), fetchOptions("rickroll", dateUTC(2025, 1, 1), dateUTC(2025, 6, 15)))
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if len(records) != 3 {
-		t.Fatalf("expected 3 records (views, likes, comments), got %d", len(records))
-	}
+	assertRecordCount(t, records, 3)
 
 	if records[0].Metric != "total_views" || records[0].Value != 1784285014 {
 		t.Errorf("unexpected views record: %+v", records[0])
@@ -232,19 +219,13 @@ func TestYouTubeFetchPlaylist(t *testing.T) {
 		BaseURL: srv.URL,
 	}
 
-	records, err := yt.Fetch(context.Background(), FetchOptions{
-		ProjectID: "my-playlist",
-		StartDate: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC),
-		EndDate:   time.Date(2025, 6, 15, 0, 0, 0, 0, time.UTC),
-	})
+	records, err := yt.Fetch(context.Background(), fetchOptions("my-playlist", dateUTC(2025, 1, 1), dateUTC(2025, 6, 15)))
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// views + likes (no comments because nil)
-	if len(records) != 2 {
-		t.Fatalf("expected 2 records, got %d", len(records))
-	}
+	assertRecordCount(t, records, 2)
 }
 
 func TestYouTubePagination(t *testing.T) {
@@ -293,11 +274,7 @@ func TestYouTubePagination(t *testing.T) {
 		BaseURL: srv.URL,
 	}
 
-	records, err := yt.Fetch(context.Background(), FetchOptions{
-		ProjectID: "paged",
-		StartDate: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC),
-		EndDate:   time.Date(2025, 6, 15, 0, 0, 0, 0, time.UTC),
-	})
+	records, err := yt.Fetch(context.Background(), fetchOptions("paged", dateUTC(2025, 1, 1), dateUTC(2025, 6, 15)))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -307,9 +284,7 @@ func TestYouTubePagination(t *testing.T) {
 	}
 
 	// 2 videos * 2 metrics (views + likes) = 4
-	if len(records) != 4 {
-		t.Fatalf("expected 4 records, got %d", len(records))
-	}
+	assertRecordCount(t, records, 4)
 }
 
 func TestYouTubeNullableLikesComments(t *testing.T) {
@@ -338,19 +313,13 @@ func TestYouTubeNullableLikesComments(t *testing.T) {
 		BaseURL: srv.URL,
 	}
 
-	records, err := yt.Fetch(context.Background(), FetchOptions{
-		ProjectID: "test",
-		StartDate: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC),
-		EndDate:   time.Date(2025, 6, 15, 0, 0, 0, 0, time.UTC),
-	})
+	records, err := yt.Fetch(context.Background(), fetchOptions("test", dateUTC(2025, 1, 1), dateUTC(2025, 6, 15)))
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// Only views (likes and comments are nil)
-	if len(records) != 1 {
-		t.Fatalf("expected 1 record (views only), got %d", len(records))
-	}
+	assertRecordCount(t, records, 1)
 	if records[0].Metric != "total_views" {
 		t.Errorf("expected total_views metric, got %s", records[0].Metric)
 	}
@@ -394,11 +363,7 @@ func TestYouTubeZeroDurationIsNil(t *testing.T) {
 		BaseURL: srv.URL,
 	}
 
-	_, err := yt.Fetch(context.Background(), FetchOptions{
-		ProjectID: "test",
-		StartDate: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC),
-		EndDate:   time.Date(2025, 6, 15, 0, 0, 0, 0, time.UTC),
-	})
+	_, err := yt.Fetch(context.Background(), fetchOptions("test", dateUTC(2025, 1, 1), dateUTC(2025, 6, 15)))
 	if err != nil {
 		t.Fatal(err)
 	}

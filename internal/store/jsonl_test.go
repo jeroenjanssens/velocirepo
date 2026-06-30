@@ -1,8 +1,6 @@
 package store
 
 import (
-	"os"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -22,15 +20,8 @@ func TestWriteAndReadRecords(t *testing.T) {
 	}
 
 	// Check files exist
-	path1 := filepath.Join(dir, "metrics", "pypi", "mylib", "2025-06-01.jsonl")
-	path2 := filepath.Join(dir, "metrics", "pypi", "mylib", "2025-06-02.jsonl")
-
-	if _, err := os.Stat(path1); err != nil {
-		t.Fatalf("file not created: %s", path1)
-	}
-	if _, err := os.Stat(path2); err != nil {
-		t.Fatalf("file not created: %s", path2)
-	}
+	path1 := metricsPath(dir, "pypi", "mylib", "2025-06-01")
+	path2 := metricsPath(dir, "pypi", "mylib", "2025-06-02")
 
 	// Read back day 1
 	got, err := ReadRecords(path1)
@@ -67,7 +58,7 @@ func TestWriteRecordsWithTags(t *testing.T) {
 		t.Fatalf("WriteRecords failed: %v", err)
 	}
 
-	path := filepath.Join(dir, "metrics", "youtube", "mylib", "2025-06-01.jsonl")
+	path := metricsPath(dir, "youtube", "mylib", "2025-06-01")
 	got, err := ReadRecords(path)
 	if err != nil {
 		t.Fatalf("ReadRecords failed: %v", err)
@@ -82,11 +73,9 @@ func TestWriteRecordsWithTags(t *testing.T) {
 
 func TestLastDateDaily(t *testing.T) {
 	dir := t.TempDir()
-	projDir := filepath.Join(dir, "events", "github", "myproject")
-	os.MkdirAll(projDir, 0755)
 
 	for _, name := range []string{"2025-01-15.jsonl", "2025-03-20.jsonl", "2025-02-10.jsonl"} {
-		os.WriteFile(filepath.Join(projDir, name), []byte(`{}`+"\n"), 0644)
+		writeTestRaw(t, eventsPath(dir, "github", "myproject", name), []string{`{}`})
 	}
 
 	got, err := LastDate(dir, "github", "myproject")
@@ -102,11 +91,9 @@ func TestLastDateDaily(t *testing.T) {
 
 func TestLastDateMonthly(t *testing.T) {
 	dir := t.TempDir()
-	projDir := filepath.Join(dir, "metrics", "pypi", "mylib")
-	os.MkdirAll(projDir, 0755)
 
 	for _, name := range []string{"2025-01.jsonl", "2025-03.jsonl"} {
-		os.WriteFile(filepath.Join(projDir, name), []byte(`{}`+"\n"), 0644)
+		writeTestRaw(t, metricsPath(dir, "pypi", "mylib", name), []string{`{}`})
 	}
 
 	got, err := LastDate(dir, "pypi", "mylib")
@@ -122,10 +109,8 @@ func TestLastDateMonthly(t *testing.T) {
 
 func TestLastDateYearly(t *testing.T) {
 	dir := t.TempDir()
-	projDir := filepath.Join(dir, "metrics", "cran", "pkg")
-	os.MkdirAll(projDir, 0755)
 
-	os.WriteFile(filepath.Join(projDir, "2024.jsonl"), []byte(`{}`+"\n"), 0644)
+	writeTestRaw(t, metricsPath(dir, "cran", "pkg", "2024"), []string{`{}`})
 
 	got, err := LastDate(dir, "cran", "pkg")
 	if err != nil {
@@ -153,11 +138,9 @@ func TestLastDateEmpty(t *testing.T) {
 
 func TestLastDateMixed(t *testing.T) {
 	dir := t.TempDir()
-	projDir := filepath.Join(dir, "events", "github", "proj")
-	os.MkdirAll(projDir, 0755)
 
 	for _, name := range []string{"2024.jsonl", "2025-01.jsonl", "2025-02-15.jsonl"} {
-		os.WriteFile(filepath.Join(projDir, name), []byte(`{}`+"\n"), 0644)
+		writeTestRaw(t, eventsPath(dir, "github", "proj", name), []string{`{}`})
 	}
 
 	got, err := LastDate(dir, "github", "proj")

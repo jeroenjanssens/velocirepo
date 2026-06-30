@@ -1,36 +1,12 @@
 package cmd
 
 import (
-	"bytes"
 	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"github.com/spf13/cobra"
 )
-
-func setupTestConfig(t *testing.T, content string) string {
-	t.Helper()
-	dir := t.TempDir()
-	cfgPath := filepath.Join(dir, "velocirepo.toml")
-	if err := os.WriteFile(cfgPath, []byte(content), 0644); err != nil {
-		t.Fatal(err)
-	}
-	return cfgPath
-}
-
-func execCmd(cfgPath string, args ...string) (*cobra.Command, *bytes.Buffer, error) {
-	rootCmd := newRootCmd()
-	buf := new(bytes.Buffer)
-	rootCmd.SetOut(buf)
-	rootCmd.SetErr(buf)
-	fullArgs := append([]string{"--config", cfgPath}, args...)
-	rootCmd.SetArgs(fullArgs)
-	err := rootCmd.Execute()
-	return rootCmd, buf, err
-}
 
 func TestProjectListTable(t *testing.T) {
 	cfgPath := setupTestConfig(t, `[projects.alpha]
@@ -48,12 +24,8 @@ pypi = "beta-pkg"
 	}
 
 	output := buf.String()
-	if !strings.Contains(output, "alpha") {
-		t.Errorf("output missing 'alpha': %s", output)
-	}
-	if !strings.Contains(output, "beta") {
-		t.Errorf("output missing 'beta': %s", output)
-	}
+	assertContains(t, output, "alpha")
+	assertContains(t, output, "beta")
 }
 
 func TestProjectListJSON(t *testing.T) {
@@ -110,9 +82,7 @@ dir = "data"
 		t.Fatal(err)
 	}
 
-	if !strings.Contains(buf.String(), "No projects") {
-		t.Errorf("expected 'No projects' message, got: %s", buf.String())
-	}
+	assertContains(t, buf.String(), "No projects")
 }
 
 func TestProjectAddWithFlags(t *testing.T) {
@@ -125,17 +95,10 @@ dir = "data"
 		t.Fatal(err)
 	}
 
-	data, _ := os.ReadFile(cfgPath)
-	content := string(data)
-	if !strings.Contains(content, "[projects.myproj]") {
-		t.Error("project section not added")
-	}
-	if !strings.Contains(content, `github = "org/myproj"`) {
-		t.Error("github field missing")
-	}
-	if !strings.Contains(content, `pypi = "myproj"`) {
-		t.Error("pypi field missing")
-	}
+	content := readFileString(t, cfgPath)
+	assertContains(t, content, "[projects.myproj]")
+	assertContains(t, content, `github = "org/myproj"`)
+	assertContains(t, content, `pypi = "myproj"`)
 }
 
 func TestProjectAddDuplicate(t *testing.T) {
@@ -187,14 +150,9 @@ github ="org/beta"
 		t.Fatal(err)
 	}
 
-	data, _ := os.ReadFile(cfgPath)
-	content := string(data)
-	if strings.Contains(content, "alpha") {
-		t.Error("alpha still present after removal")
-	}
-	if !strings.Contains(content, "[projects.beta]") {
-		t.Error("beta should still exist")
-	}
+	content := readFileString(t, cfgPath)
+	assertNotContains(t, content, "alpha")
+	assertContains(t, content, "[projects.beta]")
 }
 
 func TestProjectRemoveNotFound(t *testing.T) {
@@ -210,20 +168,19 @@ github ="org/alpha"
 }
 
 func TestProjectRemoveWithDeleteData(t *testing.T) {
-	dir := t.TempDir()
-	cfgPath := filepath.Join(dir, "velocirepo.toml")
-	os.WriteFile(cfgPath, []byte(`[data]
+	cfgPath := setupTestConfig(t, `[data]
 dir = "data"
 
 [projects.alpha]
 name = "Alpha"
 github ="org/alpha"
-`), 0644)
+`)
+	dir := filepath.Dir(cfgPath)
 
 	dataDir := filepath.Join(dir, "data", "events", "github", "alpha")
 	os.MkdirAll(dataDir, 0755)
-	os.WriteFile(filepath.Join(dataDir, "2025-01-01.jsonl"), []byte(`{}`), 0644)
-	os.WriteFile(filepath.Join(dir, "data", ".schema-version"), []byte("5\n"), 0644)
+	writeTempFile(t, dataDir, "2025-01-01.jsonl", `{}`)
+	writeTempFile(t, filepath.Join(dir, "data"), ".schema-version", "5\n")
 
 	_, _, err := execCmd(cfgPath, "remove-project", "alpha", "--force", "--delete-data")
 	if err != nil {
@@ -246,14 +203,9 @@ github ="org/alpha"
 		t.Fatal(err)
 	}
 
-	data, _ := os.ReadFile(cfgPath)
-	content := string(data)
-	if !strings.Contains(content, `pypi = "alpha-pkg"`) {
-		t.Errorf("pypi not added:\n%s", content)
-	}
-	if !strings.Contains(content, `github ="org/alpha"`) {
-		t.Error("github field lost")
-	}
+	content := readFileString(t, cfgPath)
+	assertContains(t, content, `pypi = "alpha-pkg"`)
+	assertContains(t, content, `github ="org/alpha"`)
 }
 
 func TestProjectUpdateUnset(t *testing.T) {
@@ -268,11 +220,8 @@ pypi = "alpha"
 		t.Fatal(err)
 	}
 
-	data, _ := os.ReadFile(cfgPath)
-	content := string(data)
-	if strings.Contains(content, "pypi") {
-		t.Errorf("pypi still present:\n%s", content)
-	}
+	content := readFileString(t, cfgPath)
+	assertNotContains(t, content, "pypi")
 }
 
 func TestProjectUpdateNotFound(t *testing.T) {
@@ -288,21 +237,19 @@ github ="org/alpha"
 }
 
 func TestProjectShow(t *testing.T) {
-	dir := t.TempDir()
-	cfgPath := filepath.Join(dir, "velocirepo.toml")
-	os.WriteFile(cfgPath, []byte(`[data]
+	cfgPath := setupTestConfig(t, `[data]
 dir = "data"
 
 [projects.alpha]
 name = "Alpha"
 github ="org/alpha"
-`), 0644)
+`)
+	dir := filepath.Dir(cfgPath)
 
 	dataDir := filepath.Join(dir, "data", "events", "github", "alpha")
 	os.MkdirAll(dataDir, 0755)
-	os.WriteFile(filepath.Join(dataDir, "2025-01-01.jsonl"),
-		[]byte(`{"source":"github","event_type":"star","project_id":"alpha","github_repo":"org/alpha","datetime":"2025-01-01T10:00:00Z","user":"alice"}`+"\n"), 0644)
-	os.WriteFile(filepath.Join(dir, "data", ".schema-version"), []byte("5\n"), 0644)
+	writeTempFile(t, dataDir, "2025-01-01.jsonl", `{"source":"github","event_type":"star","project_id":"alpha","github_repo":"org/alpha","datetime":"2025-01-01T10:00:00Z","user":"alice"}`+"\n")
+	writeTempFile(t, filepath.Join(dir, "data"), ".schema-version", "5\n")
 
 	_, buf, err := execCmd(cfgPath, "show-project", "alpha")
 	if err != nil {
@@ -310,12 +257,8 @@ github ="org/alpha"
 	}
 
 	output := buf.String()
-	if !strings.Contains(output, "Alpha") {
-		t.Errorf("output missing project name: %s", output)
-	}
-	if !strings.Contains(output, "2025-01-01") {
-		t.Errorf("output missing last date: %s", output)
-	}
+	assertContains(t, output, "Alpha")
+	assertContains(t, output, "2025-01-01")
 }
 
 func TestProjectShowNotFound(t *testing.T) {
@@ -331,15 +274,13 @@ github ="org/alpha"
 }
 
 func TestProjectShowJSON(t *testing.T) {
-	dir := t.TempDir()
-	cfgPath := filepath.Join(dir, "velocirepo.toml")
-	os.WriteFile(cfgPath, []byte(`[data]
+	cfgPath := setupTestConfig(t, `[data]
 dir = "data"
 
 [projects.alpha]
 name = "Alpha"
 github ="org/alpha"
-`), 0644)
+`)
 
 	_, buf, err := execCmd(cfgPath, "show-project", "alpha", "--json")
 	if err != nil {
@@ -356,43 +297,35 @@ github ="org/alpha"
 }
 
 func TestProjectRename(t *testing.T) {
-	dir := t.TempDir()
-	cfgPath := filepath.Join(dir, "velocirepo.toml")
-	os.WriteFile(cfgPath, []byte(`[data]
+	cfgPath := setupTestConfig(t, `[data]
 dir = "data"
 
 [projects.old-name]
 name = "Old"
 github ="org/old"
-`), 0644)
+`)
+	dir := filepath.Dir(cfgPath)
 
 	dataDir := filepath.Join(dir, "data", "events", "github", "old-name")
 	os.MkdirAll(dataDir, 0755)
-	os.WriteFile(filepath.Join(dataDir, "2025-01-01.jsonl"), []byte(`{"source":"github","type":"star","project_id":"old-name","target":"org/old","datetime":"2025-01-01T00:00:00Z"}`+"\n"), 0644)
-	os.WriteFile(filepath.Join(dir, "data", ".schema-version"), []byte("5\n"), 0644)
+	writeTempFile(t, dataDir, "2025-01-01.jsonl", `{"source":"github","type":"star","project_id":"old-name","target":"org/old","datetime":"2025-01-01T00:00:00Z"}`+"\n")
+	writeTempFile(t, filepath.Join(dir, "data"), ".schema-version", "5\n")
 
 	_, _, err := execCmd(cfgPath, "rename-project", "old-name", "new-name")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	data, _ := os.ReadFile(cfgPath)
-	content := string(data)
-	if strings.Contains(content, "old-name") {
-		t.Error("old name still in config")
-	}
-	if !strings.Contains(content, "[projects.new-name]") {
-		t.Error("new name not in config")
-	}
+	content := readFileString(t, cfgPath)
+	assertNotContains(t, content, "old-name")
+	assertContains(t, content, "[projects.new-name]")
 
 	newDataDir := filepath.Join(dir, "data", "events", "github", "new-name")
 	if _, err := os.Stat(newDataDir); os.IsNotExist(err) {
 		t.Error("data directory not moved")
 	}
-	renamedData, _ := os.ReadFile(filepath.Join(newDataDir, "2025-01-01.jsonl"))
-	if !strings.Contains(string(renamedData), `"project_id":"new-name"`) {
-		t.Errorf("project_id not rewritten in renamed data: %s", renamedData)
-	}
+	renamedData := readFileString(t, filepath.Join(newDataDir, "2025-01-01.jsonl"))
+	assertContains(t, renamedData, `"project_id":"new-name"`)
 	if _, err := os.Stat(dataDir); !os.IsNotExist(err) {
 		t.Error("old data directory still exists")
 	}
@@ -439,107 +372,83 @@ github ="org/beta"
 }
 
 func TestProjectImportFromJSON(t *testing.T) {
-	dir := t.TempDir()
-	cfgPath := filepath.Join(dir, "velocirepo.toml")
-	os.WriteFile(cfgPath, []byte(`[data]
+	cfgPath := setupTestConfig(t, `[data]
 dir = "data"
-`), 0644)
+`)
+	dir := filepath.Dir(cfgPath)
 
-	importFile := filepath.Join(dir, "projects.json")
-	os.WriteFile(importFile, []byte(`[
+	importFile := writeTempFile(t, dir, "projects.json", `[
 		{"id": "proj-a", "github": "org/proj-a"},
 		{"id": "proj-b", "github": "org/proj-b", "pypi": "proj-b"}
-	]`), 0644)
+	]`)
 
 	_, _, err := execCmd(cfgPath, "import-projects", "--from-file", importFile, "--yes")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	data, _ := os.ReadFile(cfgPath)
-	content := string(data)
-	if !strings.Contains(content, "[projects.proj-a]") {
-		t.Error("proj-a not added")
-	}
-	if !strings.Contains(content, "[projects.proj-b]") {
-		t.Error("proj-b not added")
-	}
-	if !strings.Contains(content, `pypi = "proj-b"`) {
-		t.Error("pypi field missing for proj-b")
-	}
+	content := readFileString(t, cfgPath)
+	assertContains(t, content, "[projects.proj-a]")
+	assertContains(t, content, "[projects.proj-b]")
+	assertContains(t, content, `pypi = "proj-b"`)
 }
 
 func TestProjectImportFromCSV(t *testing.T) {
-	dir := t.TempDir()
-	cfgPath := filepath.Join(dir, "velocirepo.toml")
-	os.WriteFile(cfgPath, []byte(`[data]
+	cfgPath := setupTestConfig(t, `[data]
 dir = "data"
-`), 0644)
+`)
+	dir := filepath.Dir(cfgPath)
 
-	importFile := filepath.Join(dir, "projects.csv")
-	os.WriteFile(importFile, []byte("id,name,github,pypi\nmy-proj,My Project,org/my-proj,my-proj\n"), 0644)
+	importFile := writeTempFile(t, dir, "projects.csv", "id,name,github,pypi\nmy-proj,My Project,org/my-proj,my-proj\n")
 
 	_, _, err := execCmd(cfgPath, "import-projects", "--from-file", importFile, "--yes")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	data, _ := os.ReadFile(cfgPath)
-	content := string(data)
-	if !strings.Contains(content, "[projects.my-proj]") {
-		t.Error("project not added from CSV")
-	}
+	content := readFileString(t, cfgPath)
+	assertContains(t, content, "[projects.my-proj]")
 }
 
 func TestProjectImportDryRun(t *testing.T) {
-	dir := t.TempDir()
-	cfgPath := filepath.Join(dir, "velocirepo.toml")
-	os.WriteFile(cfgPath, []byte(`[data]
+	cfgPath := setupTestConfig(t, `[data]
 dir = "data"
-`), 0644)
+`)
+	dir := filepath.Dir(cfgPath)
 
-	importFile := filepath.Join(dir, "projects.json")
-	os.WriteFile(importFile, []byte(`[{"id": "proj-a", "github": "org/proj-a"}]`), 0644)
+	importFile := writeTempFile(t, dir, "projects.json", `[{"id": "proj-a", "github": "org/proj-a"}]`)
 
 	_, _, err := execCmd(cfgPath, "import-projects", "--from-file", importFile, "--dry-run")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	data, _ := os.ReadFile(cfgPath)
-	content := string(data)
-	if strings.Contains(content, "proj-a") {
-		t.Error("dry-run should not modify config")
-	}
+	content := readFileString(t, cfgPath)
+	assertNotContains(t, content, "proj-a")
 }
 
 func TestProjectImportSkipExisting(t *testing.T) {
-	dir := t.TempDir()
-	cfgPath := filepath.Join(dir, "velocirepo.toml")
-	os.WriteFile(cfgPath, []byte(`[data]
+	cfgPath := setupTestConfig(t, `[data]
 dir = "data"
 
 [projects.existing]
 name = "Existing"
 github ="org/existing"
-`), 0644)
+`)
+	dir := filepath.Dir(cfgPath)
 
-	importFile := filepath.Join(dir, "projects.json")
-	os.WriteFile(importFile, []byte(`[
+	importFile := writeTempFile(t, dir, "projects.json", `[
 		{"id": "existing", "github": "org/existing"},
 		{"id": "new-proj", "github": "org/new-proj"}
-	]`), 0644)
+	]`)
 
 	_, _, err := execCmd(cfgPath, "import-projects", "--from-file", importFile, "--skip-existing", "--yes")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	data, _ := os.ReadFile(cfgPath)
-	content := string(data)
-	if !strings.Contains(content, "[projects.new-proj]") {
-		t.Error("new-proj should have been added")
-	}
+	content := readFileString(t, cfgPath)
+	assertContains(t, content, "[projects.new-proj]")
 }
 
 func TestProjectInitCreatesConfig(t *testing.T) {
@@ -552,14 +461,8 @@ func TestProjectInitCreatesConfig(t *testing.T) {
 	}
 
 	cfgPath := filepath.Join(dir, "velocirepo.toml")
-	data, err := os.ReadFile(cfgPath)
-	if err != nil {
-		t.Fatal("config file not created")
-	}
-	content := string(data)
-	if !strings.Contains(content, `dir = "velocirepo/data"`) {
-		t.Errorf("missing data dir in config:\n%s", content)
-	}
+	content := readFileString(t, cfgPath)
+	assertContains(t, content, `dir = "velocirepo/data"`)
 
 	dataDir := filepath.Join(dir, "velocirepo/data")
 	if _, err := os.Stat(dataDir); os.IsNotExist(err) {
@@ -569,7 +472,7 @@ func TestProjectInitCreatesConfig(t *testing.T) {
 
 func TestProjectInitAlreadyExists(t *testing.T) {
 	dir := t.TempDir()
-	os.WriteFile(filepath.Join(dir, "velocirepo.toml"), []byte("[data]\n"), 0644)
+	writeTempFile(t, dir, "velocirepo.toml", "[data]\n")
 
 	rootCmd := newRootCmd()
 	rootCmd.SetArgs([]string{"init", "--dir", dir})

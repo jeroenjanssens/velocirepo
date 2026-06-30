@@ -49,9 +49,9 @@ func TestGitHubEventsFetchStargazers(t *testing.T) {
 	],"pageInfo":{"hasNextPage":false,"endCursor":"c1"}}}}}`
 
 	srv := httptest.NewServer(graphqlHandler(map[string]string{
-		"stargazers": resp,
-		"forks":      `{"data":{"repository":{"forks":{"nodes":[],"pageInfo":{"hasNextPage":false,"endCursor":""}}}}}`,
-		"issues":     `{"data":{"repository":{"issues":{"nodes":[],"pageInfo":{"hasNextPage":false,"endCursor":""}}}}}`,
+		"stargazers":   resp,
+		"forks":        `{"data":{"repository":{"forks":{"nodes":[],"pageInfo":{"hasNextPage":false,"endCursor":""}}}}}`,
+		"issues":       `{"data":{"repository":{"issues":{"nodes":[],"pageInfo":{"hasNextPage":false,"endCursor":""}}}}}`,
 		"pullRequests": `{"data":{"repository":{"pullRequests":{"nodes":[],"pageInfo":{"hasNextPage":false,"endCursor":""}}}}}`,
 	}))
 	defer srv.Close()
@@ -63,11 +63,7 @@ func TestGitHubEventsFetchStargazers(t *testing.T) {
 		BaseURL: srv.URL,
 	}
 
-	events, err := g.FetchEvents(context.Background(), FetchOptions{
-		ProjectID: "my-project",
-		StartDate: time.Date(2025, 6, 10, 0, 0, 0, 0, time.UTC),
-		EndDate:   time.Date(2025, 6, 10, 0, 0, 0, 0, time.UTC),
-	})
+	events, err := g.FetchEvents(context.Background(), juneFetchOptions("my-project", 10, 10))
 	if err != nil {
 		t.Fatalf("FetchEvents failed: %v", err)
 	}
@@ -109,11 +105,7 @@ func TestGitHubEventsFetchAllTypes(t *testing.T) {
 		BaseURL: srv.URL,
 	}
 
-	events, err := g.FetchEvents(context.Background(), FetchOptions{
-		ProjectID: "my-project",
-		StartDate: time.Date(2025, 6, 10, 0, 0, 0, 0, time.UTC),
-		EndDate:   time.Date(2025, 6, 10, 0, 0, 0, 0, time.UTC),
-	})
+	events, err := g.FetchEvents(context.Background(), juneFetchOptions("my-project", 10, 10))
 	if err != nil {
 		t.Fatalf("FetchEvents failed: %v", err)
 	}
@@ -171,11 +163,7 @@ func TestGitHubEventsDateFiltering(t *testing.T) {
 		BaseURL: srv.URL,
 	}
 
-	events, err := g.FetchEvents(context.Background(), FetchOptions{
-		ProjectID: "test",
-		StartDate: time.Date(2025, 6, 9, 0, 0, 0, 0, time.UTC),
-		EndDate:   time.Date(2025, 6, 11, 0, 0, 0, 0, time.UTC),
-	})
+	events, err := g.FetchEvents(context.Background(), juneFetchOptions("test", 9, 11))
 	if err != nil {
 		t.Fatalf("FetchEvents failed: %v", err)
 	}
@@ -228,11 +216,7 @@ func TestGitHubEventsPagination(t *testing.T) {
 		BaseURL: srv.URL,
 	}
 
-	events, err := g.FetchEvents(context.Background(), FetchOptions{
-		ProjectID: "test",
-		StartDate: time.Date(2025, 6, 10, 0, 0, 0, 0, time.UTC),
-		EndDate:   time.Date(2025, 6, 10, 0, 0, 0, 0, time.UTC),
-	})
+	events, err := g.FetchEvents(context.Background(), juneFetchOptions("test", 10, 10))
 	if err != nil {
 		t.Fatalf("FetchEvents failed: %v", err)
 	}
@@ -251,20 +235,15 @@ func TestGitHubEventsInvalidRepo(t *testing.T) {
 		Repo:   "invalid",
 	}
 
-	_, err := g.FetchEvents(context.Background(), FetchOptions{
-		ProjectID: "test",
-		StartDate: time.Now(),
-		EndDate:   time.Now(),
-	})
+	_, err := g.FetchEvents(context.Background(), fetchOptions("test", time.Now(), time.Now()))
 	if err == nil {
 		t.Fatal("expected error for invalid repo")
 	}
 }
 
 func TestGitHubEventsAuthHeader(t *testing.T) {
-	var gotAuth string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		gotAuth = r.Header.Get("Authorization")
+		assertBearerToken(t, r, "my-secret-token")
 		w.Write([]byte(`{"data":{"repository":{"stargazers":{"edges":[],"pageInfo":{"hasNextPage":false,"endCursor":""}},"forks":{"nodes":[],"pageInfo":{"hasNextPage":false,"endCursor":""}},"issues":{"nodes":[],"pageInfo":{"hasNextPage":false,"endCursor":""}},"pullRequests":{"nodes":[],"pageInfo":{"hasNextPage":false,"endCursor":""}}}}}`))
 	}))
 	defer srv.Close()
@@ -276,22 +255,14 @@ func TestGitHubEventsAuthHeader(t *testing.T) {
 		BaseURL: srv.URL,
 	}
 
-	g.FetchEvents(context.Background(), FetchOptions{
-		ProjectID: "test",
-		StartDate: time.Now().AddDate(0, 0, -7),
-		EndDate:   time.Now(),
-	})
-
-	if gotAuth != "Bearer my-secret-token" {
-		t.Errorf("Authorization = %q, want %q", gotAuth, "Bearer my-secret-token")
-	}
+	g.FetchEvents(context.Background(), fetchOptions("test", time.Now().AddDate(0, 0, -7), time.Now()))
 }
 
 func TestGitHubEventsPRNotMerged(t *testing.T) {
 	responses := map[string]string{
-		"stargazers":   `{"data":{"repository":{"stargazers":{"edges":[],"pageInfo":{"hasNextPage":false,"endCursor":""}}}}}`,
-		"forks":        `{"data":{"repository":{"forks":{"nodes":[],"pageInfo":{"hasNextPage":false,"endCursor":""}}}}}`,
-		"issues":       `{"data":{"repository":{"issues":{"nodes":[],"pageInfo":{"hasNextPage":false,"endCursor":""}}}}}`,
+		"stargazers": `{"data":{"repository":{"stargazers":{"edges":[],"pageInfo":{"hasNextPage":false,"endCursor":""}}}}}`,
+		"forks":      `{"data":{"repository":{"forks":{"nodes":[],"pageInfo":{"hasNextPage":false,"endCursor":""}}}}}`,
+		"issues":     `{"data":{"repository":{"issues":{"nodes":[],"pageInfo":{"hasNextPage":false,"endCursor":""}}}}}`,
 		"pullRequests": `{"data":{"repository":{"pullRequests":{"nodes":[
 			{"createdAt":"2025-06-10T10:00:00Z","closedAt":"2025-06-10T12:00:00Z","mergedAt":null,"author":{"login":"alice"}}
 		],"pageInfo":{"hasNextPage":false,"endCursor":""}}}}}`,
@@ -306,11 +277,7 @@ func TestGitHubEventsPRNotMerged(t *testing.T) {
 		BaseURL: srv.URL,
 	}
 
-	events, err := g.FetchEvents(context.Background(), FetchOptions{
-		ProjectID: "test",
-		StartDate: time.Date(2025, 6, 10, 0, 0, 0, 0, time.UTC),
-		EndDate:   time.Date(2025, 6, 10, 0, 0, 0, 0, time.UTC),
-	})
+	events, err := g.FetchEvents(context.Background(), juneFetchOptions("test", 10, 10))
 	if err != nil {
 		t.Fatalf("FetchEvents failed: %v", err)
 	}
@@ -342,11 +309,7 @@ func TestGitHubEventsIssueCloseOutOfRange(t *testing.T) {
 		BaseURL: srv.URL,
 	}
 
-	events, err := g.FetchEvents(context.Background(), FetchOptions{
-		ProjectID: "test",
-		StartDate: time.Date(2025, 6, 10, 0, 0, 0, 0, time.UTC),
-		EndDate:   time.Date(2025, 6, 11, 0, 0, 0, 0, time.UTC),
-	})
+	events, err := g.FetchEvents(context.Background(), juneFetchOptions("test", 10, 11))
 	if err != nil {
 		t.Fatalf("FetchEvents failed: %v", err)
 	}
@@ -371,11 +334,7 @@ func TestGitHubEventsGraphQLError(t *testing.T) {
 		BaseURL: srv.URL,
 	}
 
-	_, err := g.FetchEvents(context.Background(), FetchOptions{
-		ProjectID: "test",
-		StartDate: time.Now(),
-		EndDate:   time.Now(),
-	})
+	_, err := g.FetchEvents(context.Background(), fetchOptions("test", time.Now(), time.Now()))
 	if err == nil {
 		t.Fatal("expected error for GraphQL error response")
 	}

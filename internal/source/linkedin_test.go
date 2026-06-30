@@ -6,16 +6,13 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 )
 
 func TestLinkedInFetchOrganization(t *testing.T) {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/rest/posts", func(w http.ResponseWriter, r *http.Request) {
-		if got := r.Header.Get("Authorization"); got != "Bearer test-token" {
-			t.Errorf("Authorization = %q, want %q", got, "Bearer test-token")
-		}
+		assertBearerToken(t, r, "test-token")
 		if got := r.Header.Get("LinkedIn-Version"); got != "202406" {
 			t.Errorf("LinkedIn-Version = %q, want %q", got, "202406")
 		}
@@ -77,19 +74,13 @@ func TestLinkedInFetchOrganization(t *testing.T) {
 		BaseURL: srv.URL,
 	}
 
-	records, err := li.Fetch(context.Background(), FetchOptions{
-		ProjectID: "my-project",
-		StartDate: time.Date(2025, 6, 1, 0, 0, 0, 0, time.UTC),
-		EndDate:   time.Date(2025, 6, 30, 0, 0, 0, 0, time.UTC),
-	})
+	records, err := li.Fetch(context.Background(), juneFetchOptions("my-project", 1, 30))
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// 5 metrics per post * 2 posts + 1 follower count = 11
-	if len(records) != 11 {
-		t.Fatalf("expected 11 records, got %d", len(records))
-	}
+	assertRecordCount(t, records, 11)
 
 	// Verify first post metrics
 	if records[0].Metric != "total_impressions" {
@@ -183,11 +174,7 @@ func TestLinkedInFetchPagination(t *testing.T) {
 		BaseURL: srv.URL,
 	}
 
-	_, err := li.Fetch(context.Background(), FetchOptions{
-		ProjectID: "proj",
-		StartDate: time.Date(2025, 6, 1, 0, 0, 0, 0, time.UTC),
-		EndDate:   time.Date(2025, 6, 30, 0, 0, 0, 0, time.UTC),
-	})
+	_, err := li.Fetch(context.Background(), juneFetchOptions("proj", 1, 30))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -236,19 +223,13 @@ func TestLinkedInPersonalNoFollowers(t *testing.T) {
 		BaseURL: srv.URL,
 	}
 
-	records, err := li.Fetch(context.Background(), FetchOptions{
-		ProjectID: "proj",
-		StartDate: time.Date(2025, 6, 1, 0, 0, 0, 0, time.UTC),
-		EndDate:   time.Date(2025, 6, 30, 0, 0, 0, 0, time.UTC),
-	})
+	records, err := li.Fetch(context.Background(), juneFetchOptions("proj", 1, 30))
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// 5 metrics for 1 post, no follower count (personal profile)
-	if len(records) != 5 {
-		t.Fatalf("expected 5 records (no followers for person), got %d", len(records))
-	}
+	assertRecordCount(t, records, 5)
 }
 
 func TestLinkedInTitleTruncation(t *testing.T) {
@@ -284,11 +265,7 @@ func TestLinkedInAPIError(t *testing.T) {
 		BaseURL: srv.URL,
 	}
 
-	_, err := li.Fetch(context.Background(), FetchOptions{
-		ProjectID: "proj",
-		StartDate: time.Date(2025, 6, 1, 0, 0, 0, 0, time.UTC),
-		EndDate:   time.Date(2025, 6, 30, 0, 0, 0, 0, time.UTC),
-	})
+	_, err := li.Fetch(context.Background(), juneFetchOptions("proj", 1, 30))
 	if err == nil {
 		t.Fatal("expected error for 401 response")
 	}

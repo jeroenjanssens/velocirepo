@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 )
 
 func TestPlausibleFetch(t *testing.T) {
@@ -15,9 +14,7 @@ func TestPlausibleFetch(t *testing.T) {
 		if r.Method != "POST" {
 			t.Errorf("expected POST, got %s", r.Method)
 		}
-		if r.Header.Get("Authorization") != "Bearer test-key" {
-			t.Errorf("missing or wrong Authorization header")
-		}
+		assertBearerToken(t, r, "test-key")
 
 		callCount++
 		var resp interface{}
@@ -50,20 +47,14 @@ func TestPlausibleFetch(t *testing.T) {
 		BaseURL: server.URL,
 	}
 
-	records, err := p.Fetch(context.Background(), FetchOptions{
-		ProjectID: "mysite",
-		StartDate: time.Date(2025, 6, 1, 0, 0, 0, 0, time.UTC),
-		EndDate:   time.Date(2025, 6, 2, 0, 0, 0, 0, time.UTC),
-	})
+	records, err := p.Fetch(context.Background(), juneFetchOptions("mysite", 1, 2))
 	if err != nil {
 		t.Fatalf("Fetch failed: %v", err)
 	}
 
 	// Site: 2 days * 3 metrics = 6
 	// Pages: 3 rows * 3 metrics = 9
-	if len(records) != 15 {
-		t.Fatalf("got %d records, want 15", len(records))
-	}
+	assertRecordCount(t, records, 15)
 
 	sitePageviews := filterByMetric(records, "daily_site_pageviews")
 	if len(sitePageviews) != 2 {
@@ -142,20 +133,14 @@ func TestPlausiblePagination(t *testing.T) {
 		BaseURL: server.URL,
 	}
 
-	records, err := p.Fetch(context.Background(), FetchOptions{
-		ProjectID: "mysite",
-		StartDate: time.Date(2025, 6, 1, 0, 0, 0, 0, time.UTC),
-		EndDate:   time.Date(2025, 6, 1, 0, 0, 0, 0, time.UTC),
-	})
+	records, err := p.Fetch(context.Background(), juneFetchOptions("mysite", 1, 1))
 	if err != nil {
 		t.Fatalf("Fetch failed: %v", err)
 	}
 
 	// Site: 1 day * 3 metrics = 3
 	// Pages: 3 rows * 3 metrics = 9
-	if len(records) != 12 {
-		t.Fatalf("got %d records, want 12", len(records))
-	}
+	assertRecordCount(t, records, 12)
 
 	pagePageviews := filterByMetric(records, "daily_pageviews")
 	if len(pagePageviews) != 3 {
@@ -180,11 +165,7 @@ func TestPlausibleAPIError(t *testing.T) {
 		BaseURL: server.URL,
 	}
 
-	_, err := p.Fetch(context.Background(), FetchOptions{
-		ProjectID: "mysite",
-		StartDate: time.Date(2025, 6, 1, 0, 0, 0, 0, time.UTC),
-		EndDate:   time.Date(2025, 6, 1, 0, 0, 0, 0, time.UTC),
-	})
+	_, err := p.Fetch(context.Background(), juneFetchOptions("mysite", 1, 1))
 	if err == nil {
 		t.Fatal("expected error for 401 response")
 	}

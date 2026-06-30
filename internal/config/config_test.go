@@ -4,11 +4,11 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/jeroenjanssens/velocirepo/internal/testutil"
 )
 
 func TestLoadSingleProject(t *testing.T) {
-	dir := t.TempDir()
-	cfgPath := filepath.Join(dir, "velocirepo.toml")
 	content := `
 [data]
 dir = "metrics"
@@ -18,9 +18,8 @@ name = "My Project"
 github ="owner/repo"
 pypi = "my-project"
 `
-	if err := os.WriteFile(cfgPath, []byte(content), 0644); err != nil {
-		t.Fatal(err)
-	}
+	cfgPath := testutil.WriteConfig(t, content)
+	dir := filepath.Dir(cfgPath)
 
 	cfg, err := Load(cfgPath)
 	if err != nil {
@@ -55,8 +54,6 @@ pypi = "my-project"
 }
 
 func TestLoadMultiProject(t *testing.T) {
-	dir := t.TempDir()
-	cfgPath := filepath.Join(dir, "velocirepo.toml")
 	content := `
 [projects.alpha]
 name = "Alpha"
@@ -68,9 +65,7 @@ name = "Beta"
 github ="org/beta"
 cran = "beta"
 `
-	if err := os.WriteFile(cfgPath, []byte(content), 0644); err != nil {
-		t.Fatal(err)
-	}
+	cfgPath := testutil.WriteConfig(t, content)
 
 	cfg, err := Load(cfgPath)
 	if err != nil {
@@ -90,8 +85,6 @@ cran = "beta"
 }
 
 func TestLoadMultiValueSources(t *testing.T) {
-	dir := t.TempDir()
-	cfgPath := filepath.Join(dir, "velocirepo.toml")
 	content := `
 [projects.my-org]
 name = "My Org"
@@ -99,9 +92,7 @@ github =["org/repo-a", "org/repo-b"]
 pypi = ["pkg-one", "pkg-two"]
 cran = "single-pkg"
 `
-	if err := os.WriteFile(cfgPath, []byte(content), 0644); err != nil {
-		t.Fatal(err)
-	}
+	cfgPath := testutil.WriteConfig(t, content)
 
 	cfg, err := Load(cfgPath)
 	if err != nil {
@@ -179,11 +170,7 @@ func TestLoadMissingFile(t *testing.T) {
 }
 
 func TestLoadInvalidTOML(t *testing.T) {
-	dir := t.TempDir()
-	cfgPath := filepath.Join(dir, "velocirepo.toml")
-	if err := os.WriteFile(cfgPath, []byte("invalid [[[toml"), 0644); err != nil {
-		t.Fatal(err)
-	}
+	cfgPath := testutil.WriteConfig(t, "invalid [[[toml")
 
 	_, err := Load(cfgPath)
 	if err == nil {
@@ -198,14 +185,11 @@ func TestDiscovery(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cfgPath := filepath.Join(dir, "velocirepo.toml")
 	content := `[projects.found]
 name = "Found"
 github = "org/found"
 `
-	if err := os.WriteFile(cfgPath, []byte(content), 0644); err != nil {
-		t.Fatal(err)
-	}
+	testutil.WriteTempFile(t, dir, "velocirepo.toml", content)
 
 	oldWd, _ := os.Getwd()
 	defer os.Chdir(oldWd)
@@ -224,15 +208,11 @@ github = "org/found"
 }
 
 func TestEnvVarOverride(t *testing.T) {
-	dir := t.TempDir()
-	cfgPath := filepath.Join(dir, "velocirepo.toml")
 	content := `[projects.envtest]
 name = "EnvTest"
 github = "org/envtest"
 `
-	if err := os.WriteFile(cfgPath, []byte(content), 0644); err != nil {
-		t.Fatal(err)
-	}
+	cfgPath := testutil.WriteConfig(t, content)
 
 	t.Setenv("VELOCIREPO_CONFIG", cfgPath)
 
@@ -247,15 +227,12 @@ github = "org/envtest"
 }
 
 func TestDefaultDataDir(t *testing.T) {
-	dir := t.TempDir()
-	cfgPath := filepath.Join(dir, "velocirepo.toml")
 	content := `[projects.test]
 name = "Test"
 github = "org/test"
 `
-	if err := os.WriteFile(cfgPath, []byte(content), 0644); err != nil {
-		t.Fatal(err)
-	}
+	cfgPath := testutil.WriteConfig(t, content)
+	dir := filepath.Dir(cfgPath)
 
 	cfg, err := Load(cfgPath)
 	if err != nil {
@@ -269,14 +246,10 @@ github = "org/test"
 }
 
 func TestNoProjects(t *testing.T) {
-	dir := t.TempDir()
-	cfgPath := filepath.Join(dir, "velocirepo.toml")
 	content := `[data]
 dir = "data"
 `
-	if err := os.WriteFile(cfgPath, []byte(content), 0644); err != nil {
-		t.Fatal(err)
-	}
+	cfgPath := testutil.WriteConfig(t, content)
 
 	cfg, err := Load(cfgPath)
 	if err != nil {

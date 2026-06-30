@@ -2,7 +2,6 @@ package store
 
 import (
 	"os"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -11,7 +10,6 @@ import (
 
 func TestAggregateDailyToMonthly(t *testing.T) {
 	dir := t.TempDir()
-	projDir := filepath.Join(dir, "metrics", "pypi", "mylib")
 
 	// Create 3 daily files for January 2025
 	for day := 1; day <= 3; day++ {
@@ -31,7 +29,7 @@ func TestAggregateDailyToMonthly(t *testing.T) {
 	}
 
 	// Monthly file should exist
-	monthlyPath := filepath.Join(projDir, "2025-01.jsonl")
+	monthlyPath := metricsPath(dir, "pypi", "mylib", "2025-01")
 	if _, err := os.Stat(monthlyPath); err != nil {
 		t.Fatalf("monthly file not created: %s", monthlyPath)
 	}
@@ -39,7 +37,7 @@ func TestAggregateDailyToMonthly(t *testing.T) {
 	// Daily files should be deleted
 	for day := 1; day <= 3; day++ {
 		date := time.Date(2025, 1, day, 0, 0, 0, 0, time.UTC).Format("2006-01-02")
-		dailyPath := filepath.Join(projDir, date+".jsonl")
+		dailyPath := metricsPath(dir, "pypi", "mylib", date)
 		if _, err := os.Stat(dailyPath); !os.IsNotExist(err) {
 			t.Errorf("daily file not deleted: %s", dailyPath)
 		}
@@ -57,7 +55,6 @@ func TestAggregateDailyToMonthly(t *testing.T) {
 
 func TestAggregateSkipsIncompleteMonth(t *testing.T) {
 	dir := t.TempDir()
-	projDir := filepath.Join(dir, "metrics", "pypi", "mylib")
 
 	// Create daily files for June 2025
 	records := []source.Record{
@@ -74,13 +71,13 @@ func TestAggregateSkipsIncompleteMonth(t *testing.T) {
 	}
 
 	// Monthly file should NOT exist
-	monthlyPath := filepath.Join(projDir, "2025-06.jsonl")
+	monthlyPath := metricsPath(dir, "pypi", "mylib", "2025-06")
 	if _, err := os.Stat(monthlyPath); !os.IsNotExist(err) {
 		t.Error("monthly file should not be created for incomplete month")
 	}
 
 	// Daily file should still exist
-	dailyPath := filepath.Join(projDir, "2025-06-01.jsonl")
+	dailyPath := metricsPath(dir, "pypi", "mylib", "2025-06-01")
 	if _, err := os.Stat(dailyPath); err != nil {
 		t.Errorf("daily file should still exist: %s", dailyPath)
 	}
@@ -88,8 +85,6 @@ func TestAggregateSkipsIncompleteMonth(t *testing.T) {
 
 func TestAggregateMonthlyToYearly(t *testing.T) {
 	dir := t.TempDir()
-	projDir := filepath.Join(dir, "metrics", "cran", "pkg")
-	os.MkdirAll(projDir, 0755)
 
 	// Create monthly files for 2024
 	for month := 1; month <= 3; month++ {
@@ -98,9 +93,7 @@ func TestAggregateMonthlyToYearly(t *testing.T) {
 			{Metric: "downloads", ProjectID: "pkg", Date: date, Value: int64(month * 1000)},
 		}
 		monthStr := time.Date(2024, time.Month(month), 1, 0, 0, 0, 0, time.UTC).Format("2006-01")
-		if err := writeFileAtomic(filepath.Join(projDir, monthStr+".jsonl"), records); err != nil {
-			t.Fatal(err)
-		}
+		writeTestRecords(t, metricsPath(dir, "cran", "pkg", monthStr), records...)
 	}
 
 	// Run aggregate with "now" being 2025 (2024 is complete)
@@ -110,7 +103,7 @@ func TestAggregateMonthlyToYearly(t *testing.T) {
 	}
 
 	// Yearly file should exist
-	yearlyPath := filepath.Join(projDir, "2024.jsonl")
+	yearlyPath := metricsPath(dir, "cran", "pkg", "2024")
 	if _, err := os.Stat(yearlyPath); err != nil {
 		t.Fatalf("yearly file not created: %s", yearlyPath)
 	}
@@ -118,7 +111,7 @@ func TestAggregateMonthlyToYearly(t *testing.T) {
 	// Monthly files should be deleted
 	for month := 1; month <= 3; month++ {
 		monthStr := time.Date(2024, time.Month(month), 1, 0, 0, 0, 0, time.UTC).Format("2006-01")
-		monthlyPath := filepath.Join(projDir, monthStr+".jsonl")
+		monthlyPath := metricsPath(dir, "cran", "pkg", monthStr)
 		if _, err := os.Stat(monthlyPath); !os.IsNotExist(err) {
 			t.Errorf("monthly file not deleted: %s", monthlyPath)
 		}
@@ -135,8 +128,6 @@ func TestAggregateMonthlyToYearly(t *testing.T) {
 
 func TestAggregateDedup(t *testing.T) {
 	dir := t.TempDir()
-	projDir := filepath.Join(dir, "metrics", "pypi", "mylib")
-	os.MkdirAll(projDir, 0755)
 
 	// Write duplicate records across two daily files
 	r1 := []source.Record{
@@ -147,19 +138,15 @@ func TestAggregateDedup(t *testing.T) {
 		{Metric: "downloads", ProjectID: "mylib", Date: "2025-01-02", Value: 200},
 	}
 
-	if err := writeFileAtomic(filepath.Join(projDir, "2025-01-01.jsonl"), r1); err != nil {
-		t.Fatal(err)
-	}
-	if err := writeFileAtomic(filepath.Join(projDir, "2025-01-02.jsonl"), r2); err != nil {
-		t.Fatal(err)
-	}
+	writeTestRecords(t, metricsPath(dir, "pypi", "mylib", "2025-01-01"), r1...)
+	writeTestRecords(t, metricsPath(dir, "pypi", "mylib", "2025-01-02"), r2...)
 
 	now := time.Date(2025, 2, 5, 0, 0, 0, 0, time.UTC)
 	if err := Aggregate(dir, now); err != nil {
 		t.Fatalf("Aggregate failed: %v", err)
 	}
 
-	monthlyPath := filepath.Join(projDir, "2025-01.jsonl")
+	monthlyPath := metricsPath(dir, "pypi", "mylib", "2025-01")
 	records, err := ReadRecords(monthlyPath)
 	if err != nil {
 		t.Fatalf("ReadRecords failed: %v", err)
@@ -173,8 +160,6 @@ func TestAggregateDedup(t *testing.T) {
 
 func TestAggregateDedupWithTags(t *testing.T) {
 	dir := t.TempDir()
-	projDir := filepath.Join(dir, "metrics", "youtube", "proj")
-	os.MkdirAll(projDir, 0755)
 
 	records := []source.Record{
 		{Metric: "views", ProjectID: "proj", Date: "2025-01-01", Value: 100, Tags: map[string]string{"video_id": "a"}},
@@ -182,16 +167,14 @@ func TestAggregateDedupWithTags(t *testing.T) {
 		{Metric: "views", ProjectID: "proj", Date: "2025-01-01", Value: 100, Tags: map[string]string{"video_id": "a"}},
 	}
 
-	if err := writeFileAtomic(filepath.Join(projDir, "2025-01-01.jsonl"), records); err != nil {
-		t.Fatal(err)
-	}
+	writeTestRecords(t, metricsPath(dir, "youtube", "proj", "2025-01-01"), records...)
 
 	now := time.Date(2025, 2, 5, 0, 0, 0, 0, time.UTC)
 	if err := Aggregate(dir, now); err != nil {
 		t.Fatalf("Aggregate failed: %v", err)
 	}
 
-	monthlyPath := filepath.Join(projDir, "2025-01.jsonl")
+	monthlyPath := metricsPath(dir, "youtube", "proj", "2025-01")
 	got, err := ReadRecords(monthlyPath)
 	if err != nil {
 		t.Fatalf("ReadRecords failed: %v", err)

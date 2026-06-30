@@ -1,9 +1,9 @@
 package config
 
 import (
-	"os"
-	"path/filepath"
 	"testing"
+
+	"github.com/jeroenjanssens/velocirepo/internal/testutil"
 )
 
 func TestParseGitHubURLSSH(t *testing.T) {
@@ -66,7 +66,7 @@ func TestDetectPyPI(t *testing.T) {
 name = "great-tables"
 version = "0.1.0"
 `
-	os.WriteFile(filepath.Join(dir, "pyproject.toml"), []byte(content), 0644)
+	testutil.WriteTempFile(t, dir, "pyproject.toml", content)
 
 	result := DetectPyPI(dir)
 	if result != "great-tables" {
@@ -87,7 +87,7 @@ func TestDetectPyPINoName(t *testing.T) {
 	content := `[tool.setuptools]
 packages = ["src"]
 `
-	os.WriteFile(filepath.Join(dir, "pyproject.toml"), []byte(content), 0644)
+	testutil.WriteTempFile(t, dir, "pyproject.toml", content)
 
 	result := DetectPyPI(dir)
 	if result != "" {
@@ -102,7 +102,7 @@ Title: A Grammar of Data Manipulation
 Version: 1.1.4
 Authors@R: person("Hadley", "Wickham")
 `
-	os.WriteFile(filepath.Join(dir, "DESCRIPTION"), []byte(content), 0644)
+	testutil.WriteTempFile(t, dir, "DESCRIPTION", content)
 
 	result := DetectCRAN(dir)
 	if result != "dplyr" {
@@ -128,7 +128,7 @@ func TestDetectOpenVSX(t *testing.T) {
     "vscode": "^1.80.0"
   }
 }`
-	os.WriteFile(filepath.Join(dir, "package.json"), []byte(content), 0644)
+	testutil.WriteTempFile(t, dir, "package.json", content)
 
 	result := DetectOpenVSX(dir)
 	if result != "posit/positron" {
@@ -142,7 +142,7 @@ func TestDetectOpenVSXNoVSCode(t *testing.T) {
   "name": "my-app",
   "version": "1.0.0"
 }`
-	os.WriteFile(filepath.Join(dir, "package.json"), []byte(content), 0644)
+	testutil.WriteTempFile(t, dir, "package.json", content)
 
 	result := DetectOpenVSX(dir)
 	if result != "" {
@@ -162,14 +162,14 @@ func TestDetectAll(t *testing.T) {
 	dir := t.TempDir()
 
 	// Create pyproject.toml
-	os.WriteFile(filepath.Join(dir, "pyproject.toml"), []byte(`[project]
+	testutil.WriteTempFile(t, dir, "pyproject.toml", `[project]
 name = "my-pkg"
-`), 0644)
+`)
 
 	// Create DESCRIPTION
-	os.WriteFile(filepath.Join(dir, "DESCRIPTION"), []byte(`Package: mypkg
+	testutil.WriteTempFile(t, dir, "DESCRIPTION", `Package: mypkg
 Title: My Package
-`), 0644)
+`)
 
 	d := DetectAll(dir)
 

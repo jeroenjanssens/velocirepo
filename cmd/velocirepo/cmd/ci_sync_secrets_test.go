@@ -6,8 +6,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -17,14 +15,13 @@ import (
 
 func TestParseEnvFile(t *testing.T) {
 	dir := t.TempDir()
-	envPath := filepath.Join(dir, ".env")
-	os.WriteFile(envPath, []byte(`# comment
+	envPath := writeEnvFile(t, dir, `# comment
 PLAUSIBLE_API_KEY=abc123
 GITHUB_TOKEN="ghp_secret"
 YOUTUBE_TOKEN='yt_key'
 
 EMPTY=
-`), 0644)
+`)
 
 	secrets, err := parseEnvFile(envPath)
 	if err != nil {
@@ -71,14 +68,9 @@ func TestEncryptSecret(t *testing.T) {
 }
 
 func TestCiSyncSecretsDryRun(t *testing.T) {
-	dir := t.TempDir()
-	cfgPath := filepath.Join(dir, "velocirepo.toml")
-	os.WriteFile(cfgPath, []byte(`[data]
+	cfgPath, envPath := setupConfigAndEnv(t, `[data]
 dir = "data"
-`), 0644)
-
-	envPath := filepath.Join(dir, ".env")
-	os.WriteFile(envPath, []byte("MY_SECRET=value123\n"), 0644)
+`, "MY_SECRET=value123\n")
 
 	_, buf, err := execCmd(cfgPath, "sync-secrets", "--dry-run", "--env-file", envPath, "--repo", "owner/repo")
 	if err != nil {
@@ -86,23 +78,14 @@ dir = "data"
 	}
 
 	output := buf.String()
-	if !strings.Contains(output, "MY_SECRET") {
-		t.Errorf("output missing MY_SECRET: %s", output)
-	}
-	if !strings.Contains(output, "Would sync 1 secret") {
-		t.Errorf("unexpected output: %s", output)
-	}
+	assertContains(t, output, "MY_SECRET")
+	assertContains(t, output, "Would sync 1 secret")
 }
 
 func TestCiSyncSecretsDryRunRenamesGitHub(t *testing.T) {
-	dir := t.TempDir()
-	cfgPath := filepath.Join(dir, "velocirepo.toml")
-	os.WriteFile(cfgPath, []byte(`[data]
+	cfgPath, envPath := setupConfigAndEnv(t, `[data]
 dir = "data"
-`), 0644)
-
-	envPath := filepath.Join(dir, ".env")
-	os.WriteFile(envPath, []byte("GITHUB_TOKEN=ghp_secret\nPLAUSIBLE_TOKEN=abc\n"), 0644)
+`, "GITHUB_TOKEN=ghp_secret\nPLAUSIBLE_TOKEN=abc\n")
 
 	_, buf, err := execCmd(cfgPath, "sync-secrets", "--dry-run", "--env-file", envPath, "--repo", "owner/repo")
 	if err != nil {
@@ -110,15 +93,9 @@ dir = "data"
 	}
 
 	output := buf.String()
-	if !strings.Contains(output, "GH_TOKEN") {
-		t.Errorf("expected GITHUB_TOKEN renamed to GH_TOKEN: %s", output)
-	}
-	if strings.Contains(output, "GITHUB_TOKEN") {
-		t.Errorf("GITHUB_TOKEN should have been renamed: %s", output)
-	}
-	if !strings.Contains(output, "Would sync 2 secret") {
-		t.Errorf("unexpected output: %s", output)
-	}
+	assertContains(t, output, "GH_TOKEN")
+	assertNotContains(t, output, "GITHUB_TOKEN")
+	assertContains(t, output, "Would sync 2 secret")
 }
 
 func TestCiSyncSecretsIntegration(t *testing.T) {
@@ -155,14 +132,9 @@ func TestCiSyncSecretsIntegration(t *testing.T) {
 	githubAPIBase = server.URL
 	defer func() { githubAPIBase = oldBase }()
 
-	dir := t.TempDir()
-	cfgPath := filepath.Join(dir, "velocirepo.toml")
-	os.WriteFile(cfgPath, []byte(`[data]
+	cfgPath, envPath := setupConfigAndEnv(t, `[data]
 dir = "data"
-`), 0644)
-
-	envPath := filepath.Join(dir, ".env")
-	os.WriteFile(envPath, []byte("PLAUSIBLE_API_KEY=test123\nYOUTUBE_TOKEN=yt456\n"), 0644)
+`, "PLAUSIBLE_API_KEY=test123\nYOUTUBE_TOKEN=yt456\n")
 
 	t.Setenv("GITHUB_TOKEN", "fake-token")
 
@@ -172,9 +144,7 @@ dir = "data"
 	}
 
 	output := buf.String()
-	if !strings.Contains(output, "Synced 2 secret") {
-		t.Errorf("unexpected output: %s", output)
-	}
+	assertContains(t, output, "Synced 2 secret")
 
 	if _, ok := secretsSet["PLAUSIBLE_API_KEY"]; !ok {
 		t.Error("PLAUSIBLE_API_KEY not set")

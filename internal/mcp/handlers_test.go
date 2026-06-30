@@ -2,23 +2,18 @@ package mcp
 
 import (
 	"context"
-	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/jeroenjanssens/velocirepo/internal/config"
+	"github.com/jeroenjanssens/velocirepo/internal/testutil"
 	mcplib "github.com/mark3labs/mcp-go/mcp"
 )
 
 func TestHandleUpdateProjectReloadsConfig(t *testing.T) {
-	dir := t.TempDir()
-	cfgPath := filepath.Join(dir, "velocirepo.toml")
-	if err := os.WriteFile(cfgPath, []byte(`[projects.alpha]
+	cfgPath := testutil.WriteConfig(t, `[projects.alpha]
 name = "Alpha"
 github = "org/alpha"
-`), 0644); err != nil {
-		t.Fatal(err)
-	}
+`)
 
 	cfg, err := config.Load(cfgPath)
 	if err != nil {

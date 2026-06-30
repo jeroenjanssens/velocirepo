@@ -69,25 +69,22 @@ func TestMigrate0to1(t *testing.T) {
 	dir := t.TempDir()
 
 	// Set up pypi data with old metric names
-	pypiDir := filepath.Join(dir, "pypi", "myproj")
-	os.MkdirAll(pypiDir, 0755)
-	os.WriteFile(filepath.Join(pypiDir, "2025-06-01.jsonl"),
-		[]byte(`{"source":"pypi","metric":"downloads","project_id":"myproj","date":"2025-06-01","value":100}`+"\n"), 0644)
+	writeTestRaw(t, filepath.Join(dir, "pypi", "myproj", "2025-06-01.jsonl"), []string{
+		`{"source":"pypi","metric":"downloads","project_id":"myproj","date":"2025-06-01","value":100}`,
+	})
 
 	// Set up plausible data
-	plausibleDir := filepath.Join(dir, "plausible", "myproj")
-	os.MkdirAll(plausibleDir, 0755)
-	os.WriteFile(filepath.Join(plausibleDir, "2025-06-01.jsonl"),
-		[]byte(`{"source":"plausible","metric":"pageviews","project_id":"myproj","date":"2025-06-01","value":500}`+"\n"+
-			`{"source":"plausible","metric":"visitors","project_id":"myproj","date":"2025-06-01","value":200}`+"\n"), 0644)
+	writeTestRaw(t, filepath.Join(dir, "plausible", "myproj", "2025-06-01.jsonl"), []string{
+		`{"source":"plausible","metric":"pageviews","project_id":"myproj","date":"2025-06-01","value":500}`,
+		`{"source":"plausible","metric":"visitors","project_id":"myproj","date":"2025-06-01","value":200}`,
+	})
 
 	// Set up openvsx data
-	openvsxDir := filepath.Join(dir, "openvsx", "myproj")
-	os.MkdirAll(openvsxDir, 0755)
-	os.WriteFile(filepath.Join(openvsxDir, "2025-06-01.jsonl"),
-		[]byte(`{"source":"openvsx","metric":"total_downloads","project_id":"myproj","date":"2025-06-01","value":5000}`+"\n"+
-			`{"source":"openvsx","metric":"reviews","project_id":"myproj","date":"2025-06-01","value":10}`+"\n"+
-			`{"source":"openvsx","metric":"rating","project_id":"myproj","date":"2025-06-01","value":450}`+"\n"), 0644)
+	writeTestRaw(t, filepath.Join(dir, "openvsx", "myproj", "2025-06-01.jsonl"), []string{
+		`{"source":"openvsx","metric":"total_downloads","project_id":"myproj","date":"2025-06-01","value":5000}`,
+		`{"source":"openvsx","metric":"reviews","project_id":"myproj","date":"2025-06-01","value":10}`,
+		`{"source":"openvsx","metric":"rating","project_id":"myproj","date":"2025-06-01","value":450}`,
+	})
 
 	applied, err := Migrate(dir)
 	if err != nil {
@@ -103,20 +100,20 @@ func TestMigrate0to1(t *testing.T) {
 	}
 
 	// Verify pypi (v4 moves it into metrics/)
-	data, _ := os.ReadFile(filepath.Join(dir, "metrics", "pypi", "myproj", "2025-06-01.jsonl"))
+	data, _ := os.ReadFile(metricsPath(dir, "pypi", "myproj", "2025-06-01"))
 	if got := string(data); !contains(got, `"daily_downloads"`) {
 		t.Errorf("pypi not migrated: %s", got)
 	}
 
 	// Verify plausible (v4 moves it into metrics/)
-	data, _ = os.ReadFile(filepath.Join(dir, "metrics", "plausible", "myproj", "2025-06-01.jsonl"))
+	data, _ = os.ReadFile(metricsPath(dir, "plausible", "myproj", "2025-06-01"))
 	content := string(data)
 	if !contains(content, `"daily_site_pageviews"`) || !contains(content, `"daily_site_visitors"`) {
 		t.Errorf("plausible not migrated: %s", content)
 	}
 
 	// Verify openvsx (v4 moves it into metrics/)
-	data, _ = os.ReadFile(filepath.Join(dir, "metrics", "openvsx", "myproj", "2025-06-01.jsonl"))
+	data, _ = os.ReadFile(metricsPath(dir, "openvsx", "myproj", "2025-06-01"))
 	content = string(data)
 	if !contains(content, `"total_downloads"`) || !contains(content, `"total_reviews"`) || !contains(content, `"total_ratings"`) {
 		t.Errorf("openvsx not migrated: %s", content)
@@ -128,12 +125,12 @@ func TestMigrate4to5YouTubeIndex(t *testing.T) {
 	writeSchemaVersion(dir, 4)
 
 	// Set up a YouTube index in the old location
-	youtubeDir := filepath.Join(dir, "metrics", "youtube", "my-proj")
-	os.MkdirAll(youtubeDir, 0755)
-	os.WriteFile(filepath.Join(youtubeDir, "index.jsonl"),
-		[]byte(`{"video_id":"abc123","title":"Test Video","published_at":"2025-06-01T10:00:00Z","channel":"@TestChan","duration":330,"tags":["go","tutorial"]}`+"\n"+
-			`{"video_id":"def456","title":"Second Video","published_at":"2025-07-01T10:00:00Z","channel":"@TestChan","duration":600}`+"\n"+
-			`{"video_id":"ghi789","title":"Livestream","published_at":"2025-08-01T10:00:00Z","channel":"@TestChan","duration":0}`+"\n"), 0644)
+	oldIndexPath := metricsPath(dir, "youtube", "my-proj", "index")
+	writeTestRaw(t, oldIndexPath, []string{
+		`{"video_id":"abc123","title":"Test Video","published_at":"2025-06-01T10:00:00Z","channel":"@TestChan","duration":330,"tags":["go","tutorial"]}`,
+		`{"video_id":"def456","title":"Second Video","published_at":"2025-07-01T10:00:00Z","channel":"@TestChan","duration":600}`,
+		`{"video_id":"ghi789","title":"Livestream","published_at":"2025-08-01T10:00:00Z","channel":"@TestChan","duration":0}`,
+	})
 
 	applied, err := Migrate(dir)
 	if err != nil {
@@ -144,12 +141,12 @@ func TestMigrate4to5YouTubeIndex(t *testing.T) {
 	}
 
 	// Old file should be removed
-	if _, err := os.Stat(filepath.Join(youtubeDir, "index.jsonl")); !os.IsNotExist(err) {
+	if _, err := os.Stat(oldIndexPath); !os.IsNotExist(err) {
 		t.Error("old index.jsonl should have been removed")
 	}
 
 	// New file should exist
-	newPath := filepath.Join(dir, "content", "youtube", "my-proj", "videos.jsonl")
+	newPath := contentPath(dir, "youtube", "my-proj", "videos")
 	data, err := os.ReadFile(newPath)
 	if err != nil {
 		t.Fatalf("new content file not created: %v", err)

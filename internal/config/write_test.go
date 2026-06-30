@@ -2,9 +2,10 @@ package config
 
 import (
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/jeroenjanssens/velocirepo/internal/testutil"
 )
 
 func TestFindSection(t *testing.T) {
@@ -50,9 +51,8 @@ func TestFindSection(t *testing.T) {
 
 func TestAppendProject(t *testing.T) {
 	dir := t.TempDir()
-	path := filepath.Join(dir, "velocirepo.toml")
 	initial := "[data]\ndir = \"data\"\n\n[projects.alpha]\nname = \"Alpha\"\n"
-	os.WriteFile(path, []byte(initial), 0644)
+	path := testutil.WriteTempFile(t, dir, "velocirepo.toml", initial)
 
 	err := AppendProject(path, "beta", Project{
 		Name:         "Beta",
@@ -83,9 +83,8 @@ func TestAppendProject(t *testing.T) {
 
 func TestAppendProjectPreservesComments(t *testing.T) {
 	dir := t.TempDir()
-	path := filepath.Join(dir, "velocirepo.toml")
 	initial := "# Main config\n[data]\ndir = \"data\"\n\n# Alpha project\n[projects.alpha]\nname = \"Alpha\"\n"
-	os.WriteFile(path, []byte(initial), 0644)
+	path := testutil.WriteTempFile(t, dir, "velocirepo.toml", initial)
 
 	err := AppendProject(path, "beta", Project{Name: "Beta", GitHubEvents: StringList{"org/beta"}})
 	if err != nil {
@@ -105,7 +104,6 @@ func TestAppendProjectPreservesComments(t *testing.T) {
 
 func TestRemoveProjectMiddle(t *testing.T) {
 	dir := t.TempDir()
-	path := filepath.Join(dir, "velocirepo.toml")
 	initial := `[data]
 dir = "data"
 
@@ -118,7 +116,7 @@ name = "Beta"
 [projects.gamma]
 name = "Gamma"
 `
-	os.WriteFile(path, []byte(initial), 0644)
+	path := testutil.WriteTempFile(t, dir, "velocirepo.toml", initial)
 
 	err := RemoveProject(path, "beta")
 	if err != nil {
@@ -141,7 +139,6 @@ name = "Gamma"
 
 func TestRemoveProjectEnd(t *testing.T) {
 	dir := t.TempDir()
-	path := filepath.Join(dir, "velocirepo.toml")
 	initial := `[data]
 dir = "data"
 
@@ -151,7 +148,7 @@ name = "Alpha"
 [projects.beta]
 name = "Beta"
 `
-	os.WriteFile(path, []byte(initial), 0644)
+	path := testutil.WriteTempFile(t, dir, "velocirepo.toml", initial)
 
 	err := RemoveProject(path, "beta")
 	if err != nil {
@@ -171,8 +168,7 @@ name = "Beta"
 
 func TestRemoveProjectNotFound(t *testing.T) {
 	dir := t.TempDir()
-	path := filepath.Join(dir, "velocirepo.toml")
-	os.WriteFile(path, []byte("[data]\ndir = \"data\"\n"), 0644)
+	path := testutil.WriteTempFile(t, dir, "velocirepo.toml", "[data]\ndir = \"data\"\n")
 
 	err := RemoveProject(path, "nope")
 	if err == nil {
@@ -182,13 +178,12 @@ func TestRemoveProjectNotFound(t *testing.T) {
 
 func TestUpdateProjectModifyField(t *testing.T) {
 	dir := t.TempDir()
-	path := filepath.Join(dir, "velocirepo.toml")
 	initial := `[projects.alpha]
 name = "Alpha"
 github = "org/alpha"
 pypi = "alpha"
 `
-	os.WriteFile(path, []byte(initial), 0644)
+	path := testutil.WriteTempFile(t, dir, "velocirepo.toml", initial)
 
 	err := UpdateProject(path, "alpha", map[string]string{"name": "Alpha v2"}, nil)
 	if err != nil {
@@ -208,12 +203,11 @@ pypi = "alpha"
 
 func TestUpdateProjectAddField(t *testing.T) {
 	dir := t.TempDir()
-	path := filepath.Join(dir, "velocirepo.toml")
 	initial := `[projects.alpha]
 name = "Alpha"
 github = "org/alpha"
 `
-	os.WriteFile(path, []byte(initial), 0644)
+	path := testutil.WriteTempFile(t, dir, "velocirepo.toml", initial)
 
 	err := UpdateProject(path, "alpha", map[string]string{"pypi": "alpha-pkg"}, nil)
 	if err != nil {
@@ -230,13 +224,12 @@ github = "org/alpha"
 
 func TestUpdateProjectUnset(t *testing.T) {
 	dir := t.TempDir()
-	path := filepath.Join(dir, "velocirepo.toml")
 	initial := `[projects.alpha]
 name = "Alpha"
 github = "org/alpha"
 pypi = "alpha"
 `
-	os.WriteFile(path, []byte(initial), 0644)
+	path := testutil.WriteTempFile(t, dir, "velocirepo.toml", initial)
 
 	err := UpdateProject(path, "alpha", nil, []string{"pypi"})
 	if err != nil {
@@ -256,8 +249,7 @@ pypi = "alpha"
 
 func TestUpdateProjectNotFound(t *testing.T) {
 	dir := t.TempDir()
-	path := filepath.Join(dir, "velocirepo.toml")
-	os.WriteFile(path, []byte("[data]\ndir = \"data\"\n"), 0644)
+	path := testutil.WriteTempFile(t, dir, "velocirepo.toml", "[data]\ndir = \"data\"\n")
 
 	err := UpdateProject(path, "nope", map[string]string{"name": "x"}, nil)
 	if err == nil {
@@ -267,12 +259,11 @@ func TestUpdateProjectNotFound(t *testing.T) {
 
 func TestRenameSection(t *testing.T) {
 	dir := t.TempDir()
-	path := filepath.Join(dir, "velocirepo.toml")
 	initial := `[projects.old-name]
 name = "Old"
 github = "org/old"
 `
-	os.WriteFile(path, []byte(initial), 0644)
+	path := testutil.WriteTempFile(t, dir, "velocirepo.toml", initial)
 
 	err := RenameSection(path, "old-name", "new-name")
 	if err != nil {
@@ -295,8 +286,7 @@ github = "org/old"
 
 func TestRenameSectionNotFound(t *testing.T) {
 	dir := t.TempDir()
-	path := filepath.Join(dir, "velocirepo.toml")
-	os.WriteFile(path, []byte("[data]\ndir = \"data\"\n"), 0644)
+	path := testutil.WriteTempFile(t, dir, "velocirepo.toml", "[data]\ndir = \"data\"\n")
 
 	err := RenameSection(path, "nope", "new")
 	if err == nil {
