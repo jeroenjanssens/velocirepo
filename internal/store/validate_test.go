@@ -363,16 +363,17 @@ func TestFixDeprecatedMetrics(t *testing.T) {
 		`{"metric":"total_downloads","project_id":"myproj","date":"2026-01-01","value":1000,"source":"openvsx","target":"ns/ext"}`,
 		`{"metric":"rating","project_id":"myproj","date":"2026-01-01","value":5.0,"source":"openvsx","target":"ns/ext"}`,
 		`{"metric":"reviews","project_id":"myproj","date":"2026-01-01","value":2,"source":"openvsx","target":"ns/ext"}`,
+		`{"metric":"rating","project_id":"myproj","date":"2026-01-01","value":450,"source":"openvsx","target":"ns/ext"}`,
 	})
 
 	result := FixDeprecatedMetrics([]string{path})
-	if result.Fixed != 2 {
-		t.Errorf("expected 2 fixed, got %d", result.Fixed)
+	if result.Fixed != 3 {
+		t.Errorf("expected 3 fixed, got %d", result.Fixed)
 	}
 
 	lines := readRawLines(t, path)
-	if len(lines) != 3 {
-		t.Fatalf("expected 3 lines, got %d", len(lines))
+	if len(lines) != 4 {
+		t.Fatalf("expected 4 lines, got %d", len(lines))
 	}
 
 	var rec0 map[string]interface{}
@@ -397,6 +398,15 @@ func TestFixDeprecatedMetrics(t *testing.T) {
 	}
 	if rec2["value"].(float64) != 2 {
 		t.Errorf("expected reviews value 2, got %v", rec2["value"])
+	}
+
+	var rec3 map[string]interface{}
+	_ = json.Unmarshal([]byte(lines[3]), &rec3)
+	if rec3["metric"] != "total_ratings" {
+		t.Errorf("expected total_ratings, got %v", rec3["metric"])
+	}
+	if rec3["value"].(float64) != 450 {
+		t.Errorf("expected scaled rating value 450 unchanged, got %v", rec3["value"])
 	}
 }
 

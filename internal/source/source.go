@@ -3,18 +3,19 @@ package source
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"math"
 	"time"
 )
 
 type Record struct {
 	Source    string            `json:"source"`
-	Metric   string            `json:"metric"`
-	ProjectID string           `json:"project_id"`
-	Target   string            `json:"target"`
-	Date     string            `json:"date"`
-	Value    int64             `json:"value"`
-	Tags     map[string]string `json:"tags,omitempty"`
+	Metric    string            `json:"metric"`
+	ProjectID string            `json:"project_id"`
+	Target    string            `json:"target"`
+	Date      string            `json:"date"`
+	Value     int64             `json:"value"`
+	Tags      map[string]string `json:"tags,omitempty"`
 }
 
 func (r *Record) UnmarshalJSON(data []byte) error {
@@ -31,8 +32,21 @@ func (r *Record) UnmarshalJSON(data []byte) error {
 	if aux.Value != "" {
 		if v, err := aux.Value.Int64(); err == nil {
 			r.Value = v
-		} else if f, err := aux.Value.Float64(); err == nil {
-			r.Value = int64(math.Round(f))
+		} else {
+			f, err := aux.Value.Float64()
+			if err != nil {
+				return fmt.Errorf("invalid record value %q: %w", aux.Value, err)
+			}
+			rounded := math.Round(f)
+			const (
+				maxInt64Exclusive = float64(1 << 63)
+				minInt64Inclusive = -maxInt64Exclusive
+			)
+			if !math.IsInf(rounded, 0) && !math.IsNaN(rounded) && rounded >= minInt64Inclusive && rounded < maxInt64Exclusive {
+				r.Value = int64(rounded)
+			} else {
+				return fmt.Errorf("record value %q is outside int64 range", aux.Value)
+			}
 		}
 	}
 	return nil

@@ -574,11 +574,13 @@ func fixDeprecatedMetricsInFile(path string) (int, error) {
 		raw["metric"], _ = json.Marshal(newMetric)
 
 		if metric == "rating" {
-			var val float64
 			if v, ok := raw["value"]; ok {
-				_ = json.Unmarshal(v, &val)
+				normalized, err := normalizeDeprecatedOpenVSXRating(v)
+				if err != nil {
+					return 0, err
+				}
+				raw["value"] = normalized
 			}
-			raw["value"], _ = json.Marshal(int64(math.Round(val * 100)))
 		}
 
 		rewritten, err := json.Marshal(raw)
@@ -601,6 +603,21 @@ func fixDeprecatedMetricsInFile(path string) (int, error) {
 	}
 
 	return fixed, writeLines(path, lines)
+}
+
+func normalizeDeprecatedOpenVSXRating(value json.RawMessage) (json.RawMessage, error) {
+	var val float64
+	if err := json.Unmarshal(value, &val); err != nil {
+		return nil, fmt.Errorf("decode rating value: %w", err)
+	}
+	if val < 0 || val > 5 {
+		return value, nil
+	}
+	normalized, err := json.Marshal(int64(math.Round(val * 100)))
+	if err != nil {
+		return nil, fmt.Errorf("encode rating value: %w", err)
+	}
+	return normalized, nil
 }
 
 func removeLinesFromFile(path string, badLines []int) error {
