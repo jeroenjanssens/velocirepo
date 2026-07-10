@@ -66,7 +66,7 @@ func WriteRecords(dataDir, sourceName, projectID string, records []source.Record
 			}
 		}
 
-		if err := writeMetricWatermark(dataDir, sourceName, projectID, date); err != nil {
+		if err := writeMetricWatermarks(dataDir, sourceName, projectID, date, grouped[date]); err != nil {
 			return err
 		}
 	}

@@ -244,12 +244,16 @@ FROM (
                 ) AS max_date
             FROM metrics m
             LEFT JOIN (
-                SELECT project, source, MAX(date) AS max_date
+                SELECT project, source, target, metric, tags, MAX(date) AS max_date
                 FROM __velocirepo_metric_watermarks
-                GROUP BY project, source
+                WHERE target IS NOT NULL AND metric IS NOT NULL
+                GROUP BY project, source, target, metric, tags
             ) w
                 ON w.project = m.project
                 AND w.source = m.source
+                AND w.target = m.target
+                AND w.metric = m.metric
+                AND w.tags IS NOT DISTINCT FROM m.tags
             WHERE m.metric LIKE 'total_%'
             GROUP BY m.project, m.source, m.target, m.metric, m.tags
         ) groups
@@ -284,10 +288,13 @@ func createMetricWatermarksView(db *sql.DB, absDir string) error {
 		SELECT
 			project_id AS project,
 			source,
-			CAST(date AS DATE) AS date
+			target,
+			metric,
+			CAST(date AS DATE) AS date,
+			tags
 		FROM read_json('%s',
 			format='newline_delimited',
-			columns={source: 'VARCHAR', project_id: 'VARCHAR', date: 'VARCHAR'})`,
+			columns={source: 'VARCHAR', metric: 'VARCHAR', project_id: 'VARCHAR', target: 'VARCHAR', date: 'VARCHAR', tags: 'JSON'})`,
 		escapeSQLString(glob))
 
 	if _, err := db.Exec(query); err != nil {
@@ -298,8 +305,8 @@ func createMetricWatermarksView(db *sql.DB, absDir string) error {
 }
 
 func createEmptyMetricWatermarksView(db *sql.DB) error {
-	_, err := db.Exec(`CREATE VIEW __velocirepo_metric_watermarks (project, source, date) AS
-		SELECT NULL::VARCHAR, NULL::VARCHAR, NULL::DATE
+	_, err := db.Exec(`CREATE VIEW __velocirepo_metric_watermarks (project, source, target, metric, date, tags) AS
+		SELECT NULL::VARCHAR, NULL::VARCHAR, NULL::VARCHAR, NULL::VARCHAR, NULL::DATE, NULL::JSON
 		WHERE false`)
 	if err != nil {
 		return fmt.Errorf("create empty metric watermarks view: %w", err)

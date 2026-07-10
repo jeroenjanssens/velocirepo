@@ -151,7 +151,9 @@ func TestSourceDirNamesIncludeMetricsEventsAndContent(t *testing.T) {
 	for _, want := range []string{
 		"events/github",
 		"metrics/github-traffic",
+		"watermarks/metrics/github-traffic",
 		"metrics/youtube",
+		"watermarks/metrics/youtube",
 		"metrics/linkedin",
 		"content/youtube",
 		"content/linkedin",

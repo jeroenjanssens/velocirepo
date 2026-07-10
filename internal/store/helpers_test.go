@@ -22,6 +22,10 @@ func eventsPath(dataDir, sourceName, project, date string) string {
 	return filepath.Join(dataDir, "events", sourceName, project, jsonlName(date))
 }
 
+func metricWatermarkPath(dataDir, sourceName, project, date string) string {
+	return filepath.Join(dataDir, "watermarks", "metrics", sourceName, project, jsonlName(date))
+}
+
 func contentPath(dataDir, sourceName, project, name string) string {
 	return filepath.Join(dataDir, "content", sourceName, project, jsonlName(name))
 }

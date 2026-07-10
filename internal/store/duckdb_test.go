@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/jeroenjanssens/velocirepo/internal/source"
 )
@@ -418,6 +419,96 @@ func TestMetricsFilledUsesWatermarkHorizon(t *testing.T) {
 	for _, row := range results {
 		if row["value"].(int64) != 100 {
 			t.Errorf("expected filled value 100, got %v", row)
+		}
+	}
+}
+
+func TestMetricsFilledUsesWatermarkSeriesKey(t *testing.T) {
+	dir := t.TempDir()
+	dataDir := filepath.Join(dir, "data")
+
+	records1 := []source.Record{
+		{Metric: "total_downloads", ProjectID: "proj", Target: "ns/current", Date: "2025-06-01", Value: 100},
+		{Metric: "total_downloads", ProjectID: "proj", Target: "ns/removed", Date: "2025-06-01", Value: 200},
+	}
+	if err := WriteRecords(dataDir, "openvsx", "proj", records1); err != nil {
+		t.Fatal(err)
+	}
+
+	records2 := []source.Record{
+		{Metric: "total_downloads", ProjectID: "proj", Target: "ns/current", Date: "2025-06-02", Value: 100},
+	}
+	if err := WriteRecords(dataDir, "openvsx", "proj", records2); err != nil {
+		t.Fatal(err)
+	}
+
+	results, _, err := QueryLive(dataDir, nil, nil,
+		"SELECT target, date, value FROM metrics_filled WHERE metric = 'total_downloads' ORDER BY target, date")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	want := []struct {
+		target string
+		date   string
+		value  int64
+	}{
+		{"ns/current", "2025-06-01", 100},
+		{"ns/current", "2025-06-02", 100},
+		{"ns/removed", "2025-06-01", 200},
+	}
+	if len(results) != len(want) {
+		t.Fatalf("expected %d filled rows, got %d: %v", len(want), len(results), results)
+	}
+	for i, exp := range want {
+		date := results[i]["date"].(time.Time).Format("2006-01-02")
+		if results[i]["target"] != exp.target || date != exp.date || results[i]["value"].(int64) != exp.value {
+			t.Fatalf("row %d = %v, want target=%s date=%s value=%d", i, results[i], exp.target, exp.date, exp.value)
+		}
+	}
+}
+
+func TestMetricsFilledUsesWatermarkTagsKey(t *testing.T) {
+	dir := t.TempDir()
+	dataDir := filepath.Join(dir, "data")
+
+	records1 := []source.Record{
+		{Metric: "total_views", ProjectID: "proj", Target: "@chan", Date: "2025-06-01", Value: 100, Tags: map[string]string{"video_id": "current"}},
+		{Metric: "total_views", ProjectID: "proj", Target: "@chan", Date: "2025-06-01", Value: 200, Tags: map[string]string{"video_id": "removed"}},
+	}
+	if err := WriteRecords(dataDir, "youtube", "proj", records1); err != nil {
+		t.Fatal(err)
+	}
+
+	records2 := []source.Record{
+		{Metric: "total_views", ProjectID: "proj", Target: "@chan", Date: "2025-06-02", Value: 100, Tags: map[string]string{"video_id": "current"}},
+	}
+	if err := WriteRecords(dataDir, "youtube", "proj", records2); err != nil {
+		t.Fatal(err)
+	}
+
+	results, _, err := QueryLive(dataDir, nil, nil,
+		"SELECT tags->>'video_id' AS video_id, date, value FROM metrics_filled WHERE metric = 'total_views' ORDER BY video_id, date")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	want := []struct {
+		videoID string
+		date    string
+		value   int64
+	}{
+		{"current", "2025-06-01", 100},
+		{"current", "2025-06-02", 100},
+		{"removed", "2025-06-01", 200},
+	}
+	if len(results) != len(want) {
+		t.Fatalf("expected %d filled rows, got %d: %v", len(want), len(results), results)
+	}
+	for i, exp := range want {
+		date := results[i]["date"].(time.Time).Format("2006-01-02")
+		if results[i]["video_id"] != exp.videoID || date != exp.date || results[i]["value"].(int64) != exp.value {
+			t.Fatalf("row %d = %v, want video_id=%s date=%s value=%d", i, results[i], exp.videoID, exp.date, exp.value)
 		}
 	}
 }

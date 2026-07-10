@@ -264,6 +264,9 @@ func DataDirPaths() []string {
 	paths := make([]string, 0, len(descriptors))
 	for _, d := range descriptors {
 		paths = append(paths, DataDirPath(d.Name))
+		if d.Category == CategoryMetrics {
+			paths = append(paths, "watermarks/metrics/"+d.Name)
+		}
 		if d.ContentDir != "" {
 			paths = append(paths, d.ContentDir)
 		}
