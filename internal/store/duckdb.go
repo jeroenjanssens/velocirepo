@@ -113,6 +113,11 @@ func openLiveDB(dataDir string, projects []ProjectInfo, indicators []IndicatorDe
 		return nil, err
 	}
 
+	if err := createMetricWatermarksView(db, absDir); err != nil {
+		_ = db.Close()
+		return nil, err
+	}
+
 	if err := createMetricsFilledView(db); err != nil {
 		_ = db.Close()
 		return nil, err
@@ -231,12 +236,22 @@ FROM (
                 INTERVAL '1 day'
             ))::DATE AS date
         FROM (
-            SELECT project, source, target, metric, tags,
-                MIN(date) AS min_date,
-                MAX(date) AS max_date
-            FROM metrics
-            WHERE metric LIKE 'total_%'
-            GROUP BY project, source, target, metric, tags
+            SELECT m.project, m.source, m.target, m.metric, m.tags,
+                MIN(m.date) AS min_date,
+                GREATEST(
+                    MAX(m.date),
+                    COALESCE(MAX(w.max_date), MAX(m.date))
+                ) AS max_date
+            FROM metrics m
+            LEFT JOIN (
+                SELECT project, source, MAX(date) AS max_date
+                FROM __velocirepo_metric_watermarks
+                GROUP BY project, source
+            ) w
+                ON w.project = m.project
+                AND w.source = m.source
+            WHERE m.metric LIKE 'total_%'
+            GROUP BY m.project, m.source, m.target, m.metric, m.tags
         ) groups
     ) dates
     LEFT JOIN metrics m
@@ -254,6 +269,40 @@ SELECT * FROM metrics WHERE metric NOT LIKE 'total_%'`
 	if _, err := db.Exec(query); err != nil {
 		slog.Debug("metrics_filled view creation failed, using empty view", "error", err)
 		return createEmptyMetricsFilledView(db)
+	}
+	return nil
+}
+
+func createMetricWatermarksView(db *sql.DB, absDir string) error {
+	glob := filepath.ToSlash(filepath.Join(absDir, WatermarksDir, MetricsDir, "*", "*", "*.jsonl"))
+
+	if !globHasMatches(glob) {
+		return createEmptyMetricWatermarksView(db)
+	}
+
+	query := fmt.Sprintf(`CREATE OR REPLACE VIEW __velocirepo_metric_watermarks AS
+		SELECT
+			project_id AS project,
+			source,
+			CAST(date AS DATE) AS date
+		FROM read_json('%s',
+			format='newline_delimited',
+			columns={source: 'VARCHAR', project_id: 'VARCHAR', date: 'VARCHAR'})`,
+		escapeSQLString(glob))
+
+	if _, err := db.Exec(query); err != nil {
+		slog.Debug("metric watermarks view creation failed, using empty view", "error", err)
+		return createEmptyMetricWatermarksView(db)
+	}
+	return nil
+}
+
+func createEmptyMetricWatermarksView(db *sql.DB) error {
+	_, err := db.Exec(`CREATE VIEW __velocirepo_metric_watermarks (project, source, date) AS
+		SELECT NULL::VARCHAR, NULL::VARCHAR, NULL::DATE
+		WHERE false`)
+	if err != nil {
+		return fmt.Errorf("create empty metric watermarks view: %w", err)
 	}
 	return nil
 }

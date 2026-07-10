@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/jeroenjanssens/velocirepo/internal/source"
 )
@@ -83,6 +84,33 @@ func TestLastRecordedTotals_ReadsLatestFile(t *testing.T) {
 	}
 }
 
+func TestLastRecordedTotals_ReadsSparseKeysAcrossFiles(t *testing.T) {
+	dir := t.TempDir()
+	metricsDir := filepath.Join(dir, "metrics", "openvsx", "proj")
+	if err := os.MkdirAll(metricsDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	writeTestRecords(t, filepath.Join(metricsDir, "2025-06-01.jsonl"),
+		source.Record{Metric: "total_downloads", Target: "ns/ext", Value: 100, Date: "2025-06-01"},
+		source.Record{Metric: "total_reviews", Target: "ns/ext", Value: 5, Date: "2025-06-01"},
+	)
+	writeTestRecords(t, filepath.Join(metricsDir, "2025-06-05.jsonl"),
+		source.Record{Metric: "total_downloads", Target: "ns/ext", Value: 150, Date: "2025-06-05"},
+	)
+
+	got, err := lastRecordedTotals(metricsDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got["total_downloads|ns/ext"] != 150 {
+		t.Errorf("downloads = %d, want 150", got["total_downloads|ns/ext"])
+	}
+	if got["total_reviews|ns/ext"] != 5 {
+		t.Errorf("reviews = %d, want 5", got["total_reviews|ns/ext"])
+	}
+}
+
 func TestLastRecordedTotals_EmptyDir(t *testing.T) {
 	dir := t.TempDir()
 	got, err := lastRecordedTotals(dir)
@@ -128,6 +156,15 @@ func TestWriteRecords_SuppressesUnchangedTotals(t *testing.T) {
 	path := filepath.Join(dir, "metrics", "openvsx", "proj", "2025-06-02.jsonl")
 	if _, err := os.Stat(path); !os.IsNotExist(err) {
 		t.Errorf("expected 2025-06-02.jsonl to not exist, but it does")
+	}
+
+	got, err := LastDate(dir, "openvsx", "proj")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := time.Date(2025, 6, 2, 0, 0, 0, 0, time.UTC)
+	if !got.Equal(want) {
+		t.Errorf("LastDate = %v, want %v", got, want)
 	}
 }
 
@@ -195,6 +232,47 @@ func TestWriteRecords_MultiDateBatch(t *testing.T) {
 	// Day 4: suppressed (unchanged from day 3)
 	if _, err := os.Stat(filepath.Join(dir, "metrics", "openvsx", "proj", "2025-06-04.jsonl")); !os.IsNotExist(err) {
 		t.Error("day 4 should be suppressed")
+	}
+}
+
+func TestWriteRecords_SuppressesSparseTotalsAcrossFiles(t *testing.T) {
+	dir := t.TempDir()
+
+	records1 := []source.Record{
+		{Metric: "total_downloads", ProjectID: "proj", Target: "ns/ext", Date: "2025-06-01", Value: 100},
+		{Metric: "total_reviews", ProjectID: "proj", Target: "ns/ext", Date: "2025-06-01", Value: 5},
+	}
+	if err := WriteRecords(dir, "openvsx", "proj", records1); err != nil {
+		t.Fatal(err)
+	}
+
+	records2 := []source.Record{
+		{Metric: "total_downloads", ProjectID: "proj", Target: "ns/ext", Date: "2025-06-02", Value: 150},
+		{Metric: "total_reviews", ProjectID: "proj", Target: "ns/ext", Date: "2025-06-02", Value: 5},
+	}
+	if err := WriteRecords(dir, "openvsx", "proj", records2); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := ReadRecords(filepath.Join(dir, "metrics", "openvsx", "proj", "2025-06-02.jsonl"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 || got[0].Metric != "total_downloads" {
+		t.Fatalf("day 2 should only contain changed downloads, got %v", got)
+	}
+
+	records3 := []source.Record{
+		{Metric: "total_downloads", ProjectID: "proj", Target: "ns/ext", Date: "2025-06-03", Value: 150},
+		{Metric: "total_reviews", ProjectID: "proj", Target: "ns/ext", Date: "2025-06-03", Value: 5},
+	}
+	if err := WriteRecords(dir, "openvsx", "proj", records3); err != nil {
+		t.Fatal(err)
+	}
+
+	path := filepath.Join(dir, "metrics", "openvsx", "proj", "2025-06-03.jsonl")
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Errorf("expected unchanged sparse totals to be suppressed on day 3")
 	}
 }
 

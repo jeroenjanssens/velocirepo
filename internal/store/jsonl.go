@@ -26,7 +26,15 @@ func WriteRecords(dataDir, sourceName, projectID string, records []source.Record
 
 	dir := MetricsProjectDir(dataDir, sourceName, projectID)
 
-	lastValues, _ := lastRecordedTotals(dir)
+	wantedTotalKeys := totalKeys(records)
+	var lastValues map[string]int64
+	if len(wantedTotalKeys) > 0 {
+		var err error
+		lastValues, err = lastRecordedTotalsFor(dir, wantedTotalKeys)
+		if err != nil {
+			return fmt.Errorf("read last recorded totals: %w", err)
+		}
+	}
 
 	grouped := groupByDate(records)
 	dates := make([]string, 0, len(grouped))
@@ -37,26 +45,29 @@ func WriteRecords(dataDir, sourceName, projectID string, records []source.Record
 
 	for _, date := range dates {
 		dateRecords := filterUnchangedTotals(grouped[date], lastValues)
-		if len(dateRecords) == 0 {
-			continue
-		}
 
-		if err := os.MkdirAll(dir, 0755); err != nil {
-			return fmt.Errorf("create directory %s: %w", dir, err)
-		}
-
-		path := filepath.Join(dir, date+".jsonl")
-		if err := writeFileAtomic(path, dateRecords); err != nil {
-			return err
-		}
-
-		for _, r := range dateRecords {
-			if isTotalMetric(r.Metric) {
-				if lastValues == nil {
-					lastValues = make(map[string]int64)
-				}
-				lastValues[totalKey(r)] = r.Value
+		if len(dateRecords) > 0 {
+			if err := os.MkdirAll(dir, 0755); err != nil {
+				return fmt.Errorf("create directory %s: %w", dir, err)
 			}
+
+			path := filepath.Join(dir, date+".jsonl")
+			if err := writeFileAtomic(path, dateRecords); err != nil {
+				return err
+			}
+
+			for _, r := range dateRecords {
+				if isTotalMetric(r.Metric) {
+					if lastValues == nil {
+						lastValues = make(map[string]int64)
+					}
+					lastValues[totalKey(r)] = r.Value
+				}
+			}
+		}
+
+		if err := writeMetricWatermark(dataDir, sourceName, projectID, date); err != nil {
+			return err
 		}
 	}
 
@@ -73,13 +84,38 @@ func ReadRecords(path string) ([]source.Record, error) {
 }
 
 func LastDate(dataDir, sourceName, projectID string) (time.Time, error) {
-	dir := SourceProjectDir(dataDir, sourceName, projectID)
+	dates, err := dateStringsInDir(SourceProjectDir(dataDir, sourceName, projectID))
+	if err != nil {
+		return time.Time{}, err
+	}
+
+	watermarkDates, err := dateStringsInDir(WatermarkProjectDir(dataDir, SourceCategory(sourceName), sourceName, projectID))
+	if err != nil {
+		return time.Time{}, err
+	}
+	dates = append(dates, watermarkDates...)
+
+	if len(dates) == 0 {
+		return time.Time{}, nil
+	}
+
+	sort.Strings(dates)
+	latest := dates[len(dates)-1]
+
+	t, err := dateutil.ParseDate(latest)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("parse date %s: %w", latest, err)
+	}
+	return t, nil
+}
+
+func dateStringsInDir(dir string) ([]string, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return time.Time{}, nil
+			return nil, nil
 		}
-		return time.Time{}, fmt.Errorf("read directory %s: %w", dir, err)
+		return nil, fmt.Errorf("read directory %s: %w", dir, err)
 	}
 
 	var dates []string
@@ -98,18 +134,7 @@ func LastDate(dataDir, sourceName, projectID string) (time.Time, error) {
 		}
 	}
 
-	if len(dates) == 0 {
-		return time.Time{}, nil
-	}
-
-	sort.Strings(dates)
-	latest := dates[len(dates)-1]
-
-	t, err := dateutil.ParseDate(latest)
-	if err != nil {
-		return time.Time{}, fmt.Errorf("parse date %s: %w", latest, err)
-	}
-	return t, nil
+	return dates, nil
 }
 
 func groupByDate(records []source.Record) map[string][]source.Record {

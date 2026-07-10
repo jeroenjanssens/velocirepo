@@ -379,6 +379,49 @@ func TestMetricsFilledForwardFills(t *testing.T) {
 	}
 }
 
+func TestMetricsFilledUsesWatermarkHorizon(t *testing.T) {
+	dir := t.TempDir()
+	dataDir := filepath.Join(dir, "data")
+
+	records1 := []source.Record{
+		{Metric: "total_downloads", ProjectID: "proj", Target: "ns/ext", Date: "2025-06-01", Value: 100},
+	}
+	if err := WriteRecords(dataDir, "openvsx", "proj", records1); err != nil {
+		t.Fatal(err)
+	}
+
+	records2 := []source.Record{
+		{Metric: "total_downloads", ProjectID: "proj", Target: "ns/ext", Date: "2025-06-02", Value: 100},
+		{Metric: "total_downloads", ProjectID: "proj", Target: "ns/ext", Date: "2025-06-03", Value: 100},
+	}
+	if err := WriteRecords(dataDir, "openvsx", "proj", records2); err != nil {
+		t.Fatal(err)
+	}
+
+	results, _, err := QueryLive(dataDir, nil, nil,
+		"SELECT COUNT(*) AS cnt FROM metrics WHERE metric = 'total_downloads'")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if results[0]["cnt"].(int64) != 1 {
+		t.Fatalf("expected 1 raw row, got %d", results[0]["cnt"])
+	}
+
+	results, _, err = QueryLive(dataDir, nil, nil,
+		"SELECT date, value FROM metrics_filled WHERE metric = 'total_downloads' ORDER BY date")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(results) != 3 {
+		t.Fatalf("expected 3 filled rows through watermark, got %d", len(results))
+	}
+	for _, row := range results {
+		if row["value"].(int64) != 100 {
+			t.Errorf("expected filled value 100, got %v", row)
+		}
+	}
+}
+
 func TestMetricsFilledPassesThroughDailyMetrics(t *testing.T) {
 	dir := t.TempDir()
 	dataDir := filepath.Join(dir, "data")
