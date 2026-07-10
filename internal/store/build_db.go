@@ -34,6 +34,9 @@ func BuildDB(dataDir string, projects []ProjectInfo, indicators []IndicatorDef) 
 	if err := createMetricsViewRelative(db, absDir); err != nil {
 		return err
 	}
+	if err := createMetricsFilledView(db); err != nil {
+		return err
+	}
 	if err := createContentViewRelative(db, absDir); err != nil {
 		return err
 	}

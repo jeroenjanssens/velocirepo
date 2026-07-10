@@ -73,7 +73,7 @@ func SchemaLive(dataDir string, projects []ProjectInfo, indicators []IndicatorDe
 	}
 	defer func() { _ = db.Close() }()
 
-	rows, err := db.Query("SELECT table_name, column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name IN ('content', 'events', 'indicators', 'metrics', 'projects') ORDER BY table_name, ordinal_position")
+	rows, err := db.Query("SELECT table_name, column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name IN ('content', 'events', 'indicators', 'metrics', 'metrics_filled', 'projects') ORDER BY table_name, ordinal_position")
 	if err != nil {
 		return nil, fmt.Errorf("query schema: %w", err)
 	}
@@ -113,6 +113,11 @@ func openLiveDB(dataDir string, projects []ProjectInfo, indicators []IndicatorDe
 		return nil, err
 	}
 
+	if err := createMetricsFilledView(db); err != nil {
+		_ = db.Close()
+		return nil, err
+	}
+
 	if err := createContentView(db, absDir); err != nil {
 		_ = db.Close()
 		return nil, err
@@ -132,7 +137,7 @@ func openLiveDB(dataDir string, projects []ProjectInfo, indicators []IndicatorDe
 }
 
 func materializeRestrictedTables(db *sql.DB) error {
-	tables := []string{"events", "metrics", "content", "projects", "indicators"}
+	tables := []string{"events", "metrics", "metrics_filled", "content", "projects", "indicators"}
 	for _, table := range tables {
 		query := fmt.Sprintf("CREATE TABLE __velocirepo_%s AS SELECT * FROM %s", table, table)
 		if _, err := db.Exec(query); err != nil {
@@ -140,7 +145,7 @@ func materializeRestrictedTables(db *sql.DB) error {
 		}
 	}
 
-	for _, view := range []string{"indicators", "projects", "content", "metrics", "events"} {
+	for _, view := range []string{"indicators", "projects", "content", "metrics_filled", "metrics", "events"} {
 		if _, err := db.Exec("DROP VIEW IF EXISTS " + view); err != nil {
 			return fmt.Errorf("drop %s view: %w", view, err)
 		}
@@ -205,6 +210,62 @@ func metricsViewSQL(absDir string) string {
 			columns={source: 'VARCHAR', metric: 'VARCHAR', project_id: 'VARCHAR', target: 'VARCHAR', date: 'VARCHAR', value: 'BIGINT', tags: 'JSON'})
 		UNION ALL
 		%s`, escapeSQLString(glob), eventsAgg)
+}
+
+func createMetricsFilledView(db *sql.DB) error {
+	query := `CREATE OR REPLACE VIEW metrics_filled AS
+SELECT project, source, target, metric, date, value, tags
+FROM (
+    SELECT
+        dates.project, dates.source, dates.target, dates.metric, dates.date, dates.tags,
+        LAST_VALUE(m.value IGNORE NULLS) OVER (
+            PARTITION BY dates.project, dates.source, dates.target, dates.metric, dates.tags
+            ORDER BY dates.date
+            ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+        ) AS value
+    FROM (
+        SELECT groups.project, groups.source, groups.target, groups.metric, groups.tags,
+            UNNEST(generate_series(
+                groups.min_date,
+                groups.max_date,
+                INTERVAL '1 day'
+            ))::DATE AS date
+        FROM (
+            SELECT project, source, target, metric, tags,
+                MIN(date) AS min_date,
+                MAX(date) AS max_date
+            FROM metrics
+            WHERE metric LIKE 'total_%'
+            GROUP BY project, source, target, metric, tags
+        ) groups
+    ) dates
+    LEFT JOIN metrics m
+        ON m.project = dates.project
+        AND m.source = dates.source
+        AND m.target = dates.target
+        AND m.metric = dates.metric
+        AND m.tags IS NOT DISTINCT FROM dates.tags
+        AND m.date = dates.date
+)
+WHERE value IS NOT NULL
+UNION ALL
+SELECT * FROM metrics WHERE metric NOT LIKE 'total_%'`
+
+	if _, err := db.Exec(query); err != nil {
+		slog.Debug("metrics_filled view creation failed, using empty view", "error", err)
+		return createEmptyMetricsFilledView(db)
+	}
+	return nil
+}
+
+func createEmptyMetricsFilledView(db *sql.DB) error {
+	_, err := db.Exec(`CREATE VIEW metrics_filled (project, source, target, metric, date, value, tags) AS
+		SELECT NULL::VARCHAR, NULL::VARCHAR, NULL::VARCHAR, NULL::VARCHAR, NULL::DATE, NULL::BIGINT, NULL::JSON
+		WHERE false`)
+	if err != nil {
+		return fmt.Errorf("create empty metrics_filled view: %w", err)
+	}
+	return nil
 }
 
 func createEmptyMetricsView(db *sql.DB) error {

@@ -24,10 +24,23 @@ func WriteRecords(dataDir, sourceName, projectID string, records []source.Record
 		records[i].Source = sourceName
 	}
 
-	grouped := groupByDate(records)
+	dir := MetricsProjectDir(dataDir, sourceName, projectID)
 
-	for date, dateRecords := range grouped {
-		dir := MetricsProjectDir(dataDir, sourceName, projectID)
+	lastValues, _ := lastRecordedTotals(dir)
+
+	grouped := groupByDate(records)
+	dates := make([]string, 0, len(grouped))
+	for d := range grouped {
+		dates = append(dates, d)
+	}
+	sort.Strings(dates)
+
+	for _, date := range dates {
+		dateRecords := filterUnchangedTotals(grouped[date], lastValues)
+		if len(dateRecords) == 0 {
+			continue
+		}
+
 		if err := os.MkdirAll(dir, 0755); err != nil {
 			return fmt.Errorf("create directory %s: %w", dir, err)
 		}
@@ -35,6 +48,15 @@ func WriteRecords(dataDir, sourceName, projectID string, records []source.Record
 		path := filepath.Join(dir, date+".jsonl")
 		if err := writeFileAtomic(path, dateRecords); err != nil {
 			return err
+		}
+
+		for _, r := range dateRecords {
+			if isTotalMetric(r.Metric) {
+				if lastValues == nil {
+					lastValues = make(map[string]int64)
+				}
+				lastValues[totalKey(r)] = r.Value
+			}
 		}
 	}
 

@@ -322,3 +322,96 @@ func TestQueryLiveGitHubView(t *testing.T) {
 		t.Errorf("unexpected star row: %v", results[1])
 	}
 }
+
+func TestMetricsFilledForwardFills(t *testing.T) {
+	dir := t.TempDir()
+	dataDir := filepath.Join(dir, "data")
+
+	// Write total_downloads on day 1 and day 4 (simulating suppressed days 2-3)
+	records1 := []source.Record{
+		{Metric: "total_downloads", ProjectID: "proj", Target: "ns/ext", Date: "2025-06-01", Value: 100},
+	}
+	if err := WriteRecords(dataDir, "openvsx", "proj", records1); err != nil {
+		t.Fatal(err)
+	}
+
+	records4 := []source.Record{
+		{Metric: "total_downloads", ProjectID: "proj", Target: "ns/ext", Date: "2025-06-04", Value: 110},
+	}
+	if err := WriteRecords(dataDir, "openvsx", "proj", records4); err != nil {
+		t.Fatal(err)
+	}
+
+	// Raw metrics should only have 2 rows
+	results, _, err := QueryLive(dataDir, nil, nil,
+		"SELECT COUNT(*) AS cnt FROM metrics WHERE metric = 'total_downloads'")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if results[0]["cnt"].(int64) != 2 {
+		t.Fatalf("expected 2 raw rows, got %d", results[0]["cnt"])
+	}
+
+	// metrics_filled should have 4 rows (days 1-4, forward-filled)
+	results, _, err = QueryLive(dataDir, nil, nil,
+		"SELECT date, value FROM metrics_filled WHERE metric = 'total_downloads' ORDER BY date")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(results) != 4 {
+		t.Fatalf("expected 4 filled rows, got %d", len(results))
+	}
+
+	expected := []struct {
+		date  string
+		value int64
+	}{
+		{"2025-06-01", 100},
+		{"2025-06-02", 100},
+		{"2025-06-03", 100},
+		{"2025-06-04", 110},
+	}
+	for i, exp := range expected {
+		v := results[i]["value"].(int64)
+		if v != exp.value {
+			t.Errorf("day %s: got value %d, want %d", exp.date, v, exp.value)
+		}
+	}
+}
+
+func TestMetricsFilledPassesThroughDailyMetrics(t *testing.T) {
+	dir := t.TempDir()
+	dataDir := filepath.Join(dir, "data")
+
+	records := []source.Record{
+		{Metric: "daily_downloads", ProjectID: "proj", Target: "pkg", Date: "2025-06-01", Value: 50},
+		{Metric: "daily_downloads", ProjectID: "proj", Target: "pkg", Date: "2025-06-03", Value: 75},
+	}
+	if err := WriteRecords(dataDir, "pypi", "proj", records); err != nil {
+		t.Fatal(err)
+	}
+
+	// daily metrics should NOT be forward-filled (only 2 rows)
+	results, _, err := QueryLive(dataDir, nil, nil,
+		"SELECT COUNT(*) AS cnt FROM metrics_filled WHERE metric = 'daily_downloads'")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if results[0]["cnt"].(int64) != 2 {
+		t.Fatalf("expected 2 daily rows (no fill), got %d", results[0]["cnt"])
+	}
+}
+
+func TestMetricsFilledEmptyDB(t *testing.T) {
+	dir := t.TempDir()
+	dataDir := filepath.Join(dir, "data")
+	_ = os.MkdirAll(dataDir, 0755)
+
+	results, _, err := QueryLive(dataDir, nil, nil, "SELECT COUNT(*) AS cnt FROM metrics_filled")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if results[0]["cnt"].(int64) != 0 {
+		t.Fatalf("expected 0 rows, got %d", results[0]["cnt"])
+	}
+}
