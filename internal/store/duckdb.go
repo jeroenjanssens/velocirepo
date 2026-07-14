@@ -244,16 +244,14 @@ FROM (
                 ) AS max_date
             FROM metrics m
             LEFT JOIN (
-                SELECT project, source, target, metric, tags, MAX(date) AS max_date
+                SELECT project, source, target, MAX(date) AS max_date
                 FROM __velocirepo_metric_watermarks
-                WHERE target IS NOT NULL AND metric IS NOT NULL
-                GROUP BY project, source, target, metric, tags
+                WHERE target IS NOT NULL
+                GROUP BY project, source, target
             ) w
                 ON w.project = m.project
                 AND w.source = m.source
                 AND w.target = m.target
-                AND w.metric = m.metric
-                AND w.tags IS NOT DISTINCT FROM m.tags
             WHERE m.metric LIKE 'total_%'
             GROUP BY m.project, m.source, m.target, m.metric, m.tags
         ) groups
@@ -278,7 +276,7 @@ SELECT * FROM metrics WHERE metric NOT LIKE 'total_%'`
 }
 
 func createMetricWatermarksView(db *sql.DB, absDir string) error {
-	glob := filepath.ToSlash(filepath.Join(absDir, WatermarksDir, MetricsDir, "*", "*", "*.jsonl"))
+	glob := filepath.ToSlash(filepath.Join(absDir, MetricsDir, "*", "*", WatermarkFileName))
 
 	if !globHasMatches(glob) {
 		return createEmptyMetricWatermarksView(db)
@@ -289,12 +287,10 @@ func createMetricWatermarksView(db *sql.DB, absDir string) error {
 			project_id AS project,
 			source,
 			target,
-			metric,
-			CAST(date AS DATE) AS date,
-			tags
+			CAST(date AS DATE) AS date
 		FROM read_json('%s',
 			format='newline_delimited',
-			columns={source: 'VARCHAR', metric: 'VARCHAR', project_id: 'VARCHAR', target: 'VARCHAR', date: 'VARCHAR', tags: 'JSON'})`,
+			columns={source: 'VARCHAR', project_id: 'VARCHAR', target: 'VARCHAR', date: 'VARCHAR'})`,
 		escapeSQLString(glob))
 
 	if _, err := db.Exec(query); err != nil {
@@ -305,8 +301,8 @@ func createMetricWatermarksView(db *sql.DB, absDir string) error {
 }
 
 func createEmptyMetricWatermarksView(db *sql.DB) error {
-	_, err := db.Exec(`CREATE VIEW __velocirepo_metric_watermarks (project, source, target, metric, date, tags) AS
-		SELECT NULL::VARCHAR, NULL::VARCHAR, NULL::VARCHAR, NULL::VARCHAR, NULL::DATE, NULL::JSON
+	_, err := db.Exec(`CREATE VIEW __velocirepo_metric_watermarks (project, source, target, date) AS
+		SELECT NULL::VARCHAR, NULL::VARCHAR, NULL::VARCHAR, NULL::DATE
 		WHERE false`)
 	if err != nil {
 		return fmt.Errorf("create empty metric watermarks view: %w", err)

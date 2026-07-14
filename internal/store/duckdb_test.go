@@ -468,7 +468,11 @@ func TestMetricsFilledUsesWatermarkSeriesKey(t *testing.T) {
 	}
 }
 
-func TestMetricsFilledUsesWatermarkTagsKey(t *testing.T) {
+// Series that share a target advance to that target's watermark horizon, even
+// after a series stops being reported. Watermarks are stored one row per target
+// (all a channel's videos are fetched together), so a removed video forward-fills
+// at its last value through the target's latest fetch date.
+func TestMetricsFilledFillsRemovedSeriesToTargetHorizon(t *testing.T) {
 	dir := t.TempDir()
 	dataDir := filepath.Join(dir, "data")
 
@@ -501,6 +505,7 @@ func TestMetricsFilledUsesWatermarkTagsKey(t *testing.T) {
 		{"current", "2025-06-01", 100},
 		{"current", "2025-06-02", 100},
 		{"removed", "2025-06-01", 200},
+		{"removed", "2025-06-02", 200},
 	}
 	if len(results) != len(want) {
 		t.Fatalf("expected %d filled rows, got %d: %v", len(want), len(results), results)

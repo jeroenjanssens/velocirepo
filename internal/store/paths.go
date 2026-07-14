@@ -6,7 +6,11 @@ const (
 	MetricsDir     = "metrics"
 	EventsDir      = "events"
 	ContentDataDir = "content"
-	WatermarksDir  = "watermarks"
+
+	// WatermarkFileName is the constant name of the per-project watermark file,
+	// co-located with the metric data. It is intentionally not a *.jsonl file so
+	// the metric globs and directory scans skip it automatically.
+	WatermarkFileName = "_watermark.json"
 )
 
 func MetricsProjectDir(dataDir, sourceName, projectID string) string {
@@ -25,6 +29,6 @@ func SourceProjectDir(dataDir, sourceName, projectID string) string {
 	return filepath.Join(dataDir, SourceCategory(sourceName), sourceName, projectID)
 }
 
-func WatermarkProjectDir(dataDir, category, sourceName, projectID string) string {
-	return filepath.Join(dataDir, WatermarksDir, category, sourceName, projectID)
+func WatermarkFilePath(dataDir, sourceName, projectID string) string {
+	return filepath.Join(MetricsProjectDir(dataDir, sourceName, projectID), WatermarkFileName)
 }

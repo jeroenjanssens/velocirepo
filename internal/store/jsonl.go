@@ -89,11 +89,15 @@ func LastDate(dataDir, sourceName, projectID string) (time.Time, error) {
 		return time.Time{}, err
 	}
 
-	watermarkDates, err := dateStringsInDir(WatermarkProjectDir(dataDir, SourceCategory(sourceName), sourceName, projectID))
+	watermarks, err := readMetricWatermarks(WatermarkFilePath(dataDir, sourceName, projectID))
 	if err != nil {
 		return time.Time{}, err
 	}
-	dates = append(dates, watermarkDates...)
+	for _, w := range watermarks {
+		if w.Date != "" {
+			dates = append(dates, w.Date)
+		}
+	}
 
 	if len(dates) == 0 {
 		return time.Time{}, nil

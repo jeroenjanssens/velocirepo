@@ -1,39 +1,75 @@
 package store
 
 import (
+	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 	"sort"
 
 	"github.com/jeroenjanssens/velocirepo/internal/source"
 )
 
+// metricWatermark records the latest date on which a target's total_* series
+// were successfully fetched, regardless of whether any value changed. One entry
+// is kept per target: every series under a target (e.g. all videos of a YouTube
+// channel) is fetched together, so per-series granularity would only duplicate
+// the same date across thousands of rows.
+//
+// Watermarks are stored in a single constant-named file per project
+// (_watermark.json), co-located with the metric data and overwritten in place
+// each fetch. It is mutable "last date checked" state, not an append log, so
+// there is nothing to accumulate or aggregate.
 type metricWatermark struct {
-	Source    string            `json:"source"`
-	ProjectID string            `json:"project_id"`
-	Target    string            `json:"target"`
-	Metric    string            `json:"metric"`
-	Date      string            `json:"date"`
-	Tags      map[string]string `json:"tags,omitempty"`
+	Source    string `json:"source"`
+	ProjectID string `json:"project_id"`
+	Target    string `json:"target"`
+	Date      string `json:"date"`
 }
 
 func writeMetricWatermarks(dataDir, sourceName, projectID, date string, records []source.Record) error {
-	watermarks := metricWatermarks(sourceName, projectID, date, records)
-	if len(watermarks) == 0 {
+	updates := metricWatermarks(sourceName, projectID, date, records)
+	if len(updates) == 0 {
 		return nil
 	}
 
-	dir := WatermarkProjectDir(dataDir, MetricsDir, sourceName, projectID)
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		return fmt.Errorf("create directory %s: %w", dir, err)
-	}
+	path := WatermarkFilePath(dataDir, sourceName, projectID)
 
-	path := filepath.Join(dir, date+".jsonl")
-	if err := writeJSONLAtomic(path, watermarks, "metric watermark"); err != nil {
+	existing, err := readMetricWatermarks(path)
+	if err != nil {
 		return err
 	}
-	return nil
+
+	byTarget := make(map[string]metricWatermark, len(existing)+len(updates))
+	for _, w := range existing {
+		byTarget[w.Target] = w
+	}
+	for _, w := range updates {
+		if prev, ok := byTarget[w.Target]; !ok || w.Date > prev.Date {
+			byTarget[w.Target] = w
+		}
+	}
+
+	merged := make([]metricWatermark, 0, len(byTarget))
+	for _, w := range byTarget {
+		merged = append(merged, w)
+	}
+	sort.Slice(merged, func(i, j int) bool { return merged[i].Target < merged[j].Target })
+
+	if err := os.MkdirAll(MetricsProjectDir(dataDir, sourceName, projectID), 0755); err != nil {
+		return fmt.Errorf("create directory: %w", err)
+	}
+	return writeJSONLAtomic(path, merged, "metric watermark")
+}
+
+func readMetricWatermarks(path string) ([]metricWatermark, error) {
+	watermarks, err := readJSONL[metricWatermark](path, readJSONLOptions{wrapErrors: true})
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return watermarks, nil
 }
 
 func metricWatermarks(sourceName, projectID, date string, records []source.Record) []metricWatermark {
@@ -42,43 +78,29 @@ func metricWatermarks(sourceName, projectID, date string, records []source.Recor
 		if !isTotalMetric(r.Metric) {
 			continue
 		}
-		key := totalKey(r)
-		if _, ok := seen[key]; ok {
+		if _, ok := seen[r.Target]; ok {
 			continue
 		}
-		seen[key] = metricWatermark{
+		seen[r.Target] = metricWatermark{
 			Source:    sourceName,
 			ProjectID: projectID,
 			Target:    r.Target,
-			Metric:    r.Metric,
 			Date:      date,
-			Tags:      cloneStringMap(r.Tags),
 		}
 	}
 	if len(seen) == 0 {
 		return nil
 	}
 
-	keys := make([]string, 0, len(seen))
-	for key := range seen {
-		keys = append(keys, key)
+	targets := make([]string, 0, len(seen))
+	for target := range seen {
+		targets = append(targets, target)
 	}
-	sort.Strings(keys)
+	sort.Strings(targets)
 
-	watermarks := make([]metricWatermark, 0, len(keys))
-	for _, key := range keys {
-		watermarks = append(watermarks, seen[key])
+	watermarks := make([]metricWatermark, 0, len(targets))
+	for _, target := range targets {
+		watermarks = append(watermarks, seen[target])
 	}
 	return watermarks
-}
-
-func cloneStringMap(m map[string]string) map[string]string {
-	if len(m) == 0 {
-		return nil
-	}
-	clone := make(map[string]string, len(m))
-	for k, v := range m {
-		clone[k] = v
-	}
-	return clone
 }

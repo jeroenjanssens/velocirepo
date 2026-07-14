@@ -181,9 +181,9 @@ github ="org/alpha"
 	dataDir := filepath.Join(dir, "data", "events", "github", "alpha")
 	_ = os.MkdirAll(dataDir, 0755)
 	writeTempFile(t, dataDir, "2025-01-01.jsonl", `{}`)
-	watermarkDir := filepath.Join(dir, "data", "watermarks", "metrics", "pypi", "alpha")
+	watermarkDir := filepath.Join(dir, "data", "metrics", "pypi", "alpha")
 	_ = os.MkdirAll(watermarkDir, 0755)
-	writeTempFile(t, watermarkDir, "2025-01-01.jsonl", `{"source":"pypi","metric":"total_downloads","project_id":"alpha","target":"alpha","date":"2025-01-01"}`)
+	writeTempFile(t, watermarkDir, "_watermark.json", `{"source":"pypi","project_id":"alpha","target":"alpha","date":"2025-01-01"}`)
 	writeTempFile(t, filepath.Join(dir, "data"), ".schema-version", "5\n")
 
 	_, _, err := execCmd(cfgPath, "remove-project", "alpha", "--force", "--delete-data")
@@ -351,9 +351,9 @@ github ="org/old"
 	dataDir := filepath.Join(dir, "data", "events", "github", "old-name")
 	_ = os.MkdirAll(dataDir, 0755)
 	writeTempFile(t, dataDir, "2025-01-01.jsonl", `{"source":"github","type":"star","project_id":"old-name","target":"org/old","datetime":"2025-01-01T00:00:00Z"}`+"\n")
-	watermarkDir := filepath.Join(dir, "data", "watermarks", "metrics", "pypi", "old-name")
+	watermarkDir := filepath.Join(dir, "data", "metrics", "pypi", "old-name")
 	_ = os.MkdirAll(watermarkDir, 0755)
-	writeTempFile(t, watermarkDir, "2025-01-01.jsonl", `{"source":"pypi","metric":"total_downloads","project_id":"old-name","target":"old-name","date":"2025-01-01"}`+"\n")
+	writeTempFile(t, watermarkDir, "_watermark.json", `{"source":"pypi","project_id":"old-name","target":"old-name","date":"2025-01-01"}`+"\n")
 	writeTempFile(t, filepath.Join(dir, "data"), ".schema-version", "5\n")
 
 	_, _, err := execCmd(cfgPath, "rename-project", "old-name", "new-name")
@@ -375,11 +375,11 @@ github ="org/old"
 		t.Error("old data directory still exists")
 	}
 
-	newWatermarkDir := filepath.Join(dir, "data", "watermarks", "metrics", "pypi", "new-name")
+	newWatermarkDir := filepath.Join(dir, "data", "metrics", "pypi", "new-name")
 	if _, err := os.Stat(newWatermarkDir); os.IsNotExist(err) {
 		t.Error("watermark directory not moved")
 	}
-	renamedWatermark := readFileString(t, filepath.Join(newWatermarkDir, "2025-01-01.jsonl"))
+	renamedWatermark := readFileString(t, filepath.Join(newWatermarkDir, "_watermark.json"))
 	assertContains(t, renamedWatermark, `"project_id":"new-name"`)
 	if _, err := os.Stat(watermarkDir); !os.IsNotExist(err) {
 		t.Error("old watermark directory still exists")

@@ -144,6 +144,9 @@ func validateRecordsDir(dir, sourceName, projectID string, result *ValidationRes
 			continue
 		}
 		name := entry.Name()
+		if name == WatermarkFileName {
+			continue
+		}
 		path := filepath.Join(dir, name)
 
 		fileDateRange := extractDateRange(name)
