@@ -1,11 +1,13 @@
 project_type: go
 
-site:
-  title: velocirepo
-  description: "Track your open-source project's pulse across package registries, GitHub, and the web."
-  url: https://posit-dev.github.io/velocirepo
+# Canonical deployment URL (top-level key; Great Docs sets website.site-url from
+# this and uses it for canonical/sitemap URLs and skill install links).
+site_url: https://posit-dev.github.io/velocirepo
 
 pypi: "https://pypi.org/project/velocirepo/"
+
+seo:
+  default_description: "Track your open-source project's pulse across package registries, GitHub, and the web."
 
 go_cli:
   enabled: true

@@ -19,10 +19,16 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install package and dependencies
+      # velocirepo is a Go CLI (go_cli.enabled in great-docs.yml), so the docs
+      # build compiles the binary and extracts its --help tree. Go must be on
+      # PATH for the CLI reference to generate.
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - name: Install great-docs
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -e .
           python -m pip install great-docs
 
       - name: Set up Quarto
