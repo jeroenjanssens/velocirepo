@@ -15,9 +15,7 @@ jobs:
         with:
           fetch-depth: 0 # Full history for accurate page timestamps
 
-      - uses: actions/setup-python@v6
-        with:
-          python-version: "3.12"
+      - uses: astral-sh/setup-uv@v6
 
       # velocirepo is a Go CLI (go_cli.enabled in great-docs.yml), so the docs
       # build compiles the binary and extracts its --help tree. Go must be on
@@ -26,16 +24,11 @@ jobs:
         with:
           go-version-file: go.mod
 
-      - name: Install great-docs
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install great-docs
-
       - name: Set up Quarto
         uses: quarto-dev/quarto-actions/setup@v2
 
       - name: Build docs
-        run: great-docs build
+        run: uvx --from git+https://github.com/posit-dev/great-docs great-docs build
 
       - name: Save docs artifact
         uses: actions/upload-artifact@v7
