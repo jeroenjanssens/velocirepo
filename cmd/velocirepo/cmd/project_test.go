@@ -3,11 +3,18 @@ package cmd
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/posit-dev/velocirepo/internal/store"
 )
+
+// currentSchemaVersion is the on-disk .schema-version contents for the latest
+// schema, so tests that seed data directories pass CheckSchemaVersion.
+var currentSchemaVersion = fmt.Sprintf("%d\n", store.LatestSchemaVersion)
 
 func TestProjectListTable(t *testing.T) {
 	cfgPath := setupTestConfig(t, `[projects.alpha]
@@ -184,7 +191,7 @@ github ="org/alpha"
 	watermarkDir := filepath.Join(dir, "data", "metrics", "pypi", "alpha")
 	_ = os.MkdirAll(watermarkDir, 0755)
 	writeTempFile(t, watermarkDir, "_watermark.json", `{"source":"pypi","project_id":"alpha","target":"alpha","date":"2025-01-01"}`)
-	writeTempFile(t, filepath.Join(dir, "data"), ".schema-version", "5\n")
+	writeTempFile(t, filepath.Join(dir, "data"), ".schema-version", currentSchemaVersion)
 
 	_, _, err := execCmd(cfgPath, "remove-project", "alpha", "--force", "--delete-data")
 	if err != nil {
@@ -291,7 +298,7 @@ github ="org/alpha"
 	dataDir := filepath.Join(dir, "data", "events", "github", "alpha")
 	_ = os.MkdirAll(dataDir, 0755)
 	writeTempFile(t, dataDir, "2025-01-01.jsonl", `{"source":"github","event_type":"star","project_id":"alpha","github_repo":"org/alpha","datetime":"2025-01-01T10:00:00Z","user":"alice"}`+"\n")
-	writeTempFile(t, filepath.Join(dir, "data"), ".schema-version", "5\n")
+	writeTempFile(t, filepath.Join(dir, "data"), ".schema-version", currentSchemaVersion)
 
 	_, buf, err := execCmd(cfgPath, "show-project", "alpha")
 	if err != nil {
@@ -354,7 +361,7 @@ github ="org/old"
 	watermarkDir := filepath.Join(dir, "data", "metrics", "pypi", "old-name")
 	_ = os.MkdirAll(watermarkDir, 0755)
 	writeTempFile(t, watermarkDir, "_watermark.json", `{"source":"pypi","project_id":"old-name","target":"old-name","date":"2025-01-01"}`+"\n")
-	writeTempFile(t, filepath.Join(dir, "data"), ".schema-version", "5\n")
+	writeTempFile(t, filepath.Join(dir, "data"), ".schema-version", currentSchemaVersion)
 
 	_, _, err := execCmd(cfgPath, "rename-project", "old-name", "new-name")
 	if err != nil {

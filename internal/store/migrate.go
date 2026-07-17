@@ -6,13 +6,14 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 
 	"github.com/posit-dev/velocirepo/internal/sourceinfo"
 )
 
-const LatestSchemaVersion = 5
+const LatestSchemaVersion = 6
 
 const schemaVersionFile = ".schema-version"
 
@@ -86,6 +87,10 @@ var migrations = []migration{
 	{
 		description: "move youtube index to data/content/",
 		run:         migrate4to5,
+	},
+	{
+		description: "collapse data/watermarks/ tree into per-project _watermark.json",
+		run:         migrate5to6,
 	},
 }
 
@@ -386,6 +391,110 @@ func migrate4to5(dataDir string) error {
 	}
 
 	return nil
+}
+
+// oldMetricWatermark is the pre-v6 watermark record shape, stored one row per
+// total-series key in dated files under data/watermarks/metrics/. Only the
+// fields needed to derive the per-target horizon are decoded.
+type oldMetricWatermark struct {
+	Source    string `json:"source"`
+	ProjectID string `json:"project_id"`
+	Target    string `json:"target"`
+	Date      string `json:"date"`
+}
+
+// migrate5to6 collapses the parallel data/watermarks/metrics/<source>/<project>/
+// *.jsonl tree into a single _watermark.json per project, co-located with the
+// metric data. Old records are per-series; the new format keeps one entry per
+// target at its latest observed date. The old tree is removed once migrated.
+func migrate5to6(dataDir string) error {
+	oldRoot := filepath.Join(dataDir, "watermarks", "metrics")
+	if _, err := os.Stat(oldRoot); os.IsNotExist(err) {
+		return nil
+	}
+
+	sourceDirs, err := os.ReadDir(oldRoot)
+	if err != nil {
+		return fmt.Errorf("read watermarks dir: %w", err)
+	}
+
+	for _, sourceEntry := range sourceDirs {
+		if !sourceEntry.IsDir() {
+			continue
+		}
+		sourceName := sourceEntry.Name()
+		sourceDir := filepath.Join(oldRoot, sourceName)
+
+		projEntries, err := os.ReadDir(sourceDir)
+		if err != nil {
+			return fmt.Errorf("read %s: %w", sourceDir, err)
+		}
+
+		for _, projEntry := range projEntries {
+			if !projEntry.IsDir() {
+				continue
+			}
+			projID := projEntry.Name()
+			if err := migrateWatermarkProject(dataDir, sourceName, projID, filepath.Join(sourceDir, projID)); err != nil {
+				return err
+			}
+		}
+	}
+
+	// Remove the now-empty (or fully migrated) old tree.
+	if err := os.RemoveAll(filepath.Join(dataDir, "watermarks")); err != nil {
+		return fmt.Errorf("remove old watermarks tree: %w", err)
+	}
+	return nil
+}
+
+// migrateWatermarkProject reads every dated *.jsonl watermark file for one
+// project, keeps the latest date per target, and writes the collapsed result to
+// the co-located _watermark.json.
+func migrateWatermarkProject(dataDir, sourceName, projID, oldProjDir string) error {
+	files, err := os.ReadDir(oldProjDir)
+	if err != nil {
+		return fmt.Errorf("read %s: %w", oldProjDir, err)
+	}
+
+	byTarget := make(map[string]metricWatermark)
+	for _, f := range files {
+		if f.IsDir() || !strings.HasSuffix(f.Name(), ".jsonl") {
+			continue
+		}
+		olds, err := readJSONL[oldMetricWatermark](filepath.Join(oldProjDir, f.Name()), readJSONLOptions{wrapErrors: true})
+		if err != nil {
+			return err
+		}
+		for _, o := range olds {
+			if o.Target == "" || o.Date == "" {
+				continue
+			}
+			if prev, ok := byTarget[o.Target]; !ok || o.Date > prev.Date {
+				byTarget[o.Target] = metricWatermark{
+					Source:    sourceName,
+					ProjectID: projID,
+					Target:    o.Target,
+					Date:      o.Date,
+				}
+			}
+		}
+	}
+
+	if len(byTarget) == 0 {
+		return nil
+	}
+
+	merged := make([]metricWatermark, 0, len(byTarget))
+	for _, w := range byTarget {
+		merged = append(merged, w)
+	}
+	sort.Slice(merged, func(i, j int) bool { return merged[i].Target < merged[j].Target })
+
+	if err := os.MkdirAll(MetricsProjectDir(dataDir, sourceName, projID), 0755); err != nil {
+		return fmt.Errorf("create metrics dir: %w", err)
+	}
+	return writeJSONLAtomic(WatermarkFilePath(dataDir, sourceName, projID), merged, "metric watermark")
 }
 
 type contentEntry5 struct {

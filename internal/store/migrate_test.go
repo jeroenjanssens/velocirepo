@@ -90,13 +90,13 @@ func TestMigrate0to1(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if applied != 5 {
-		t.Errorf("expected 5 migrations applied, got %d", applied)
+	if applied != 6 {
+		t.Errorf("expected 6 migrations applied, got %d", applied)
 	}
 
 	v, _ := SchemaVersion(dir)
-	if v != 5 {
-		t.Errorf("expected schema version 5, got %d", v)
+	if v != LatestSchemaVersion {
+		t.Errorf("expected schema version %d, got %d", LatestSchemaVersion, v)
 	}
 
 	// Verify pypi (v4 moves it into metrics/)
@@ -132,12 +132,13 @@ func TestMigrate4to5YouTubeIndex(t *testing.T) {
 		`{"video_id":"ghi789","title":"Livestream","published_at":"2025-08-01T10:00:00Z","channel":"@TestChan","duration":0}`,
 	})
 
+	// Seeded at v4, so Migrate runs 4→5 (this migration) and the no-op 5→6.
 	applied, err := Migrate(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if applied != 1 {
-		t.Errorf("expected 1 migration applied, got %d", applied)
+	if applied != 2 {
+		t.Errorf("expected 2 migrations applied, got %d", applied)
 	}
 
 	// Old file should be removed
@@ -176,6 +177,81 @@ func TestMigrate4to5YouTubeIndex(t *testing.T) {
 	}
 	if contains(content, `"duration":0`) {
 		t.Error("zero duration should be omitted, not written as 0")
+	}
+}
+
+func TestMigrate5to6CollapsesWatermarks(t *testing.T) {
+	dir := t.TempDir()
+	_ = writeSchemaVersion(dir, 5)
+
+	// Old-format watermarks: dated *.jsonl files under data/watermarks/metrics/,
+	// one row per total-series key. Two targets, each with entries on two dates.
+	oldDir := filepath.Join(dir, "watermarks", "metrics", "youtube", "my-proj")
+	writeTestRaw(t, filepath.Join(oldDir, "2025-06-01.jsonl"), []string{
+		`{"source":"youtube","metric":"total_views","project_id":"my-proj","target":"vidA","date":"2025-06-01","tags":{"video_id":"vidA"}}`,
+		`{"source":"youtube","metric":"total_likes","project_id":"my-proj","target":"vidA","date":"2025-06-01","tags":{"video_id":"vidA"}}`,
+		`{"source":"youtube","metric":"total_views","project_id":"my-proj","target":"vidB","date":"2025-06-01","tags":{"video_id":"vidB"}}`,
+	})
+	writeTestRaw(t, filepath.Join(oldDir, "2025-06-02.jsonl"), []string{
+		`{"source":"youtube","metric":"total_views","project_id":"my-proj","target":"vidA","date":"2025-06-02","tags":{"video_id":"vidA"}}`,
+	})
+
+	applied, err := Migrate(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if applied != 1 {
+		t.Errorf("expected 1 migration applied, got %d", applied)
+	}
+
+	// Old tree is removed entirely.
+	if _, err := os.Stat(filepath.Join(dir, "watermarks")); !os.IsNotExist(err) {
+		t.Error("old watermarks tree should have been removed")
+	}
+
+	// New collapsed file exists, one entry per target at its latest date.
+	newPath := WatermarkFilePath(dir, "youtube", "my-proj")
+	data, err := os.ReadFile(newPath)
+	if err != nil {
+		t.Fatalf("collapsed watermark file not created: %v", err)
+	}
+	watermarks, err := readMetricWatermarks(newPath)
+	if err != nil {
+		t.Fatalf("read collapsed watermarks: %v", err)
+	}
+	if len(watermarks) != 2 {
+		t.Fatalf("expected 2 target entries, got %d: %s", len(watermarks), data)
+	}
+	byTarget := map[string]string{}
+	for _, w := range watermarks {
+		byTarget[w.Target] = w.Date
+	}
+	if byTarget["vidA"] != "2025-06-02" {
+		t.Errorf("vidA should advance to latest date 2025-06-02, got %q", byTarget["vidA"])
+	}
+	if byTarget["vidB"] != "2025-06-01" {
+		t.Errorf("vidB should be 2025-06-01, got %q", byTarget["vidB"])
+	}
+	// The pre-v6 per-series fields (metric, tags) must not survive the collapse.
+	if contains(string(data), `"metric"`) || contains(string(data), `"tags"`) {
+		t.Errorf("collapsed watermark should not carry metric/tags fields: %s", data)
+	}
+}
+
+func TestMigrate5to6NoWatermarksTree(t *testing.T) {
+	dir := t.TempDir()
+	_ = writeSchemaVersion(dir, 5)
+
+	applied, err := Migrate(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if applied != 1 {
+		t.Errorf("expected 1 migration applied, got %d", applied)
+	}
+	v, _ := SchemaVersion(dir)
+	if v != LatestSchemaVersion {
+		t.Errorf("expected schema version %d, got %d", LatestSchemaVersion, v)
 	}
 }
 
