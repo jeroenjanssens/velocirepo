@@ -1,0 +1,30 @@
+name: Test tap token
+
+# TEMPORARY: verifies HOMEBREW_TAP_TOKEN can push to the posit-dev tap/bucket
+# repos from an Actions run. Delete after confirming.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test-push:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        repo: [homebrew-tap, scoop-bucket]
+    steps:
+      - name: Test push access to ${{ matrix.repo }}
+        env:
+          TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          set -euo pipefail
+          git clone "https://x-access-token:${TOKEN}@github.com/posit-dev/${{ matrix.repo }}.git" repo
+          cd repo
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          branch="token-test-${GITHUB_RUN_ID}"
+          git checkout -b "$branch"
+          git commit --allow-empty -m "token push test (delete me)"
+          git push origin "$branch"
+          git push origin --delete "$branch"
+          echo "${{ matrix.repo }}: push OK"
