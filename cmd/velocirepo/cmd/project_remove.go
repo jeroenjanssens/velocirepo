@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/jeroenjanssens/velocirepo/internal/config"
-	"github.com/jeroenjanssens/velocirepo/internal/projectdata"
+	"github.com/posit-dev/velocirepo/internal/config"
+	"github.com/posit-dev/velocirepo/internal/projectdata"
 	"github.com/spf13/cobra"
 )
 

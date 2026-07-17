@@ -31,7 +31,7 @@ runs:
         set -euo pipefail
 
         if [ "$VELOCIREPO_VERSION_INPUT" = "latest" ]; then
-          VERSION=$(curl -sSL -o /dev/null -w '%{url_effective}' https://github.com/jeroenjanssens/velocirepo/releases/latest | grep -o '[^/]*$' | sed 's/^v//')
+          VERSION=$(curl -sSL -o /dev/null -w '%{url_effective}' https://github.com/posit-dev/velocirepo/releases/latest | grep -o '[^/]*$' | sed 's/^v//')
         else
           if [[ ! "$VELOCIREPO_VERSION_INPUT" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "::error::Invalid velocirepo version. Use 'latest' or a semantic version like v1.2.3." >&2
@@ -43,7 +43,7 @@ runs:
           echo "::error::Could not resolve a valid velocirepo version." >&2
           exit 1
         fi
-        URL="https://github.com/jeroenjanssens/velocirepo/releases/download/v${VERSION}/velocirepo_${VERSION}_linux_amd64.tar.gz"
+        URL="https://github.com/posit-dev/velocirepo/releases/download/v${VERSION}/velocirepo_${VERSION}_linux_amd64.tar.gz"
         curl -sSL "$URL" | tar xz -C /usr/local/bin velocirepo
 
     - name: Print version

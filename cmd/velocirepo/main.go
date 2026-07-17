@@ -6,7 +6,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/jeroenjanssens/velocirepo/cmd/velocirepo/cmd"
+	"github.com/posit-dev/velocirepo/cmd/velocirepo/cmd"
 )
 
 func main() {

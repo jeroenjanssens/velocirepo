@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/jeroenjanssens/velocirepo/internal/sourceinfo"
+	"github.com/posit-dev/velocirepo/internal/sourceinfo"
 )
 
 type ValidationResult struct {

@@ -6,7 +6,7 @@ dir = "views"
 
 [projects.velocirepo]
 name = "velocirepo"
-homebrew = "jeroenjanssens/tap/velocirepo"
+homebrew = "posit-dev/tap/velocirepo"
 
 [projects.air]
 name = "Air - R Language Support"

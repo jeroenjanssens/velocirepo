@@ -24,9 +24,9 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/jeroenjanssens/velocirepo"
-Repository = "https://github.com/jeroenjanssens/velocirepo"
-Issues = "https://github.com/jeroenjanssens/velocirepo/issues"
+Homepage = "https://github.com/posit-dev/velocirepo"
+Repository = "https://github.com/posit-dev/velocirepo"
+Issues = "https://github.com/posit-dev/velocirepo/issues"
 
 [project.scripts]
 velocirepo = "velocirepo.__main__:main"

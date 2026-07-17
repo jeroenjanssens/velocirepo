@@ -6,7 +6,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/jeroenjanssens/velocirepo/internal/config"
+	"github.com/posit-dev/velocirepo/internal/config"
 	"github.com/spf13/cobra"
 )
 

@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/jeroenjanssens/velocirepo/internal/source"
+	"github.com/posit-dev/velocirepo/internal/source"
 )
 
 func TestExportParquet(t *testing.T) {

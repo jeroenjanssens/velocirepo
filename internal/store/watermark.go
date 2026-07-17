@@ -6,7 +6,7 @@ import (
 	"os"
 	"sort"
 
-	"github.com/jeroenjanssens/velocirepo/internal/source"
+	"github.com/posit-dev/velocirepo/internal/source"
 )
 
 // metricWatermark records the latest date on which a target's total_* series

@@ -7,8 +7,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/jeroenjanssens/velocirepo/internal/config"
-	"github.com/jeroenjanssens/velocirepo/internal/store"
+	"github.com/posit-dev/velocirepo/internal/config"
+	"github.com/posit-dev/velocirepo/internal/store"
 	"github.com/joho/godotenv"
 	"github.com/spf13/cobra"
 )

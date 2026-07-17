@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/jeroenjanssens/velocirepo/internal/dateutil"
+	"github.com/posit-dev/velocirepo/internal/dateutil"
 )
 
 type OpenVSX struct {

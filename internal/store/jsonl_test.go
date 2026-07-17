@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jeroenjanssens/velocirepo/internal/source"
+	"github.com/posit-dev/velocirepo/internal/source"
 )
 
 func TestWriteAndReadRecords(t *testing.T) {

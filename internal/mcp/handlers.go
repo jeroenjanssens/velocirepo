@@ -11,14 +11,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jeroenjanssens/velocirepo/internal/badge"
-	"github.com/jeroenjanssens/velocirepo/internal/config"
-	"github.com/jeroenjanssens/velocirepo/internal/fetch"
-	"github.com/jeroenjanssens/velocirepo/internal/projectdata"
-	"github.com/jeroenjanssens/velocirepo/internal/sourceinfo"
-	"github.com/jeroenjanssens/velocirepo/internal/store"
-	"github.com/jeroenjanssens/velocirepo/internal/version"
-	"github.com/jeroenjanssens/velocirepo/internal/views"
+	"github.com/posit-dev/velocirepo/internal/badge"
+	"github.com/posit-dev/velocirepo/internal/config"
+	"github.com/posit-dev/velocirepo/internal/fetch"
+	"github.com/posit-dev/velocirepo/internal/projectdata"
+	"github.com/posit-dev/velocirepo/internal/sourceinfo"
+	"github.com/posit-dev/velocirepo/internal/store"
+	"github.com/posit-dev/velocirepo/internal/version"
+	"github.com/posit-dev/velocirepo/internal/views"
 	"github.com/mark3labs/mcp-go/mcp"
 )
 

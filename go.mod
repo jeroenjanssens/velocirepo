@@ -1,4 +1,4 @@
-module github.com/jeroenjanssens/velocirepo
+module github.com/posit-dev/velocirepo
 
 go 1.26.4
 
@@ -20,7 +20,6 @@ require (
 	github.com/clipperhouse/displaywidth v0.10.0 // indirect
 	github.com/clipperhouse/uax29/v2 v2.6.0 // indirect
 	github.com/fatih/color v1.18.0 // indirect
-	github.com/fzipp/gocyclo v0.6.0 // indirect
 	github.com/go-viper/mapstructure/v2 v2.2.1 // indirect
 	github.com/goccy/go-json v0.10.5 // indirect
 	github.com/google/flatbuffers v25.1.24+incompatible // indirect

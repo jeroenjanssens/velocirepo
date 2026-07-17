@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"os"
 
-	"github.com/jeroenjanssens/velocirepo/internal/source"
+	"github.com/posit-dev/velocirepo/internal/source"
 )
 
 func readYouTubeIndex(path string) ([]source.YouTubeIndexEntry, error) {

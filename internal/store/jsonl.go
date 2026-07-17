@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jeroenjanssens/velocirepo/internal/dateutil"
-	"github.com/jeroenjanssens/velocirepo/internal/source"
+	"github.com/posit-dev/velocirepo/internal/dateutil"
+	"github.com/posit-dev/velocirepo/internal/source"
 )
 
 var (

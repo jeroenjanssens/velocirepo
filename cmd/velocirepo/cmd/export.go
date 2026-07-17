@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 
 
-	"github.com/jeroenjanssens/velocirepo/internal/store"
+	"github.com/posit-dev/velocirepo/internal/store"
 	"github.com/spf13/cobra"
 )
 

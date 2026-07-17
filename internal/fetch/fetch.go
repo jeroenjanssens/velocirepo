@@ -8,12 +8,12 @@ import (
 	"os"
 	"time"
 
-	"github.com/jeroenjanssens/velocirepo/internal/auth"
-	"github.com/jeroenjanssens/velocirepo/internal/config"
-	"github.com/jeroenjanssens/velocirepo/internal/dateutil"
-	"github.com/jeroenjanssens/velocirepo/internal/source"
-	"github.com/jeroenjanssens/velocirepo/internal/sourceinfo"
-	"github.com/jeroenjanssens/velocirepo/internal/store"
+	"github.com/posit-dev/velocirepo/internal/auth"
+	"github.com/posit-dev/velocirepo/internal/config"
+	"github.com/posit-dev/velocirepo/internal/dateutil"
+	"github.com/posit-dev/velocirepo/internal/source"
+	"github.com/posit-dev/velocirepo/internal/sourceinfo"
+	"github.com/posit-dev/velocirepo/internal/store"
 	"golang.org/x/sync/errgroup"
 )
 

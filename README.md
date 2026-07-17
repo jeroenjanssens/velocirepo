@@ -58,7 +58,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: jeroenjanssens/velocirepo@v0
+      - uses: posit-dev/velocirepo@v0
         with:
           github-token: ${{ secrets.GH_TOKEN }}
           # plausible-token: ${{ secrets.PLAUSIBLE_TOKEN }}
@@ -84,13 +84,13 @@ uvx velocirepo install-ci
 #### Homebrew (macOS / Linux)
 
 ```bash
-brew install jeroenjanssens/tap/velocirepo
+brew install posit-dev/tap/velocirepo
 ```
 
 #### Scoop (Windows)
 
 ```powershell
-scoop bucket add jeroenjanssens https://github.com/jeroenjanssens/scoop-bucket
+scoop bucket add posit-dev https://github.com/posit-dev/scoop-bucket
 scoop install velocirepo
 ```
 
@@ -109,13 +109,13 @@ uvx velocirepo fetch
 #### Go
 
 ```bash
-go install github.com/jeroenjanssens/velocirepo/cmd/velocirepo@latest
+go install github.com/posit-dev/velocirepo/cmd/velocirepo@latest
 ```
 
 #### From source
 
 ```bash
-git clone https://github.com/jeroenjanssens/velocirepo.git
+git clone https://github.com/posit-dev/velocirepo.git
 cd velocirepo
 go build -o bin/velocirepo ./cmd/velocirepo
 cp bin/velocirepo ~/.local/bin/
@@ -124,18 +124,18 @@ cp bin/velocirepo ~/.local/bin/
 #### Shell installer (macOS / Linux)
 
 ```bash
-curl -sSfL https://raw.githubusercontent.com/jeroenjanssens/velocirepo/main/install.sh | sh
+curl -sSfL https://raw.githubusercontent.com/posit-dev/velocirepo/main/install.sh | sh
 ```
 
 This downloads the latest binary to `./bin/velocirepo`. Set `INSTALL_DIR` to install elsewhere:
 
 ```bash
-curl -sSfL https://raw.githubusercontent.com/jeroenjanssens/velocirepo/main/install.sh | INSTALL_DIR=/usr/local/bin sh
+curl -sSfL https://raw.githubusercontent.com/posit-dev/velocirepo/main/install.sh | INSTALL_DIR=/usr/local/bin sh
 ```
 
 #### Download binary
 
-Pre-built binaries for Linux, macOS, and Windows are available on the [Releases](https://github.com/jeroenjanssens/velocirepo/releases) page.
+Pre-built binaries for Linux, macOS, and Windows are available on the [Releases](https://github.com/posit-dev/velocirepo/releases) page.
 
 ### Shell completion
 

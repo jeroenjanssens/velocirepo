@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/jeroenjanssens/velocirepo/internal/sourceinfo"
+	"github.com/posit-dev/velocirepo/internal/sourceinfo"
 )
 
 const LatestSchemaVersion = 5

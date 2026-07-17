@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jeroenjanssens/velocirepo/internal/source"
-	"github.com/jeroenjanssens/velocirepo/internal/sourceinfo"
+	"github.com/posit-dev/velocirepo/internal/source"
+	"github.com/posit-dev/velocirepo/internal/sourceinfo"
 )
 
 // SourceCategory returns the date-partitioned category ("metrics" or "events")

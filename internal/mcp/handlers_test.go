@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/jeroenjanssens/velocirepo/internal/config"
-	"github.com/jeroenjanssens/velocirepo/internal/testutil"
+	"github.com/posit-dev/velocirepo/internal/config"
+	"github.com/posit-dev/velocirepo/internal/testutil"
 	mcplib "github.com/mark3labs/mcp-go/mcp"
 )
 

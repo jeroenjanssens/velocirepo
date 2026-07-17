@@ -3,7 +3,7 @@ package config
 import (
 	"testing"
 
-	"github.com/jeroenjanssens/velocirepo/internal/testutil"
+	"github.com/posit-dev/velocirepo/internal/testutil"
 )
 
 func TestParseGitHubURLSSH(t *testing.T) {

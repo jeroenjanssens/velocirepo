@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/jeroenjanssens/velocirepo/internal/dateutil"
+	"github.com/posit-dev/velocirepo/internal/dateutil"
 )
 
 type Homebrew struct {

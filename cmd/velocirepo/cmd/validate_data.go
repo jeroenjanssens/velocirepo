@@ -6,8 +6,8 @@ import (
 	"os"
 	"sort"
 
-	"github.com/jeroenjanssens/velocirepo/internal/store"
-	"github.com/jeroenjanssens/velocirepo/internal/ui"
+	"github.com/posit-dev/velocirepo/internal/store"
+	"github.com/posit-dev/velocirepo/internal/ui"
 	"github.com/spf13/cobra"
 )
 

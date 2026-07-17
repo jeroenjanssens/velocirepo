@@ -6,9 +6,9 @@ import (
 	"os"
 	"sort"
 
-	"github.com/jeroenjanssens/velocirepo/internal/config"
-	"github.com/jeroenjanssens/velocirepo/internal/fetch"
-	"github.com/jeroenjanssens/velocirepo/internal/ui"
+	"github.com/posit-dev/velocirepo/internal/config"
+	"github.com/posit-dev/velocirepo/internal/fetch"
+	"github.com/posit-dev/velocirepo/internal/ui"
 	"github.com/spf13/cobra"
 )
 

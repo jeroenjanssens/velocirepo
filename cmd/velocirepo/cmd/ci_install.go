@@ -8,7 +8,7 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/jeroenjanssens/velocirepo/internal/version"
+	"github.com/posit-dev/velocirepo/internal/version"
 	"github.com/spf13/cobra"
 )
 
@@ -28,7 +28,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: jeroenjanssens/velocirepo@{{.Version}}
+      - uses: posit-dev/velocirepo@{{.Version}}
         with:
           github-token: ${{"{{"}} secrets.GH_TOKEN {{"}}"}}
 {{- if .NeedsPlausible}}

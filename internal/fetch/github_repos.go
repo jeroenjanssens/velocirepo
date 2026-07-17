@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jeroenjanssens/velocirepo/internal/config"
+	"github.com/posit-dev/velocirepo/internal/config"
 )
 
 type ImportEntry struct {

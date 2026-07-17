@@ -55,7 +55,7 @@ jobs:
         run: |
           VERSION="${{ needs.validate-tag.outputs.version }}"
           mkdir -p dist
-          LDFLAGS="-s -w -X github.com/jeroenjanssens/velocirepo/internal/version.Version=v${VERSION} -X github.com/jeroenjanssens/velocirepo/internal/version.Commit=$(printf '%s' "$GITHUB_SHA" | cut -c1-8) -X github.com/jeroenjanssens/velocirepo/internal/version.Date=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          LDFLAGS="-s -w -X github.com/posit-dev/velocirepo/internal/version.Version=v${VERSION} -X github.com/posit-dev/velocirepo/internal/version.Commit=$(printf '%s' "$GITHUB_SHA" | cut -c1-8) -X github.com/posit-dev/velocirepo/internal/version.Date=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           go build -trimpath -ldflags="$LDFLAGS" -o dist/velocirepo ./cmd/velocirepo
 
           echo "--- Binary info ---"
@@ -103,7 +103,7 @@ jobs:
         run: |
           VERSION="${{ needs.validate-tag.outputs.version }}"
           mkdir -p dist
-          LDFLAGS="-s -w -X github.com/jeroenjanssens/velocirepo/internal/version.Version=v${VERSION} -X github.com/jeroenjanssens/velocirepo/internal/version.Commit=$(printf '%s' "$GITHUB_SHA" | cut -c1-8) -X github.com/jeroenjanssens/velocirepo/internal/version.Date=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          LDFLAGS="-s -w -X github.com/posit-dev/velocirepo/internal/version.Version=v${VERSION} -X github.com/posit-dev/velocirepo/internal/version.Commit=$(printf '%s' "$GITHUB_SHA" | cut -c1-8) -X github.com/posit-dev/velocirepo/internal/version.Date=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           go build -trimpath -ldflags="$LDFLAGS" -o dist/velocirepo ./cmd/velocirepo
 
           echo "--- Binary info ---"
@@ -150,7 +150,7 @@ jobs:
         run: |
           VERSION="${{ needs.validate-tag.outputs.version }}"
           mkdir -p dist
-          LDFLAGS="-s -w -X github.com/jeroenjanssens/velocirepo/internal/version.Version=v${VERSION} -X github.com/jeroenjanssens/velocirepo/internal/version.Commit=$(printf '%s' "$GITHUB_SHA" | cut -c1-8) -X github.com/jeroenjanssens/velocirepo/internal/version.Date=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          LDFLAGS="-s -w -X github.com/posit-dev/velocirepo/internal/version.Version=v${VERSION} -X github.com/posit-dev/velocirepo/internal/version.Commit=$(printf '%s' "$GITHUB_SHA" | cut -c1-8) -X github.com/posit-dev/velocirepo/internal/version.Date=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           go build -trimpath -ldflags="$LDFLAGS" -o dist/velocirepo.exe ./cmd/velocirepo
 
           # Smoke test
@@ -242,7 +242,7 @@ jobs:
       - name: Checkout tap repository
         uses: actions/checkout@v5
         with:
-          repository: jeroenjanssens/homebrew-tap
+          repository: posit-dev/homebrew-tap
           token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
           path: homebrew-tap
 
@@ -256,28 +256,28 @@ jobs:
           cat > homebrew-tap/Formula/velocirepo.rb << 'FORMULA'
           class Velocirepo < Formula
             desc "Track your open-source project's pulse across package registries, GitHub, and the web"
-            homepage "https://github.com/jeroenjanssens/velocirepo"
+            homepage "https://github.com/posit-dev/velocirepo"
             version "VERSION_PLACEHOLDER"
             license "MIT"
 
             on_macos do
               if Hardware::CPU.intel?
-                url "https://github.com/jeroenjanssens/velocirepo/releases/download/v#{version}/velocirepo_#{version}_darwin_amd64.tar.gz"
+                url "https://github.com/posit-dev/velocirepo/releases/download/v#{version}/velocirepo_#{version}_darwin_amd64.tar.gz"
                 sha256 "DARWIN_AMD64_PLACEHOLDER"
               end
               if Hardware::CPU.arm?
-                url "https://github.com/jeroenjanssens/velocirepo/releases/download/v#{version}/velocirepo_#{version}_darwin_arm64.tar.gz"
+                url "https://github.com/posit-dev/velocirepo/releases/download/v#{version}/velocirepo_#{version}_darwin_arm64.tar.gz"
                 sha256 "DARWIN_ARM64_PLACEHOLDER"
               end
             end
 
             on_linux do
               if Hardware::CPU.intel?
-                url "https://github.com/jeroenjanssens/velocirepo/releases/download/v#{version}/velocirepo_#{version}_linux_amd64.tar.gz"
+                url "https://github.com/posit-dev/velocirepo/releases/download/v#{version}/velocirepo_#{version}_linux_amd64.tar.gz"
                 sha256 "LINUX_AMD64_PLACEHOLDER"
               end
               if Hardware::CPU.arm?
-                url "https://github.com/jeroenjanssens/velocirepo/releases/download/v#{version}/velocirepo_#{version}_linux_arm64.tar.gz"
+                url "https://github.com/posit-dev/velocirepo/releases/download/v#{version}/velocirepo_#{version}_linux_arm64.tar.gz"
                 sha256 "LINUX_ARM64_PLACEHOLDER"
               end
             end
@@ -338,7 +338,7 @@ jobs:
       - name: Checkout scoop bucket
         uses: actions/checkout@v5
         with:
-          repository: jeroenjanssens/scoop-bucket
+          repository: posit-dev/scoop-bucket
           token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
           path: scoop-bucket
 
@@ -350,11 +350,11 @@ jobs:
           {
             "version": "VERSION_PLACEHOLDER",
             "description": "Track your open-source project's pulse across package registries, GitHub, and the web",
-            "homepage": "https://github.com/jeroenjanssens/velocirepo",
+            "homepage": "https://github.com/posit-dev/velocirepo",
             "license": "MIT",
             "architecture": {
               "64bit": {
-                "url": "https://github.com/jeroenjanssens/velocirepo/releases/download/vVERSION_PLACEHOLDER/velocirepo_VERSION_PLACEHOLDER_windows_amd64.zip",
+                "url": "https://github.com/posit-dev/velocirepo/releases/download/vVERSION_PLACEHOLDER/velocirepo_VERSION_PLACEHOLDER_windows_amd64.zip",
                 "hash": "WINDOWS_SHA_PLACEHOLDER"
               }
             },
@@ -363,7 +363,7 @@ jobs:
             "autoupdate": {
               "architecture": {
                 "64bit": {
-                  "url": "https://github.com/jeroenjanssens/velocirepo/releases/download/v$version/velocirepo_$version_windows_amd64.zip"
+                  "url": "https://github.com/posit-dev/velocirepo/releases/download/v$version/velocirepo_$version_windows_amd64.zip"
                 }
               }
             }

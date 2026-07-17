@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jeroenjanssens/velocirepo/internal/dateutil"
+	"github.com/posit-dev/velocirepo/internal/dateutil"
 )
 
 type LinkedIn struct {

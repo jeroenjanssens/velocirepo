@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jeroenjanssens/velocirepo/internal/testutil"
+	"github.com/posit-dev/velocirepo/internal/testutil"
 	"github.com/spf13/cobra"
 )
 

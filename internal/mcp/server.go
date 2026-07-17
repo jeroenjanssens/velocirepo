@@ -3,9 +3,9 @@ package mcp
 import (
 	"context"
 
-	"github.com/jeroenjanssens/velocirepo/internal/config"
-	"github.com/jeroenjanssens/velocirepo/internal/sourceinfo"
-	"github.com/jeroenjanssens/velocirepo/internal/version"
+	"github.com/posit-dev/velocirepo/internal/config"
+	"github.com/posit-dev/velocirepo/internal/sourceinfo"
+	"github.com/posit-dev/velocirepo/internal/version"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 )

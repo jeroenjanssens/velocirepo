@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jeroenjanssens/velocirepo/internal/auth"
+	"github.com/posit-dev/velocirepo/internal/auth"
 	"github.com/spf13/cobra"
 )
 

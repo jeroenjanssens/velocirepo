@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jeroenjanssens/velocirepo/internal/dateutil"
-	"github.com/jeroenjanssens/velocirepo/internal/store"
+	"github.com/posit-dev/velocirepo/internal/dateutil"
+	"github.com/posit-dev/velocirepo/internal/store"
 	"github.com/olekukonko/tablewriter"
 	"github.com/olekukonko/tablewriter/tw"
 	"github.com/spf13/cobra"

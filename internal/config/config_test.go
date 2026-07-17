@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/jeroenjanssens/velocirepo/internal/testutil"
+	"github.com/posit-dev/velocirepo/internal/testutil"
 )
 
 func TestLoadSingleProject(t *testing.T) {

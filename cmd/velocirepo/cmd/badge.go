@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/jeroenjanssens/velocirepo/internal/badge"
-	"github.com/jeroenjanssens/velocirepo/internal/store"
+	"github.com/posit-dev/velocirepo/internal/badge"
+	"github.com/posit-dev/velocirepo/internal/store"
 	"github.com/spf13/cobra"
 )
 

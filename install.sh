@@ -1,7 +1,7 @@
 #!/bin/sh
 set -e
 
-REPO="jeroenjanssens/velocirepo"
+REPO="posit-dev/velocirepo"
 INSTALL_DIR="${INSTALL_DIR:-./bin}"
 
 detect_os() {

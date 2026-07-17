@@ -10,7 +10,7 @@ import (
 	"syscall"
 	"time"
 
-	mcpinternal "github.com/jeroenjanssens/velocirepo/internal/mcp"
+	mcpinternal "github.com/posit-dev/velocirepo/internal/mcp"
 	"github.com/mark3labs/mcp-go/server"
 	"github.com/spf13/cobra"
 )

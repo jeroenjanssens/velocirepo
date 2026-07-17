@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/jeroenjanssens/velocirepo/internal/views"
+	"github.com/posit-dev/velocirepo/internal/views"
 	"github.com/spf13/cobra"
 )
 

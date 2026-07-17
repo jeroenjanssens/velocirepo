@@ -7,8 +7,8 @@ import (
 	"reflect"
 
 	"github.com/BurntSushi/toml"
-	"github.com/jeroenjanssens/velocirepo/internal/sourceinfo"
-	"github.com/jeroenjanssens/velocirepo/internal/store"
+	"github.com/posit-dev/velocirepo/internal/sourceinfo"
+	"github.com/posit-dev/velocirepo/internal/store"
 )
 
 // StringList is a TOML type that accepts either a single string or an array of strings.
