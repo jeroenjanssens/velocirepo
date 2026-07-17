@@ -1,0 +1,14 @@
+project_type: go
+
+site:
+  title: velocirepo
+  description: "Track your open-source project's pulse across package registries, GitHub, and the web."
+  url: https://posit-dev.github.io/velocirepo
+
+pypi: "https://pypi.org/project/velocirepo/"
+
+go_cli:
+  enabled: true
+
+mcp:
+  enabled: false
