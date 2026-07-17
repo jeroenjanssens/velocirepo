@@ -458,6 +458,28 @@ func migrateWatermarkProject(dataDir, sourceName, projID, oldProjDir string) err
 	}
 
 	byTarget := make(map[string]metricWatermark)
+
+	// Seed from any existing collapsed _watermark.json first. The pre-v6
+	// collapsed-watermark code (commit d02baf2) shipped under schema v5 without
+	// bumping the version, so a v5 data dir can already hold newer per-target
+	// horizons alongside a leftover old tree. Merge by max date so migrating
+	// never regresses a target to an older legacy date.
+	existing, err := readMetricWatermarks(WatermarkFilePath(dataDir, sourceName, projID))
+	if err != nil {
+		return err
+	}
+	for _, w := range existing {
+		if w.Target == "" || w.Date == "" {
+			continue
+		}
+		byTarget[w.Target] = metricWatermark{
+			Source:    sourceName,
+			ProjectID: projID,
+			Target:    w.Target,
+			Date:      w.Date,
+		}
+	}
+
 	for _, f := range files {
 		if f.IsDir() || !strings.HasSuffix(f.Name(), ".jsonl") {
 			continue

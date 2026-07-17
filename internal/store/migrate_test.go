@@ -255,6 +255,48 @@ func TestMigrate5to6NoWatermarksTree(t *testing.T) {
 	}
 }
 
+func TestMigrate5to6DoesNotRegressNewerExistingWatermark(t *testing.T) {
+	dir := t.TempDir()
+	_ = writeSchemaVersion(dir, 5)
+
+	// A v5 data dir can already hold a collapsed _watermark.json (written by the
+	// pre-v6 code) with a newer date than a leftover old tree entry for the same
+	// target. Migration must keep the newer date, not overwrite it with the old.
+	existingPath := WatermarkFilePath(dir, "youtube", "my-proj")
+	writeTestRaw(t, existingPath, []string{
+		`{"source":"youtube","project_id":"my-proj","target":"vidA","date":"2025-07-10"}`,
+	})
+
+	oldDir := filepath.Join(dir, "watermarks", "metrics", "youtube", "my-proj")
+	writeTestRaw(t, filepath.Join(oldDir, "2025-06-01.jsonl"), []string{
+		`{"source":"youtube","metric":"total_views","project_id":"my-proj","target":"vidA","date":"2025-06-01"}`,
+		`{"source":"youtube","metric":"total_views","project_id":"my-proj","target":"vidB","date":"2025-06-01"}`,
+	})
+
+	if _, err := Migrate(dir); err != nil {
+		t.Fatal(err)
+	}
+
+	watermarks, err := readMetricWatermarks(existingPath)
+	if err != nil {
+		t.Fatalf("read merged watermarks: %v", err)
+	}
+	byTarget := map[string]string{}
+	for _, w := range watermarks {
+		byTarget[w.Target] = w.Date
+	}
+	// vidA keeps its newer existing date; vidB is carried over from the old tree.
+	if byTarget["vidA"] != "2025-07-10" {
+		t.Errorf("vidA should keep newer date 2025-07-10, got %q", byTarget["vidA"])
+	}
+	if byTarget["vidB"] != "2025-06-01" {
+		t.Errorf("vidB should be migrated from old tree as 2025-06-01, got %q", byTarget["vidB"])
+	}
+	if _, err := os.Stat(filepath.Join(dir, "watermarks")); !os.IsNotExist(err) {
+		t.Error("old watermarks tree should have been removed")
+	}
+}
+
 func TestMigrateAlreadyCurrent(t *testing.T) {
 	dir := t.TempDir()
 	_ = writeSchemaVersion(dir, LatestSchemaVersion)
