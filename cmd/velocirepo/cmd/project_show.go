@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/posit-dev/velocirepo/internal/config"
+	"github.com/posit-dev/velocirepo/internal/dateutil"
 	"github.com/posit-dev/velocirepo/internal/store"
 	"github.com/spf13/cobra"
 )
@@ -43,9 +44,20 @@ func showProjectCmd() *cobra.Command {
 			for _, src := range sources {
 				dir := filepath.Join(dataDir, config.SourceDirPath(src), id)
 				ds := store.ScanProjectDir(dir)
+
+				// Report the last date the source was successfully fetched, not
+				// the last date a value changed. For total_* gauges the two
+				// differ: an unchanged total writes no row, so the newest
+				// filename (ds.LastDate) can lag well behind the real fetch.
+				// store.LastDate consults the watermark to close that gap.
+				lastDate := ds.LastDate
+				if t, err := store.LastDate(dataDir, src, id); err == nil && !t.IsZero() {
+					lastDate = dateutil.FormatDate(t)
+				}
+
 				stats = append(stats, sourceStats{
 					Source:    src,
-					LastDate:  ds.LastDate,
+					LastDate:  lastDate,
 					Records:   ds.Records,
 					SizeBytes: ds.Size,
 				})

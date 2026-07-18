@@ -93,6 +93,7 @@ func newRootCmd() *cobra.Command {
 	rootCmd.AddCommand(updateProjectCmd())
 	rootCmd.AddCommand(showProjectCmd())
 	rootCmd.AddCommand(listProjectsCmd())
+	rootCmd.AddCommand(statusCmd())
 	rootCmd.AddCommand(importProjectsCmd())
 	rootCmd.AddCommand(validateProjectsCmd())
 

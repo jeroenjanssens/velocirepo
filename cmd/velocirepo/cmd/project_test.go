@@ -310,6 +310,36 @@ github ="org/alpha"
 	assertContains(t, output, "2025-01-01")
 }
 
+func TestProjectShowUsesWatermarkForLastFetched(t *testing.T) {
+	cfgPath := setupTestConfig(t, `[data]
+dir = "data"
+
+[projects.alpha]
+name = "Alpha"
+github = "org/alpha"
+`)
+	dir := filepath.Dir(cfgPath)
+
+	metricsDir := filepath.Join(dir, "data", "metrics", "github", "alpha")
+	_ = os.MkdirAll(metricsDir, 0755)
+	// The total_stars value last changed on 2025-01-01...
+	writeTempFile(t, metricsDir, "2025-01-01.jsonl",
+		`{"source":"github","metric":"total_stars","project_id":"alpha","target":"org/alpha","date":"2025-01-01","value":100,"tags":{}}`+"\n")
+	// ...but the source was successfully fetched (unchanged) through 2025-06-15.
+	writeTempFile(t, metricsDir, "_watermark.json",
+		`{"source":"github","project_id":"alpha","target":"org/alpha","date":"2025-06-15"}`+"\n")
+	writeTempFile(t, filepath.Join(dir, "data"), ".schema-version", currentSchemaVersion)
+
+	_, buf, err := execCmd(cfgPath, "show-project", "alpha")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	output := buf.String()
+	assertContains(t, output, "last fetched: 2025-06-15")
+	assertNotContains(t, output, "last fetched: 2025-01-01")
+}
+
 func TestProjectShowNotFound(t *testing.T) {
 	cfgPath := setupTestConfig(t, `[projects.alpha]
 name = "Alpha"

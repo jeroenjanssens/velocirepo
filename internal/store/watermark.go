@@ -61,6 +61,33 @@ func writeMetricWatermarks(dataDir, sourceName, projectID, date string, records 
 	return writeJSONLAtomic(path, merged, "metric watermark")
 }
 
+// MetricWatermark is the exported, per-target "last date checked" record for a
+// project's total_* series. See metricWatermark for the semantics.
+type MetricWatermark struct {
+	Source    string
+	ProjectID string
+	Target    string
+	Date      string
+}
+
+// ReadMetricWatermarks returns the per-target watermarks recorded for a
+// project's metric source, sorted by target. It returns nil (and no error) when
+// no watermark file exists.
+func ReadMetricWatermarks(dataDir, sourceName, projectID string) ([]MetricWatermark, error) {
+	internal, err := readMetricWatermarks(WatermarkFilePath(dataDir, sourceName, projectID))
+	if err != nil {
+		return nil, err
+	}
+	if len(internal) == 0 {
+		return nil, nil
+	}
+	out := make([]MetricWatermark, len(internal))
+	for i, w := range internal {
+		out[i] = MetricWatermark(w)
+	}
+	return out, nil
+}
+
 func readMetricWatermarks(path string) ([]metricWatermark, error) {
 	watermarks, err := readJSONL[metricWatermark](path, readJSONLOptions{wrapErrors: true})
 	if err != nil {
