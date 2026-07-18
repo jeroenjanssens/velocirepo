@@ -3,6 +3,7 @@ package cmd
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"sort"
 
@@ -19,6 +20,7 @@ func validateDataCmd() *cobra.Command {
 		Short:   "Check data files for integrity issues",
 		GroupID: "data",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			out := cmd.OutOrStdout()
 			dataDir := cfg.DataDir()
 
 			var projectIDs map[string]bool
@@ -36,11 +38,11 @@ func validateDataCmd() *cobra.Command {
 				return err
 			}
 
-			_, _ = fmt.Fprintf(os.Stdout, "Scanned %d files, %d lines, %d records\n\n",
+			_, _ = fmt.Fprintf(out, "Scanned %d files, %d lines, %d records\n\n",
 				result.FilesRead, result.LinesRead, result.RecordCount)
 
 			if len(result.Issues) == 0 {
-				_, _ = fmt.Fprintln(os.Stdout, "No issues found.")
+				_, _ = fmt.Fprintln(out, "No issues found.")
 				return nil
 			}
 
@@ -49,23 +51,23 @@ func validateDataCmd() *cobra.Command {
 
 			for _, t := range types {
 				issues := grouped[t]
-				_, _ = fmt.Fprintf(os.Stdout, "%s (%d)\n", t, len(issues))
+				_, _ = fmt.Fprintf(out, "%s (%d)\n", t, len(issues))
 				for _, issue := range issues {
 					marker := "  ✗"
 					if issue.Fixable {
 						marker = "  ⚠"
 					}
-					_, _ = fmt.Fprintf(os.Stdout, "%s %s: %s\n", marker, relativePath(dataDir, issue.Path), issue.Message)
+					_, _ = fmt.Fprintf(out, "%s %s: %s\n", marker, relativePath(dataDir, issue.Path), issue.Message)
 				}
-				_, _ = fmt.Fprintln(os.Stdout)
+				_, _ = fmt.Fprintln(out)
 			}
 
 			fixable := countFixable(result.Issues)
-			_, _ = fmt.Fprintf(os.Stdout, "%d issue(s), %d fixable\n", len(result.Issues), fixable)
+			_, _ = fmt.Fprintf(out, "%d issue(s), %d fixable\n", len(result.Issues), fixable)
 
 			if fixable == 0 || !fix {
 				if fixable > 0 && !fix {
-					_, _ = fmt.Fprintln(os.Stdout, "\nRun with --fix to apply fixes interactively.")
+					_, _ = fmt.Fprintln(out, "\nRun with --fix to apply fixes interactively.")
 				}
 				if len(result.Issues) > 0 {
 					return fmt.Errorf("%d issue(s) found", len(result.Issues))
@@ -73,14 +75,14 @@ func validateDataCmd() *cobra.Command {
 				return nil
 			}
 
-			_, _ = fmt.Fprintln(os.Stdout)
+			_, _ = fmt.Fprintln(out)
 
 			if !isInteractive() {
 				return fmt.Errorf("--fix requires an interactive terminal")
 			}
 
 			reader := bufio.NewReader(os.Stdin)
-			return runDataFixHandlers(reader, grouped)
+			return runDataFixHandlers(out, reader, grouped)
 		},
 	}
 
@@ -232,26 +234,26 @@ var dataFixHandlers = []dataFixHandler{
 	},
 }
 
-func runDataFixHandlers(reader *bufio.Reader, grouped map[store.IssueType][]store.Issue) error {
+func runDataFixHandlers(out io.Writer, reader *bufio.Reader, grouped map[store.IssueType][]store.Issue) error {
 	for _, handler := range dataFixHandlers {
 		action := handler.prepare(grouped[handler.issueType])
 		if action == nil {
 			continue
 		}
-		ok, err := confirm(os.Stdout, reader, action.confirmMessage)
+		ok, err := confirm(out, reader, action.confirmMessage)
 		if err != nil {
 			return err
 		}
 		if !ok {
 			continue
 		}
-		printDataFixResult(action.fix(), action.successFormat)
+		printDataFixResult(out, action.fix(), action.successFormat)
 	}
 	return nil
 }
 
-func printDataFixResult(result *store.FixResult, successFormat string) {
-	_, _ = fmt.Fprintf(os.Stdout, successFormat, result.Fixed)
+func printDataFixResult(out io.Writer, result *store.FixResult, successFormat string) {
+	_, _ = fmt.Fprintf(out, successFormat, result.Fixed)
 	for _, e := range result.Errors {
 		ui.Errorf("  %v", e)
 	}

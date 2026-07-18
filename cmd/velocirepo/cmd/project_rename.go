@@ -52,14 +52,15 @@ func renameProjectCmd() *cobra.Command {
 				return err
 			}
 
+			out := cmd.OutOrStdout()
 			if !noMoveData {
 				if len(moved) > 0 {
-					_, _ = fmt.Fprintf(os.Stdout, "Renamed project '%s' → '%s' (moved data for: %s)\n", oldID, newID, joinComma(moved))
+					_, _ = fmt.Fprintf(out, "Renamed project '%s' → '%s' (moved data for: %s)\n", oldID, newID, joinComma(moved))
 				} else {
-					_, _ = fmt.Fprintf(os.Stdout, "Renamed project '%s' → '%s' (no data directories found)\n", oldID, newID)
+					_, _ = fmt.Fprintf(out, "Renamed project '%s' → '%s' (no data directories found)\n", oldID, newID)
 				}
 			} else {
-				_, _ = fmt.Fprintf(os.Stdout, "Renamed project '%s' → '%s'\n", oldID, newID)
+				_, _ = fmt.Fprintf(out, "Renamed project '%s' → '%s'\n", oldID, newID)
 			}
 
 			rebuildDB()

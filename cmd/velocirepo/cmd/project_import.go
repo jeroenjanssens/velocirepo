@@ -33,6 +33,7 @@ func importProjectsCmd() *cobra.Command {
 		Short:   "Bulk-add projects from an external source",
 		GroupID: "project",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			out := cmd.OutOrStdout()
 			sources := 0
 			if githubOrg != "" {
 				sources++
@@ -80,7 +81,7 @@ func importProjectsCmd() *cobra.Command {
 			}
 
 			if len(projects) == 0 {
-				fmt.Println("No projects found to import.")
+				_, _ = fmt.Fprintln(out, "No projects found to import.")
 				return nil
 			}
 
@@ -99,21 +100,21 @@ func importProjectsCmd() *cobra.Command {
 			}
 
 			if len(toAdd) == 0 {
-				fmt.Printf("No new projects to add (%d skipped as existing).\n", skipped)
+				_, _ = fmt.Fprintf(out, "No new projects to add (%d skipped as existing).\n", skipped)
 				return nil
 			}
 
-			_, _ = fmt.Fprintf(os.Stdout, "Projects to add (%d):\n", len(toAdd))
+			_, _ = fmt.Fprintf(out, "Projects to add (%d):\n", len(toAdd))
 			for _, p := range toAdd {
-				_, _ = fmt.Fprintf(os.Stdout, "  %s (%s)\n", p.ID, p.Project.GitHubEvents.String())
+				_, _ = fmt.Fprintf(out, "  %s (%s)\n", p.ID, p.Project.GitHubEvents.String())
 			}
 			if skipped > 0 {
-				_, _ = fmt.Fprintf(os.Stdout, "  (%d skipped as existing)\n", skipped)
+				_, _ = fmt.Fprintf(out, "  (%d skipped as existing)\n", skipped)
 			}
-			_, _ = fmt.Fprintln(os.Stdout)
+			_, _ = fmt.Fprintln(out)
 
 			if dryRun {
-				fmt.Println("Dry run — no changes made.")
+				_, _ = fmt.Fprintln(out, "Dry run — no changes made.")
 				return nil
 			}
 
@@ -122,12 +123,12 @@ func importProjectsCmd() *cobra.Command {
 					return fmt.Errorf("cannot prompt for confirmation (use --yes)")
 				}
 				reader := bufio.NewReader(os.Stdin)
-				ok, err := confirm(os.Stdout, reader, "Add these projects?")
+				ok, err := confirm(out, reader, "Add these projects?")
 				if err != nil {
 					return err
 				}
 				if !ok {
-					fmt.Println("Cancelled.")
+					_, _ = fmt.Fprintln(out, "Cancelled.")
 					return nil
 				}
 			}
@@ -139,7 +140,7 @@ func importProjectsCmd() *cobra.Command {
 				}
 			}
 
-			_, _ = fmt.Fprintf(os.Stdout, "Added %d projects.\n", len(toAdd))
+			_, _ = fmt.Fprintf(out, "Added %d projects.\n", len(toAdd))
 			rebuildDB()
 			return nil
 		},

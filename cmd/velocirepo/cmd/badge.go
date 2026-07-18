@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"io"
 	"os"
 
 	"github.com/posit-dev/velocirepo/internal/badge"
@@ -61,7 +62,7 @@ For custom badges, provide --query and --label.`,
 					color = "#007ec6"
 				}
 
-				return writeBadge(badge.Options{
+				return writeBadge(cmd.OutOrStdout(), badge.Options{
 					Label:      label,
 					Message:    msg,
 					Color:      color,
@@ -94,7 +95,7 @@ For custom badges, provide --query and --label.`,
 				color = preset.Color
 			}
 
-			return writeBadge(badge.Options{
+			return writeBadge(cmd.OutOrStdout(), badge.Options{
 				Label:      label,
 				Message:    msg,
 				Color:      color,
@@ -143,11 +144,11 @@ func queryBadgeValue(query string) (string, error) {
 	return "0", nil
 }
 
-func writeBadge(opts badge.Options, output string) error {
+func writeBadge(out io.Writer, opts badge.Options, output string) error {
 	svg := badge.Render(opts)
 
 	if output == "" {
-		fmt.Print(svg)
+		_, _ = fmt.Fprint(out, svg)
 		return nil
 	}
 

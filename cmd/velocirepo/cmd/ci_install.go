@@ -57,10 +57,11 @@ func installCICmd() *cobra.Command {
 				return fmt.Errorf("ci install requires an interactive terminal")
 			}
 
+			out := cmd.OutOrStdout()
 			reader := bufio.NewReader(os.Stdin)
 
 			defaultCron := "0 1 * * *"
-			cron, err := prompt(os.Stdout, reader, "Cron schedule", defaultCron, "daily at 1am UTC")
+			cron, err := prompt(out, reader, "Cron schedule", defaultCron, "daily at 1am UTC")
 			if err != nil {
 				return err
 			}
@@ -70,13 +71,13 @@ func installCICmd() *cobra.Command {
 				defaultVersion = version.Version
 			}
 			versionHint := "use a tag like v0.1.4, or \"latest\""
-			ver, err := prompt(os.Stdout, reader, "Velocirepo version", defaultVersion, versionHint)
+			ver, err := prompt(out, reader, "Velocirepo version", defaultVersion, versionHint)
 			if err != nil {
 				return err
 			}
 
 			defaultFile := ".github/workflows/velocirepo.yml"
-			filename, err := prompt(os.Stdout, reader, "Workflow file", defaultFile, "")
+			filename, err := prompt(out, reader, "Workflow file", defaultFile, "")
 			if err != nil {
 				return err
 			}
@@ -84,12 +85,12 @@ func installCICmd() *cobra.Command {
 			outPath := filepath.Join(cfg.Dir, filename)
 
 			if _, err := os.Stat(outPath); err == nil {
-				ok, err := confirm(os.Stdout, reader, fmt.Sprintf("File %s already exists. Overwrite?", filename))
+				ok, err := confirm(out, reader, fmt.Sprintf("File %s already exists. Overwrite?", filename))
 				if err != nil {
 					return err
 				}
 				if !ok {
-					fmt.Println("Cancelled.")
+					_, _ = fmt.Fprintln(out, "Cancelled.")
 					return nil
 				}
 			}
@@ -146,7 +147,7 @@ func installCICmd() *cobra.Command {
 				return fmt.Errorf("render template: %w", err)
 			}
 
-			fmt.Printf("Created %s\n", outPath)
+			_, _ = fmt.Fprintf(out, "Created %s\n", outPath)
 			return nil
 		},
 	}

@@ -22,6 +22,7 @@ func removeProjectCmd() *cobra.Command {
 		GroupID: "project",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id := args[0]
+			out := cmd.OutOrStdout()
 
 			if _, err := cfg.GetProject(id); err != nil {
 				return err
@@ -32,12 +33,12 @@ func removeProjectCmd() *cobra.Command {
 					return fmt.Errorf("cannot prompt for confirmation (use --force)")
 				}
 				reader := bufio.NewReader(os.Stdin)
-				ok, err := confirm(os.Stdout, reader, fmt.Sprintf("Remove project '%s' from config?", id))
+				ok, err := confirm(out, reader, fmt.Sprintf("Remove project '%s' from config?", id))
 				if err != nil {
 					return err
 				}
 				if !ok {
-					fmt.Println("Cancelled.")
+					_, _ = fmt.Fprintln(out, "Cancelled.")
 					return nil
 				}
 			}
@@ -48,9 +49,9 @@ func removeProjectCmd() *cobra.Command {
 			}
 
 			if deleteData {
-				_, _ = fmt.Fprintf(os.Stdout, "Removed project '%s' and its data\n", id)
+				_, _ = fmt.Fprintf(out, "Removed project '%s' and its data\n", id)
 			} else {
-				_, _ = fmt.Fprintf(os.Stdout, "Removed project '%s'\n", id)
+				_, _ = fmt.Fprintf(out, "Removed project '%s'\n", id)
 			}
 
 			rebuildDB()

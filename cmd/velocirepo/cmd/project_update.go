@@ -3,6 +3,7 @@ package cmd
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 
@@ -34,7 +35,7 @@ func updateProjectCmd() *cobra.Command {
 				sourceFlagsChanged(cmd) || len(unset) > 0
 
 			if !flagsProvided && isInteractive() {
-				return projectUpdateInteractive(cfgPath, id, proj)
+				return projectUpdateInteractive(cmd.OutOrStdout(), cfgPath, id, proj)
 			}
 
 			if !flagsProvided {
@@ -64,7 +65,7 @@ func updateProjectCmd() *cobra.Command {
 			for _, u := range unset {
 				changes = append(changes, fmt.Sprintf("-%s", u))
 			}
-			_, _ = fmt.Fprintf(os.Stdout, "Updated project '%s': %s\n", id, strings.Join(changes, ", "))
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Updated project '%s': %s\n", id, strings.Join(changes, ", "))
 			rebuildDB()
 			return nil
 		},
@@ -86,20 +87,20 @@ func sourceFlagsChanged(cmd *cobra.Command) bool {
 	return false
 }
 
-func projectUpdateInteractive(cfgPath string, id string, proj config.Project) error {
+func projectUpdateInteractive(out io.Writer, cfgPath string, id string, proj config.Project) error {
 	reader := bufio.NewReader(os.Stdin)
-	_, _ = fmt.Fprintf(os.Stdout, "Updating project '%s' (press Enter to keep current value):\n", id)
-	_, _ = fmt.Fprintln(os.Stdout, "Tip: use commas to specify multiple values (e.g., owner/repo-a, owner/repo-b)")
-	_, _ = fmt.Fprintln(os.Stdout)
+	_, _ = fmt.Fprintf(out, "Updating project '%s' (press Enter to keep current value):\n", id)
+	_, _ = fmt.Fprintln(out, "Tip: use commas to specify multiple values (e.g., owner/repo-a, owner/repo-b)")
+	_, _ = fmt.Fprintln(out)
 
-	name, err := prompt(os.Stdout, reader, "Name", proj.Name, "")
+	name, err := prompt(out, reader, "Name", proj.Name, "")
 	if err != nil {
 		return err
 	}
 
 	sourceValues := make(map[string]string, len(projectSourceFields))
 	for _, field := range projectSourceFields {
-		value, err := prompt(os.Stdout, reader, field.UpdatePrompt, proj.SourceValues(field.Name).String(), "")
+		value, err := prompt(out, reader, field.UpdatePrompt, proj.SourceValues(field.Name).String(), "")
 		if err != nil {
 			return err
 		}
@@ -128,7 +129,7 @@ func projectUpdateInteractive(cfgPath string, id string, proj config.Project) er
 	}
 
 	if len(updates) == 0 && len(unsets) == 0 {
-		fmt.Println("No changes.")
+		_, _ = fmt.Fprintln(out, "No changes.")
 		return nil
 	}
 
@@ -136,7 +137,7 @@ func projectUpdateInteractive(cfgPath string, id string, proj config.Project) er
 		return err
 	}
 
-	_, _ = fmt.Fprintf(os.Stdout, "\nUpdated project '%s'\n", id)
+	_, _ = fmt.Fprintf(out, "\nUpdated project '%s'\n", id)
 	rebuildDB()
 	return nil
 }

@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 
 	"github.com/posit-dev/velocirepo/internal/views"
@@ -17,6 +16,7 @@ func listViewsCmd() *cobra.Command {
 		Short:   "List all views",
 		GroupID: "view",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			out := cmd.OutOrStdout()
 			viewsDir := cfg.ViewsDir()
 			allViews, err := views.Discover(viewsDir)
 			if err != nil {
@@ -24,11 +24,11 @@ func listViewsCmd() *cobra.Command {
 			}
 
 			if len(allViews) == 0 {
-				fmt.Println("No views found. Use 'velocirepo add-view' to create one.")
+				_, _ = fmt.Fprintln(out, "No views found. Use 'velocirepo add-view' to create one.")
 				return nil
 			}
 
-			table := tablewriter.NewTable(os.Stdout,
+			table := tablewriter.NewTable(out,
 				tablewriter.WithHeaderAutoFormat(tw.Off),
 				tablewriter.WithHeaderAlignment(tw.AlignLeft),
 				tablewriter.WithRowAlignment(tw.AlignLeft),

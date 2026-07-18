@@ -12,7 +12,7 @@ func versionCmd() *cobra.Command {
 		Use:   "version",
 		Short: "Print the version",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			fmt.Printf("velocirepo %s (commit: %s, built: %s)\n", version.Version, version.Commit, version.Date)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "velocirepo %s (commit: %s, built: %s)\n", version.Version, version.Commit, version.Date)
 			return nil
 		},
 	}

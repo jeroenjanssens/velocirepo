@@ -33,7 +33,7 @@ func renderViewCmd() *cobra.Command {
 				if err := views.Render(v); err != nil {
 					return err
 				}
-				fmt.Printf("Rendered '%s'\n", v.Name)
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Rendered '%s'\n", v.Name)
 			}
 			return nil
 		},

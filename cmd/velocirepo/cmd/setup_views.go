@@ -24,16 +24,17 @@ func setupViewsCmd() *cobra.Command {
 			}
 
 			if len(allViews) == 0 {
-				fmt.Println("No views found.")
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "No views found.")
 				return nil
 			}
 
+			out := cmd.OutOrStdout()
 			var setupCount int
 			for _, v := range allViews {
 				didSetup := false
 
 				if _, err := os.Stat(filepath.Join(v.Dir, "pyproject.toml")); err == nil {
-					fmt.Printf("Setting up '%s' (uv sync)...\n", v.Name)
+					_, _ = fmt.Fprintf(out, "Setting up '%s' (uv sync)...\n", v.Name)
 					c := exec.Command("uv", "sync")
 					c.Dir = v.Dir
 					c.Stdout = os.Stdout
@@ -45,7 +46,7 @@ func setupViewsCmd() *cobra.Command {
 				}
 
 				if _, err := os.Stat(filepath.Join(v.Dir, "renv.lock")); err == nil {
-					fmt.Printf("Setting up '%s' (renv::restore)...\n", v.Name)
+					_, _ = fmt.Fprintf(out, "Setting up '%s' (renv::restore)...\n", v.Name)
 					c := exec.Command("Rscript", "-e", "renv::restore(prompt = FALSE)")
 					c.Dir = v.Dir
 					c.Stdout = os.Stdout
@@ -61,7 +62,7 @@ func setupViewsCmd() *cobra.Command {
 				}
 			}
 
-			fmt.Printf("Set up %d view(s)\n", setupCount)
+			_, _ = fmt.Fprintf(out, "Set up %d view(s)\n", setupCount)
 			return nil
 		},
 	}

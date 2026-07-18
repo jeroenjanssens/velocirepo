@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/posit-dev/velocirepo/internal/store"
@@ -17,6 +16,7 @@ func showIndicatorsCmd() *cobra.Command {
 		Short:   "Print indicator definitions as TOML",
 		GroupID: "query",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			out := cmd.OutOrStdout()
 			var indicators []store.IndicatorDef
 			if defaultsOnly {
 				indicators = store.DefaultIndicators
@@ -26,11 +26,11 @@ func showIndicatorsCmd() *cobra.Command {
 
 			for i, ind := range indicators {
 				if i > 0 {
-					_, _ = fmt.Fprintln(os.Stdout)
+					_, _ = fmt.Fprintln(out)
 				}
-				_, _ = fmt.Fprintf(os.Stdout, "[indicators.%s]\n", ind.Name)
-				_, _ = fmt.Fprintf(os.Stdout, "description = %q\n", ind.Description)
-				_, _ = fmt.Fprintf(os.Stdout, "query = \"\"\"\n%s\n\"\"\"\n", strings.TrimSpace(ind.Query))
+				_, _ = fmt.Fprintf(out, "[indicators.%s]\n", ind.Name)
+				_, _ = fmt.Fprintf(out, "description = %q\n", ind.Description)
+				_, _ = fmt.Fprintf(out, "query = \"\"\"\n%s\n\"\"\"\n", strings.TrimSpace(ind.Query))
 			}
 			return nil
 		},

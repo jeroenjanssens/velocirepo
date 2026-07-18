@@ -74,7 +74,7 @@ func addViewCmd() *cobra.Command {
 				return err
 			}
 
-			fmt.Printf("Created view '%s' at %s\n", name, dir)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Created view '%s' at %s\n", name, dir)
 			return nil
 		},
 	}

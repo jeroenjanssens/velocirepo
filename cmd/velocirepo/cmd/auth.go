@@ -36,6 +36,7 @@ func authLinkedInCmd() *cobra.Command {
 
 func runAuthLinkedIn(cmd *cobra.Command, args []string) error {
 	envPath := filepath.Join(cfg.Dir, ".env")
+	out := cmd.OutOrStdout()
 
 	clientID := auth.ReadEnvValue(envPath, "LINKEDIN_CLIENT_ID")
 	clientSecret := auth.ReadEnvValue(envPath, "LINKEDIN_CLIENT_SECRET")
@@ -43,17 +44,17 @@ func runAuthLinkedIn(cmd *cobra.Command, args []string) error {
 	reader := bufio.NewReader(os.Stdin)
 
 	if clientID == "" || clientSecret == "" {
-		fmt.Println("LinkedIn OAuth Setup")
-		fmt.Println(strings.Repeat("─", 40))
-		fmt.Println()
-		fmt.Println("1. Create a LinkedIn Developer App at https://www.linkedin.com/developers/apps/new")
-		fmt.Println("2. Request the \"Community Management API\" product in the Products tab")
-		fmt.Printf("3. Add %s as an Authorized Redirect URL in the Auth tab\n", linkedInRedirectURI)
-		fmt.Println()
+		_, _ = fmt.Fprintln(out, "LinkedIn OAuth Setup")
+		_, _ = fmt.Fprintln(out, strings.Repeat("─", 40))
+		_, _ = fmt.Fprintln(out)
+		_, _ = fmt.Fprintln(out, "1. Create a LinkedIn Developer App at https://www.linkedin.com/developers/apps/new")
+		_, _ = fmt.Fprintln(out, "2. Request the \"Community Management API\" product in the Products tab")
+		_, _ = fmt.Fprintf(out, "3. Add %s as an Authorized Redirect URL in the Auth tab\n", linkedInRedirectURI)
+		_, _ = fmt.Fprintln(out)
 	}
 
 	if clientID == "" {
-		fmt.Print("Client ID: ")
+		_, _ = fmt.Fprint(out, "Client ID: ")
 		input, err := reader.ReadString('\n')
 		if err != nil {
 			return err
@@ -65,7 +66,7 @@ func runAuthLinkedIn(cmd *cobra.Command, args []string) error {
 	}
 
 	if clientSecret == "" {
-		fmt.Print("Client Secret: ")
+		_, _ = fmt.Fprint(out, "Client Secret: ")
 		input, err := reader.ReadString('\n')
 		if err != nil {
 			return err
@@ -85,16 +86,16 @@ func runAuthLinkedIn(cmd *cobra.Command, args []string) error {
 		Scopes:       []string{"r_organization_social"},
 	}
 
-	fmt.Println()
-	fmt.Println("Waiting for callback...")
+	_, _ = fmt.Fprintln(out)
+	_, _ = fmt.Fprintln(out, "Waiting for callback...")
 
 	ctx, cancel := context.WithTimeout(cmd.Context(), 5*time.Minute)
 	defer cancel()
 
 	tokenResp, err := flow.Run(ctx, func(authURL string) {
-		fmt.Println("Opening browser for authorization...")
-		fmt.Printf("If it doesn't open, visit: %s\n", authURL)
-		fmt.Println()
+		_, _ = fmt.Fprintln(out, "Opening browser for authorization...")
+		_, _ = fmt.Fprintf(out, "If it doesn't open, visit: %s\n", authURL)
+		_, _ = fmt.Fprintln(out)
 		openBrowser(authURL)
 	})
 	if err != nil {
@@ -113,9 +114,9 @@ func runAuthLinkedIn(cmd *cobra.Command, args []string) error {
 
 	expiryDays := tokenResp.ExpiresIn / 86400
 	if expiryDays > 0 {
-		fmt.Printf("\nToken saved to .env (expires in %d days)\n", expiryDays)
+		_, _ = fmt.Fprintf(out, "\nToken saved to .env (expires in %d days)\n", expiryDays)
 	} else {
-		fmt.Println("\nToken saved to .env")
+		_, _ = fmt.Fprintln(out, "\nToken saved to .env")
 	}
 
 	return nil

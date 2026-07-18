@@ -19,6 +19,7 @@ func initCmd() *cobra.Command {
 		Short:   "Create a new velocirepo.toml config file",
 		GroupID: "project",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			out := cmd.OutOrStdout()
 			if dir == "" {
 				var err error
 				dir, err = os.Getwd()
@@ -43,24 +44,24 @@ func initCmd() *cobra.Command {
 				reader := bufio.NewReader(os.Stdin)
 
 				if detected.ProjectID != "" || detected.GitHub != "" {
-					_, _ = fmt.Fprintln(os.Stdout, "Detected project information:")
+					_, _ = fmt.Fprintln(out, "Detected project information:")
 					if detected.GitHub != "" {
-						_, _ = fmt.Fprintf(os.Stdout, "  GitHub: %s (from %s)\n", detected.GitHub, detected.GitHubSource)
+						_, _ = fmt.Fprintf(out, "  GitHub: %s (from %s)\n", detected.GitHub, detected.GitHubSource)
 					}
 					if detected.PyPI != "" {
-						_, _ = fmt.Fprintf(os.Stdout, "  PyPI: %s (from %s)\n", detected.PyPI, detected.PyPISource)
+						_, _ = fmt.Fprintf(out, "  PyPI: %s (from %s)\n", detected.PyPI, detected.PyPISource)
 					}
 					if detected.CRAN != "" {
-						_, _ = fmt.Fprintf(os.Stdout, "  CRAN: %s (from %s)\n", detected.CRAN, detected.CRANSource)
+						_, _ = fmt.Fprintf(out, "  CRAN: %s (from %s)\n", detected.CRAN, detected.CRANSource)
 					}
 					if detected.OpenVSX != "" {
-						_, _ = fmt.Fprintf(os.Stdout, "  OpenVSX: %s (from %s)\n", detected.OpenVSX, detected.OpenVSXSource)
+						_, _ = fmt.Fprintf(out, "  OpenVSX: %s (from %s)\n", detected.OpenVSX, detected.OpenVSXSource)
 					}
-					_, _ = fmt.Fprintln(os.Stdout)
+					_, _ = fmt.Fprintln(out)
 
-					ok, err := confirm(os.Stdout, reader, "Add this project to config?")
+					ok, err := confirm(out, reader, "Add this project to config?")
 					if err == nil && ok {
-						id, err := prompt(os.Stdout, reader, "Project ID", detected.ProjectID, detected.IDSource)
+						id, err := prompt(out, reader, "Project ID", detected.ProjectID, detected.IDSource)
 						if err != nil {
 							return err
 						}
@@ -72,7 +73,7 @@ func initCmd() *cobra.Command {
 							OpenVSX:      toStringList(detected.OpenVSX),
 						}
 						content += "\n" + formatSection(id, proj)
-						_, _ = fmt.Fprintf(os.Stdout, "\nAdded project '%s'\n", id)
+						_, _ = fmt.Fprintf(out, "\nAdded project '%s'\n", id)
 					}
 				}
 			}
@@ -87,7 +88,7 @@ func initCmd() *cobra.Command {
 				return fmt.Errorf("create data directory: %w", err)
 			}
 
-			_, _ = fmt.Fprintf(os.Stdout, "Created %s\n", cfgPath)
+			_, _ = fmt.Fprintf(out, "Created %s\n", cfgPath)
 			return nil
 		},
 	}

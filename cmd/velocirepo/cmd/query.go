@@ -25,8 +25,9 @@ func queryCmd() *cobra.Command {
 		Args:    cobra.ExactArgs(1),
 		GroupID: "query",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			out := cmd.OutOrStdout()
 			if parquetFlag {
-				return writeParquet(args[0])
+				return writeParquet(out, args[0])
 			}
 
 			results, cols, err := store.QueryLive(cfg.DataDir(), projectInfos(), indicatorDefs(), args[0])
@@ -36,13 +37,13 @@ func queryCmd() *cobra.Command {
 
 			switch {
 			case jsonFlag:
-				return printJSON(results)
+				return printJSON(out, results)
 			case csvFlag:
-				return printCSV(results, cols, noHeader)
+				return printCSV(out, results, cols, noHeader)
 			case noHeader:
-				return printPlain(results, cols)
+				return printPlain(out, results, cols)
 			default:
-				return printTable(results, cols)
+				return printTable(out, results, cols)
 			}
 		},
 	}
@@ -68,6 +69,7 @@ func schemaCmd() *cobra.Command {
 				return err
 			}
 
+			out := cmd.OutOrStdout()
 			switch {
 			case jsonFlag:
 				results := make([]map[string]interface{}, len(cols))
@@ -78,9 +80,9 @@ func schemaCmd() *cobra.Command {
 						"type":   c.Type,
 					}
 				}
-				return printJSON(results)
+				return printJSON(out, results)
 			case csvFlag:
-				w := csv.NewWriter(os.Stdout)
+				w := csv.NewWriter(out)
 				_ = w.Write([]string{"table", "column", "type"})
 				for _, c := range cols {
 					_ = w.Write([]string{c.Table, c.Column, c.Type})
@@ -88,7 +90,7 @@ func schemaCmd() *cobra.Command {
 				w.Flush()
 				return w.Error()
 			default:
-				table := tablewriter.NewTable(os.Stdout,
+				table := tablewriter.NewTable(out,
 					tablewriter.WithHeaderAutoFormat(tw.Off),
 					tablewriter.WithHeaderAlignment(tw.AlignLeft),
 					tablewriter.WithRowAlignment(tw.AlignLeft),
@@ -112,7 +114,7 @@ func schemaCmd() *cobra.Command {
 	return cmd
 }
 
-func writeParquet(query string) error {
+func writeParquet(out io.Writer, query string) error {
 	tmp, err := os.CreateTemp("", "velocirepo-*.parquet")
 	if err != nil {
 		return err
@@ -131,17 +133,17 @@ func writeParquet(query string) error {
 	}
 	defer func() { _ = f.Close() }()
 
-	_, err = io.Copy(os.Stdout, f)
+	_, err = io.Copy(out, f)
 	return err
 }
 
-func printTable(results []map[string]interface{}, cols []string) error {
+func printTable(out io.Writer, results []map[string]interface{}, cols []string) error {
 	if len(results) == 0 {
-		fmt.Println("(0 rows)")
+		_, _ = fmt.Fprintln(out, "(0 rows)")
 		return nil
 	}
 
-	table := tablewriter.NewTable(os.Stdout,
+	table := tablewriter.NewTable(out,
 		tablewriter.WithHeaderAutoFormat(tw.Off),
 		tablewriter.WithRendition(tw.Rendition{
 			Symbols: tw.NewSymbols(tw.StyleLight),
@@ -161,18 +163,18 @@ func printTable(results []map[string]interface{}, cols []string) error {
 	return nil
 }
 
-func printJSON(results []map[string]interface{}) error {
-	enc := json.NewEncoder(os.Stdout)
+func printJSON(out io.Writer, results []map[string]interface{}) error {
+	enc := json.NewEncoder(out)
 	enc.SetIndent("", "  ")
 	return enc.Encode(results)
 }
 
-func printCSV(results []map[string]interface{}, cols []string, noHeader bool) error {
+func printCSV(out io.Writer, results []map[string]interface{}, cols []string, noHeader bool) error {
 	if len(results) == 0 {
 		return nil
 	}
 
-	w := csv.NewWriter(os.Stdout)
+	w := csv.NewWriter(out)
 	if !noHeader {
 		_ = w.Write(cols)
 	}
@@ -187,16 +189,16 @@ func printCSV(results []map[string]interface{}, cols []string, noHeader bool) er
 	return w.Error()
 }
 
-func printPlain(results []map[string]interface{}, cols []string) error {
+func printPlain(out io.Writer, results []map[string]interface{}, cols []string) error {
 	for _, row := range results {
 		vals := make([]string, len(cols))
 		for i, col := range cols {
 			vals[i] = formatValue(row[col])
 		}
 		if len(vals) == 1 {
-			fmt.Println(vals[0])
+			_, _ = fmt.Fprintln(out, vals[0])
 		} else {
-			fmt.Println(strings.Join(vals, "\t"))
+			_, _ = fmt.Fprintln(out, strings.Join(vals, "\t"))
 		}
 	}
 	return nil

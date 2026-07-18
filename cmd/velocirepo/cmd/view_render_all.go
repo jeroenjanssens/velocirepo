@@ -40,21 +40,22 @@ func renderViewsCmd() *cobra.Command {
 				if prefix != "" {
 					return fmt.Errorf("no views matching prefix %q", prefix)
 				}
-				fmt.Println("No views found. Use 'velocirepo add-view' to create one.")
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "No views found. Use 'velocirepo add-view' to create one.")
 				return nil
 			}
 
+			out := cmd.OutOrStdout()
 			var rendered int
 			for _, v := range toRender {
 				if err := views.Render(v); err != nil {
-					fmt.Printf("Error rendering '%s': %v\n", v.Name, err)
+					_, _ = fmt.Fprintf(out, "Error rendering '%s': %v\n", v.Name, err)
 					continue
 				}
-				fmt.Printf("Rendered '%s'\n", v.Name)
+				_, _ = fmt.Fprintf(out, "Rendered '%s'\n", v.Name)
 				rendered++
 			}
 
-			fmt.Printf("Rendered %d view(s)\n", rendered)
+			_, _ = fmt.Fprintf(out, "Rendered %d view(s)\n", rendered)
 			return nil
 		},
 	}

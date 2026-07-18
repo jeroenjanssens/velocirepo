@@ -31,9 +31,10 @@ func removeViewCmd() *cobra.Command {
 				return fmt.Errorf("view %q not found in %s", name, viewsDir)
 			}
 
+			out := cmd.OutOrStdout()
 			if !force {
 				reader := bufio.NewReader(os.Stdin)
-				ok, err := confirm(os.Stdout, reader, fmt.Sprintf("Remove view '%s' at %s?", name, v.Dir))
+				ok, err := confirm(out, reader, fmt.Sprintf("Remove view '%s' at %s?", name, v.Dir))
 				if err != nil {
 					return err
 				}
@@ -46,7 +47,7 @@ func removeViewCmd() *cobra.Command {
 				return fmt.Errorf("remove view directory: %w", err)
 			}
 
-			fmt.Printf("Removed view '%s'\n", name)
+			_, _ = fmt.Fprintf(out, "Removed view '%s'\n", name)
 			return nil
 		},
 	}

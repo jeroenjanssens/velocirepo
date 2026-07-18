@@ -30,8 +30,9 @@ func showViewCmd() *cobra.Command {
 				return fmt.Errorf("view %q not found in %s", name, viewsDir)
 			}
 
-			fmt.Printf("Name:  %s\n", v.Name)
-			fmt.Printf("Dir:   %s\n", v.Dir)
+			out := cmd.OutOrStdout()
+			_, _ = fmt.Fprintf(out, "Name:  %s\n", v.Name)
+			_, _ = fmt.Fprintf(out, "Dir:   %s\n", v.Dir)
 
 			entries, err := os.ReadDir(v.Dir)
 			if err == nil {
@@ -42,14 +43,14 @@ func showViewCmd() *cobra.Command {
 					}
 				}
 				if len(files) > 0 {
-					fmt.Printf("Files: %s\n", strings.Join(files, ", "))
+					_, _ = fmt.Fprintf(out, "Files: %s\n", strings.Join(files, ", "))
 				}
 			}
 
 			renderScript := filepath.Join(v.Dir, "render.sh")
 			if _, err := os.Stat(renderScript); err == nil {
 				data, _ := os.ReadFile(renderScript)
-				fmt.Printf("\nrender.sh:\n%s", string(data))
+				_, _ = fmt.Fprintf(out, "\nrender.sh:\n%s", string(data))
 			}
 
 			return nil

@@ -3,6 +3,7 @@ package cmd
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"regexp"
 	"strings"
@@ -33,7 +34,7 @@ func addProjectCmd() *cobra.Command {
 
 			flagsProvided := sourceInputs.anyNonEmpty()
 			if !flagsProvided && isInteractive() {
-				return projectAddInteractive(cfgPath, id)
+				return projectAddInteractive(cmd.OutOrStdout(), cfgPath, id)
 			}
 
 			if id == "" {
@@ -66,7 +67,7 @@ func addProjectCmd() *cobra.Command {
 			}
 
 			sources := listSources(proj)
-			_, _ = fmt.Fprintf(os.Stdout, "Added project '%s' with sources: %s\n", id, strings.Join(sources, ", "))
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Added project '%s' with sources: %s\n", id, strings.Join(sources, ", "))
 			rebuildDB()
 			return nil
 		},
@@ -78,7 +79,7 @@ func addProjectCmd() *cobra.Command {
 	return cmd
 }
 
-func projectAddInteractive(cfgPath string, id string) error {
+func projectAddInteractive(out io.Writer, cfgPath string, id string) error {
 	dir, _ := os.Getwd()
 	detected := config.DetectAll(dir)
 	reader := bufio.NewReader(os.Stdin)
@@ -87,7 +88,7 @@ func projectAddInteractive(cfgPath string, id string) error {
 	if id == "" {
 		var overridden bool
 		var err error
-		id, overridden, err = promptWithHint(os.Stdout, reader, "Project ID", detected.ProjectID, detected.IDSource, suppress)
+		id, overridden, err = promptWithHint(out, reader, "Project ID", detected.ProjectID, detected.IDSource, suppress)
 		if err != nil {
 			return err
 		}
@@ -106,12 +107,12 @@ func projectAddInteractive(cfgPath string, id string) error {
 		return fmt.Errorf("project %q already exists (use 'update-project' to modify)", id)
 	}
 
-	_, _ = fmt.Fprintln(os.Stdout, "Tip: use commas to specify multiple values (e.g., owner/repo-a, owner/repo-b)")
-	_, _ = fmt.Fprintln(os.Stdout)
+	_, _ = fmt.Fprintln(out, "Tip: use commas to specify multiple values (e.g., owner/repo-a, owner/repo-b)")
+	_, _ = fmt.Fprintln(out)
 
 	var overridden bool
 
-	name, overridden, err := promptWithHint(os.Stdout, reader, "Name", id, "", suppress)
+	name, overridden, err := promptWithHint(out, reader, "Name", id, "", suppress)
 	if err != nil {
 		return err
 	}
@@ -125,7 +126,7 @@ func projectAddInteractive(cfgPath string, id string) error {
 		if field.detected != nil {
 			hint, hintSource = field.detected(detected)
 		}
-		value, overridden, err := promptWithHint(os.Stdout, reader, field.AddPrompt, hint, hintSource, suppress)
+		value, overridden, err := promptWithHint(out, reader, field.AddPrompt, hint, hintSource, suppress)
 		if err != nil {
 			return err
 		}
@@ -149,7 +150,7 @@ func projectAddInteractive(cfgPath string, id string) error {
 		return err
 	}
 
-	_, _ = fmt.Fprintf(os.Stdout, "\nAdded project '%s' with sources: %s\n", id, strings.Join(sources, ", "))
+	_, _ = fmt.Fprintf(out, "\nAdded project '%s' with sources: %s\n", id, strings.Join(sources, ", "))
 	rebuildDB()
 	return nil
 }
