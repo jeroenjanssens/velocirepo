@@ -26,3 +26,9 @@ install: build
 # Clean build artifacts
 clean:
     rm -rf bin/
+
+great-docs-preview:
+    uvx --from git+https://github.com/posit-dev/great-docs great-docs preview
+
+great-docs-build:
+    uvx --from git+https://github.com/posit-dev/great-docs great-docs build

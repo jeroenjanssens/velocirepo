@@ -1,11 +1,8 @@
 project_type: go
-
-# Canonical deployment URL (top-level key; Great Docs sets website.site-url from
-# this and uses it for canonical/sitemap URLs and skill install links).
-site_url: https://posit-dev.github.io/velocirepo
-
 pypi: "https://pypi.org/project/velocirepo/"
-
+repo: https://github.com/posit-dev/velocirepo
+site_url: https://posit-dev.github.io/velocirepo
+github_style: widget
 seo:
   default_description: "Track your open-source project's pulse across package registries, GitHub, and the web."
 
@@ -14,3 +11,14 @@ go_cli:
 
 mcp:
   enabled: false
+
+changelog:
+  enabled: true
+  max_releases: 50
+
+authors:
+  - name: Jeroen Janssens
+    role: Head of Developer Relations
+    github: jeroenjanssens
+    homepage: https://jeroenjanssens.com
+    affiliation: Posit, PBC
