@@ -15,17 +15,20 @@ var templateFS embed.FS
 type Framework string
 
 const (
-	FrameworkQuarto  Framework = "quarto"
-	FrameworkJupyter Framework = "jupyter"
-	FrameworkMarimo  Framework = "marimo"
-	FrameworkR       Framework = "r"
-	FrameworkSQL     Framework = "sql"
+	FrameworkQuartoPython Framework = "quarto-python"
+	FrameworkQuartoR      Framework = "quarto-r"
+	FrameworkJupyter      Framework = "jupyter"
+	FrameworkMarimo       Framework = "marimo"
+	FrameworkR            Framework = "r"
+	FrameworkSQL          Framework = "sql"
 )
 
 func ParseFramework(s string) (Framework, error) {
 	switch strings.ToLower(s) {
-	case "quarto":
-		return FrameworkQuarto, nil
+	case "quarto-python":
+		return FrameworkQuartoPython, nil
+	case "quarto-r":
+		return FrameworkQuartoR, nil
 	case "jupyter":
 		return FrameworkJupyter, nil
 	case "marimo":
@@ -35,7 +38,7 @@ func ParseFramework(s string) (Framework, error) {
 	case "sql":
 		return FrameworkSQL, nil
 	default:
-		return "", fmt.Errorf("unknown framework %q (available: quarto, jupyter, marimo, r, sql)", s)
+		return "", fmt.Errorf("unknown framework %q (available: quarto-python, quarto-r, jupyter, marimo, r, sql)", s)
 	}
 }
 
@@ -98,7 +101,7 @@ func Scaffold(opts ScaffoldOptions) (string, error) {
 		}
 	}
 
-	if opts.Framework == FrameworkR && opts.Renv {
+	if (opts.Framework == FrameworkR || opts.Framework == FrameworkQuartoR) && opts.Renv {
 		if err := scaffoldRenv(dir); err != nil {
 			return "", err
 		}
@@ -193,15 +196,15 @@ func pathInside(base, target string) bool {
 }
 
 func renderShTemplate(fw Framework, renv bool) string {
-	if fw == FrameworkR && renv {
-		return "templates/r/render.renv.sh.tmpl"
+	if renv && (fw == FrameworkR || fw == FrameworkQuartoR) {
+		return fmt.Sprintf("templates/%s/render.renv.sh.tmpl", fw)
 	}
 	return fmt.Sprintf("templates/%s/render.sh.tmpl", fw)
 }
 
 func serveShTemplate(fw Framework) string {
 	switch fw {
-	case FrameworkQuarto, FrameworkJupyter, FrameworkMarimo:
+	case FrameworkQuartoPython, FrameworkQuartoR, FrameworkJupyter, FrameworkMarimo:
 		return fmt.Sprintf("templates/%s/serve.sh.tmpl", fw)
 	default:
 		return ""
@@ -210,8 +213,10 @@ func serveShTemplate(fw Framework) string {
 
 func viewFileTemplate(fw Framework, source string) (filename, tmplPath string) {
 	switch fw {
-	case FrameworkQuarto:
-		return "view.qmd", fmt.Sprintf("templates/quarto/view.qmd.%s.tmpl", source)
+	case FrameworkQuartoPython:
+		return "view.qmd", fmt.Sprintf("templates/quarto-python/view.qmd.%s.tmpl", source)
+	case FrameworkQuartoR:
+		return "view.qmd", fmt.Sprintf("templates/quarto-r/view.qmd.%s.tmpl", source)
 	case FrameworkJupyter:
 		return "view.ipynb", fmt.Sprintf("templates/jupyter/view.ipynb.%s.tmpl", source)
 	case FrameworkMarimo:
@@ -226,7 +231,7 @@ func viewFileTemplate(fw Framework, source string) (filename, tmplPath string) {
 }
 
 func needsPyproject(fw Framework) bool {
-	return fw == FrameworkQuarto || fw == FrameworkJupyter || fw == FrameworkMarimo
+	return fw == FrameworkQuartoPython || fw == FrameworkJupyter || fw == FrameworkMarimo
 }
 
 func writeTemplate(dir, filename, tmplPath string, data scaffoldData, perm os.FileMode) error {

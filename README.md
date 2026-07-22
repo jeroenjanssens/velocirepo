@@ -837,7 +837,7 @@ views/
 
 ```bash
 # Scaffold a Quarto view (creates directory with render.sh, view.qmd, pyproject.toml)
-velocirepo add-view weekly-stars --framework quarto
+velocirepo add-view weekly-stars --framework quarto-python
 
 # Install dependencies
 velocirepo setup-views
@@ -853,7 +853,8 @@ velocirepo serve-view weekly-stars
 
 | Framework | Flag | View file | render.sh runs |
 |-----------|------|-----------|----------------|
-| [Quarto](https://quarto.org) | `-f quarto` | `view.qmd` | `uv run quarto render view.qmd` |
+| [Quarto](https://quarto.org) (Python) | `-f quarto-python` | `view.qmd` | `uv run quarto render view.qmd` |
+| [Quarto](https://quarto.org) (R) | `-f quarto-r` | `view.qmd` | `quarto render view.qmd` |
 | [Jupyter](https://jupyter.org) | `-f jupyter` | `view.ipynb` | `uv run jupyter nbconvert ...` |
 | [Marimo](https://marimo.io) | `-f marimo` | `app.py` | `uv run marimo export html app.py` |
 | R | `-f r` | `view.R` | `Rscript view.R` |
@@ -869,10 +870,10 @@ For views that need Parquet files instead, use `--source parquet` when scaffoldi
 
 | Flag | Description |
 |------|-------------|
-| `-f, --framework` | Framework: quarto, jupyter, marimo, r, sql (required) |
+| `-f, --framework` | Framework: quarto-python, quarto-r, jupyter, marimo, r, sql (required) |
 | `-s, --source` | Data source: duckdb (default) or parquet |
 | `--no-uv` | Skip pyproject.toml generation |
-| `--renv` | Scaffold renv for R views |
+| `--renv` | Scaffold renv for R views (`-f r` or `-f quarto-r`) |
 
 ### Rendering
 

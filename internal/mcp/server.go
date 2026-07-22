@@ -223,7 +223,7 @@ func addViewTool() mcp.Tool {
 	return mcp.NewTool("add_view",
 		mcp.WithDescription("Scaffold a new view directory with render.sh and template files."),
 		mcp.WithString("name", mcp.Required(), mcp.Description("View name (can include slashes for subdirs, e.g. weekly/stars)")),
-		mcp.WithString("framework", mcp.Required(), mcp.Description("Framework: quarto, jupyter, marimo, r, sql")),
+		mcp.WithString("framework", mcp.Required(), mcp.Description("Framework: quarto-python, quarto-r, jupyter, marimo, r, sql")),
 		mcp.WithString("source", mcp.Description("Data source: duckdb (default) or parquet")),
 	)
 }

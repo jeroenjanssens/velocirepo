@@ -1,0 +1,19 @@
+---
+title: "{{.ViewName}}"
+format: html
+---
+
+```{r}
+library(duckdb)
+
+con <- dbConnect(duckdb(), "{{.DBPath}}")
+df <- dbGetQuery(con, "
+    SELECT project, date, metric, value
+    FROM metrics
+    WHERE metric = 'daily_stars'
+    ORDER BY date DESC
+    LIMIT 100
+")
+print(df)
+dbDisconnect(con, shutdown = TRUE)
+```

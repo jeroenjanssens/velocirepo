@@ -12,11 +12,13 @@ func TestParseFramework(t *testing.T) {
 		want  Framework
 		err   bool
 	}{
-		{"quarto", FrameworkQuarto, false},
+		{"quarto-python", FrameworkQuartoPython, false},
+		{"quarto-r", FrameworkQuartoR, false},
 		{"jupyter", FrameworkJupyter, false},
 		{"marimo", FrameworkMarimo, false},
 		{"r", FrameworkR, false},
 		{"sql", FrameworkSQL, false},
+		{"quarto", "", true},
 		{"invalid", "", true},
 	}
 

@@ -15,8 +15,10 @@ func TestScaffold(t *testing.T) {
 		contains string
 		file     string
 	}{
-		{"stars", FrameworkQuarto, "duckdb", "duckdb.connect", "view.qmd"},
-		{"stars", FrameworkQuarto, "parquet", "read_parquet", "view.qmd"},
+		{"stars", FrameworkQuartoPython, "duckdb", "duckdb.connect", "view.qmd"},
+		{"stars", FrameworkQuartoPython, "parquet", "read_parquet", "view.qmd"},
+		{"stars-r", FrameworkQuartoR, "duckdb", "dbConnect(duckdb()", "view.qmd"},
+		{"stars-r", FrameworkQuartoR, "parquet", "read_parquet", "view.qmd"},
 		{"overview", FrameworkMarimo, "duckdb", "duckdb.connect", "app.py"},
 		{"overview", FrameworkMarimo, "parquet", "read_parquet", "app.py"},
 		{"analysis", FrameworkJupyter, "duckdb", "duckdb.connect", "view.ipynb"},
@@ -66,7 +68,7 @@ func TestScaffold(t *testing.T) {
 }
 
 func TestScaffoldPyproject(t *testing.T) {
-	for _, fw := range []Framework{FrameworkQuarto, FrameworkJupyter, FrameworkMarimo} {
+	for _, fw := range []Framework{FrameworkQuartoPython, FrameworkJupyter, FrameworkMarimo} {
 		t.Run(string(fw), func(t *testing.T) {
 			viewsDir := t.TempDir()
 
@@ -95,7 +97,7 @@ func TestScaffoldNoUV(t *testing.T) {
 	dir, err := Scaffold(ScaffoldOptions{
 		ViewsDir:  viewsDir,
 		Name:      "test",
-		Framework: FrameworkQuarto,
+		Framework: FrameworkQuartoPython,
 		Source:    "duckdb",
 		DBPath:    "../../data/velocirepo.duckdb",
 		NoUV:      true,
@@ -168,13 +170,49 @@ func TestScaffoldRNoRenv(t *testing.T) {
 	}
 }
 
+func TestScaffoldQuartoRRenv(t *testing.T) {
+	viewsDir := t.TempDir()
+
+	dir, err := Scaffold(ScaffoldOptions{
+		ViewsDir:  viewsDir,
+		Name:      "qr-view",
+		Framework: FrameworkQuartoR,
+		Source:    "duckdb",
+		DBPath:    "../../data/velocirepo.duckdb",
+		Renv:      true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := os.Stat(filepath.Join(dir, ".Rprofile")); err != nil {
+		t.Error(".Rprofile not created")
+	}
+	if _, err := os.Stat(filepath.Join(dir, "renv", "settings.json")); err != nil {
+		t.Error("renv/settings.json not created")
+	}
+
+	renderSh, _ := os.ReadFile(filepath.Join(dir, "render.sh"))
+	if !strings.Contains(string(renderSh), "renv::restore") {
+		t.Error("render.sh should contain renv::restore")
+	}
+	if !strings.Contains(string(renderSh), "quarto render") {
+		t.Error("render.sh should render with quarto")
+	}
+
+	// quarto-r is an R framework: no pyproject.toml.
+	if _, err := os.Stat(filepath.Join(dir, "pyproject.toml")); !os.IsNotExist(err) {
+		t.Error("pyproject.toml should not be created for quarto-r framework")
+	}
+}
+
 func TestScaffoldSubdirectory(t *testing.T) {
 	viewsDir := t.TempDir()
 
 	dir, err := Scaffold(ScaffoldOptions{
 		ViewsDir:  viewsDir,
 		Name:      "weekly/stars",
-		Framework: FrameworkQuarto,
+		Framework: FrameworkQuartoPython,
 		Source:    "duckdb",
 		DBPath:    "../../../data/velocirepo.duckdb",
 	})
@@ -200,7 +238,7 @@ func TestScaffoldAlreadyExists(t *testing.T) {
 	_, err := Scaffold(ScaffoldOptions{
 		ViewsDir:  viewsDir,
 		Name:      "existing",
-		Framework: FrameworkQuarto,
+		Framework: FrameworkQuartoPython,
 		Source:    "duckdb",
 		DBPath:    "../../data/velocirepo.duckdb",
 	})
@@ -216,7 +254,7 @@ func TestScaffoldRejectsPathTraversal(t *testing.T) {
 	_, err := Scaffold(ScaffoldOptions{
 		ViewsDir:  viewsDir,
 		Name:      "../outside",
-		Framework: FrameworkQuarto,
+		Framework: FrameworkQuartoPython,
 		Source:    "duckdb",
 		DBPath:    "../../data/velocirepo.duckdb",
 	})
@@ -247,7 +285,7 @@ func TestScaffoldRejectsSymlinkEscape(t *testing.T) {
 	_, err := Scaffold(ScaffoldOptions{
 		ViewsDir:  viewsDir,
 		Name:      "linked/new",
-		Framework: FrameworkQuarto,
+		Framework: FrameworkQuartoPython,
 		Source:    "duckdb",
 		DBPath:    "../../data/velocirepo.duckdb",
 	})
@@ -266,7 +304,7 @@ func TestScaffoldRejectsAbsoluteName(t *testing.T) {
 	_, err := Scaffold(ScaffoldOptions{
 		ViewsDir:  viewsDir,
 		Name:      filepath.Join(viewsDir, "absolute"),
-		Framework: FrameworkQuarto,
+		Framework: FrameworkQuartoPython,
 		Source:    "duckdb",
 		DBPath:    "../../data/velocirepo.duckdb",
 	})

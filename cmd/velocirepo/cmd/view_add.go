@@ -30,8 +30,8 @@ func addViewCmd() *cobra.Command {
 				return fmt.Errorf("invalid source %q (use duckdb or parquet)", source)
 			}
 
-			if renv && fw != views.FrameworkR {
-				return fmt.Errorf("--renv can only be used with --framework r")
+			if renv && fw != views.FrameworkR && fw != views.FrameworkQuartoR {
+				return fmt.Errorf("--renv can only be used with --framework r or quarto-r")
 			}
 
 			viewsDir := cfg.ViewsDir()
@@ -79,7 +79,7 @@ func addViewCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVarP(&framework, "framework", "f", "", "framework: quarto, jupyter, marimo, r, sql (required)")
+	cmd.Flags().StringVarP(&framework, "framework", "f", "", "framework: quarto-python, quarto-r, jupyter, marimo, r, sql (required)")
 	cmd.Flags().StringVarP(&source, "source", "s", "duckdb", "data source: duckdb or parquet")
 	cmd.Flags().BoolVar(&noUV, "no-uv", false, "skip pyproject.toml generation")
 	cmd.Flags().BoolVar(&renv, "renv", false, "scaffold renv for R views")
